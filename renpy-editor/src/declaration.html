@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Ren'Py EDITOR — Declaraciones</title>
+  <link rel="stylesheet" href="declaration.css">
+</head>
+<body>
+  <header>
+    <h1 id="decl-title" data-i18n="decl_title">Declaraciones</h1>
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('characters')" data-i18n="tab_characters">Personajes</button>
+      <button class="tab" onclick="switchTab('sprites')" data-i18n="tab_sprites">Sprites</button>
+      <button class="tab" onclick="switchTab('expressions')" data-i18n="tab_expressions">Expresiones</button>
+      <button class="tab" onclick="switchTab('backgrounds')" data-i18n="tab_backgrounds">Fondos</button>
+      <button class="tab" onclick="switchTab('transforms')" data-i18n="tab_transforms">Transformaciones</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Characters -->
+    <section id="tab-characters" class="tab-content active">
+      <div class="section-header">
+        <h2 data-i18n="characters_title">Personajes definidos</h2>
+        <button class="btn btn-primary" onclick="showAddCharForm()" data-i18n="add_character">+ Añadir personaje</button>
+      </div>
+      <div id="add-char-form" class="form-card" style="display:none;">
+        <div id="edit-char-label" style="display:none;margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="editing_char">Editando personaje</div>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="char_id">Nombre no visible (solo letras)</label><input class="form-input" id="nc-id" placeholder="Ej: Ryu"></div>
+          <div class="form-group"><label data-i18n="char_name">Nombre visible en la historia</label><input class="form-input" id="nc-name" placeholder="Ej: Ryusaki"></div>
+          <div class="form-group"><label data-i18n="char_image">Expresiones asociadas</label><select class="form-select" id="nc-image"></select></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveCharacter()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideAddCharForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="char-list" class="item-list"></div>
+    </section>
+
+    <!-- Sprites -->
+    <section id="tab-sprites" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="sprites_title">Sprites de personaje</h2>
+      </div>
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="select_character">Personaje</label>
+            <select class="form-select" id="sp-char" onchange="loadCharSprites()"></select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="sprite_variant">Variante/Tipo</label>
+            <input class="form-input" id="sp-variant" placeholder="Ej: hunter, casual">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addSpriteIndividual()" data-i18n="add_individual">+ Añadir imagen</button>
+          <button class="btn btn-primary" onclick="addSpriteBatch()" data-i18n="add_batch">📁 Importar carpeta</button>
+        </div>
+      </div>
+      <div id="sprite-preview" class="preview-grid"></div>
+      <div id="sprite-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="sprite_edited">Editando sprite</div>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="new_key">Nueva clave</label><input class="form-input" id="se-key"></div>
+          <div class="form-group">
+            <label data-i18n="change_image">Cambiar imagen (opcional)</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="se-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectSpriteImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="se-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveSpriteEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideSpriteEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="sprite-list" class="item-list"></div>
+    </section>
+
+    <!-- Expressions -->
+    <section id="tab-expressions" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="expressions_title">Expresiones laterales</h2>
+      </div>
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="select_character">Personaje</label>
+            <select class="form-select" id="ex-char" onchange="loadCharExpressions()"></select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addExprIndividual()" data-i18n="add_individual">+ Añadir imagen</button>
+          <button class="btn btn-primary" onclick="addExprBatch()" data-i18n="add_batch">📁 Importar carpeta</button>
+        </div>
+      </div>
+      <div id="expr-preview" class="preview-grid"></div>
+      <div id="expr-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="expr_edited">Editando expresión</div>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="new_key">Nueva clave</label><input class="form-input" id="ee-key"></div>
+          <div class="form-group">
+            <label data-i18n="change_image">Cambiar imagen (opcional)</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="ee-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectExprImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="ee-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveExprEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideExprEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="expr-list" class="item-list"></div>
+    </section>
+
+    <!-- Backgrounds -->
+    <section id="tab-backgrounds" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="backgrounds_title">Fondos declarados</h2>
+        <button class="btn btn-primary" onclick="showBgAddForm()" data-i18n="add_background">+ Añadir fondo</button>
+      </div>
+      <div id="bg-add-form" class="form-card" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="bg_name">Nombre del fondo</label><input class="form-input" id="ba-key" placeholder="Ej: cafeteria"></div>
+          <div class="form-group">
+            <label data-i18n="select_image">Imagen</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="ba-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectNewBgImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="ba-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveNewBg()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideBgAddForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="bg-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="bg_edited">Editando fondo</div>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="new_key">Nueva clave</label><input class="form-input" id="be-key"></div>
+          <div class="form-group">
+            <label data-i18n="change_image">Cambiar imagen (opcional)</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="be-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectBgEditImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="be-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveBgEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideBgEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="bg-list" class="preview-grid"></div>
+    </section>
+
+    <!-- Transforms -->
+    <section id="tab-transforms" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="transforms_title">Animaciones y posiciones</h2>
+      </div>
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="target_file">Archivo destino</label>
+            <select class="form-select" id="tf-file">
+              <option value="Animaciones.rpy">Animaciones.rpy</option>
+              <option value="positions.rpy">positions.rpy</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label data-i18n="transform_code">Código del transform</label>
+          <textarea class="form-textarea" id="tf-code" rows="6" placeholder="transform mi_animacion:&#10;    xalign 0.5&#10;    yalign 1.0"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addTransform()" data-i18n="add_transform">+ Añadir transform</button>
+        </div>
+      </div>
+      <div id="transform-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" id="te-label">Editando transform</div>
+        <div class="form-group">
+          <label data-i18n="transform_code">Código del transform</label>
+          <textarea class="form-textarea" id="te-code" rows="8"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveTransformEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideTransformEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="transform-list" class="item-list"></div>
+    </section>
+  </main>
+
+  <div id="notif" class="notification"></div>
+  <script src="declaration-renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ren'Py EDITOR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <div id="header">
+    <h1 data-i18n="title">Ren'Py EDITOR</h1>
+    <button class="btn btn-primary" onclick="openProjectFolder()" data-i18n="open_project">Abrir carpeta del proyecto</button>
+    <button class="btn btn-secondary" onclick="openDeclarations()" data-i18n="declarations">Declaraciones</button>
+    <button class="btn btn-secondary" onclick="toggleSettings()">⚙️ <span data-i18n="settings">Ajustes</span></button>
+    <span id="status-bar"></span>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel">
+    <div class="settings-title" data-i18n="settings">Ajustes</div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="theme">Tema</label>
+      <select class="form-select" id="setting-theme" onchange="changeTheme(this.value)">
+        <option value="dark">🌙 Oscuro</option>
+        <option value="light">☀️ Claro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="language">Idioma</label>
+      <select class="form-select" id="setting-lang" onchange="changeLanguage(this.value)">
+        <option value="es">🇪🇸 Español</option>
+        <option value="en">🇬🇧 English</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div id="main">
+    <!-- Left Panel: File Browser -->
+    <div id="panel-assets">
+      <div id="panel-assets-header">📁 .rpy</div>
+      <div id="asset-content"></div>
+    </div>
+
+    <!-- Center Panel: Block Builder -->
+    <div id="panel-builder">
+      <div id="toolbar">
+        <button class="toolbar-btn" onclick="addBlock('narration')" data-i18n="block_narration">📝 Narración</button>
+        <button class="toolbar-btn" onclick="addBlock('dialogue')" data-i18n="block_dialogue">💬 Diálogo</button>
+        <button class="toolbar-btn" onclick="addBlock('show')" data-i18n="block_show">👤 Mostrar sprite</button>
+        <button class="toolbar-btn" onclick="addBlock('show_multi')" data-i18n="block_show_multi">👥 Mostrar varios</button>
+        <button class="toolbar-btn" onclick="addBlock('hide')" data-i18n="block_hide">🫥 Ocultar sprite</button>
+        <button class="toolbar-btn" onclick="addBlock('hide_multi')" data-i18n="block_hide_multi">🫧 Ocultar varios</button>
+        <button class="toolbar-btn" onclick="addBlock('scene')" data-i18n="block_scene">🌄 Cambio escena</button>
+        <button class="toolbar-btn" onclick="addBlock('label')" data-i18n="block_label">📌 Label</button>
+        <button class="toolbar-btn" onclick="addBlock('menu')" data-i18n="block_menu">❓ Decisión</button>
+        <button class="toolbar-btn" onclick="addBlock('pause')" data-i18n="block_pause">⏸️ Pausa</button>
+        <button class="toolbar-btn" onclick="addBlock('music')" data-i18n="block_music">🎵 Música</button>
+        <button class="toolbar-btn" onclick="addBlock('jump')" data-i18n="block_jump">↪️ Jump</button>
+        <button class="toolbar-btn" onclick="addBlock('comment')" data-i18n="block_comment">💭 Comentario</button>
+        <button class="toolbar-btn" onclick="addBlock('custom')" data-i18n="block_custom">📋 Código libre</button>
+      </div>
+      <div id="block-list"></div>
+    </div>
+
+    <!-- Right Panel: Code Preview -->
+    <div id="panel-code">
+      <div id="panel-resize-handle"></div>
+      <div id="code-header">
+        <div class="row">
+          <span class="title" data-i18n="code_preview">Vista previa del código</span>
+          <div style="margin-left:auto;display:flex;gap:4px;">
+            <button class="btn btn-primary btn-sm" onclick="appendToScript()" data-i18n="save_to_file">Guardar en archivo</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyCode()" data-i18n="copy_code">Copiar código</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearAllBlocks()" data-i18n="clear_all">Limpiar todo</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportToFile()" data-i18n="export">Exportar</button>
+          </div>
+        </div>
+        <div class="row">
+          <label style="font-size:11px;color:var(--text2);" data-i18n="target_label">Label destino:</label>
+          <select class="form-select" id="target-label" onchange="onTargetLabelChange()" style="width:auto;min-width:160px;padding:3px 6px;font-size:11px;">
+            <option value="" data-i18n="end_of_file">— Al final del archivo —</option>
+          </select>
+        </div>
+      </div>
+      <pre id="code-preview"></pre>
+    </div>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div id="modal-overlay">
+    <div id="modal-box">
+      <div id="modal-header">
+        <span id="modal-title"></span>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()" data-i18n="cancel">Cancelar</button>
+      </div>
+      <div id="modal-body"></div>
+      <div id="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()" data-i18n="cancel">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveBlock()" data-i18n="save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div id="notif"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
