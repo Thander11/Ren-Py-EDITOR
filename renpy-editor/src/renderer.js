@@ -486,7 +486,17 @@ function blockToCode(b, indent = '    ') {
       }
       lines.push(`${indent}menu:`);
       const choiceLines = b.choices.map(ch => {
-        let block = `${indent}    "${escRpy(ch.text)}":\n`;
+        let block = `\n${indent}    "${escRpy(ch.text)}":\n`;
+        const helperPrefix = [];
+        if (b.showCharacterChoice && b.choiceCharacter) {
+          helperPrefix.push(`${indent}        call hide_character_choice()`);
+        }
+        if (b.choicePosition === 'left') {
+          helperPrefix.push(`${indent}        call set_choice_position("center")`);
+        }
+        if (helperPrefix.length) {
+          block += helperPrefix.join('\n') + '\n';
+        }
         if (ch.action === 'jump' && ch.jump) {
           block += `${indent}        jump ${ch.jump}\n`;
         } else if (ch.action === 'call' && ch.jump) {
@@ -502,14 +512,6 @@ function blockToCode(b, indent = '    ') {
         return block;
       });
       lines.push(choiceLines.join(''));
-      // Reset position if changed
-      if (b.choicePosition === 'left') {
-        lines.push(`${indent}call set_choice_position("center")`);
-      }
-      // hide_character_choice after menu
-      if (b.showCharacterChoice && b.choiceCharacter) {
-        lines.push(`${indent}call hide_character_choice()`);
-      }
       return lines.join('\n');
     }
 
@@ -626,9 +628,17 @@ async function appendToScript() {
   if (ok) {
     const where = labelName ? t('overwritten_in', labelName) : t('appended_to_end');
     notify(t('save_ok', where), 'ok');
-    data.labels = [];
-    parseScriptLabels(modified);
-    refreshLabelSelector();
+
+    // Re-seleccionar automaticamente la carpeta actual (sin dialogo)
+    // para reproducir la reinicializacion que evita el bloqueo.
+    const result = await window.api.reselectProjectFolder();
+    if (!result) return;
+    gamePath = result;
+    await loadProjectData();
+    renderAssetBrowser();
+    renderBlocks();
+    updateCodePreview();
+    setStatus(gamePath, 'ok');
   } else {
     notify(t('save_error', 'write failed'), 'err');
   }
@@ -837,23 +847,37 @@ function parseLabelContentToBlocks(labelText) {
           const bIndent = bLine.match(/^(\s*)/)[1].length;
           if (bIndent >= bodyIndent) { choiceBodyLines.push(bLine); i++; } else break;
         }
+
+        // Ignore helper calls auto-generated at the beginning of each choice body.
+        const normalizedChoiceBodyLines = [...choiceBodyLines];
+        while (normalizedChoiceBodyLines.length) {
+          const firstTrimmed = normalizedChoiceBodyLines[0].trim();
+          if (!firstTrimmed) { normalizedChoiceBodyLines.shift(); continue; }
+          if (/^(?:call|\$)\s*hide_character_choice\(\)\s*$/.test(firstTrimmed) ||
+              /^(?:call|\$)\s*set_choice_position\(\s*"center"\s*\)\s*$/.test(firstTrimmed)) {
+            normalizedChoiceBodyLines.shift();
+            continue;
+          }
+          break;
+        }
+
         let action = 'pass', jump = '', code = '', choiceBlocks = [];
-        const bodyText = choiceBodyLines.join('\n').trim();
+        const bodyText = normalizedChoiceBodyLines.join('\n').trim();
         if (!bodyText || bodyText === 'pass') {
           action = 'pass';
-        } else if (choiceBodyLines.filter(l => l.trim()).length === 1) {
+        } else if (normalizedChoiceBodyLines.filter(l => l.trim()).length === 1) {
           const onlyLine = bodyText;
           const jumpM2 = onlyLine.match(/^jump\s+(\w+)$/);
           const callM2 = onlyLine.match(/^call\s+(\w+)/);
           if (jumpM2) { action = 'jump'; jump = jumpM2[1]; }
           else if (callM2) { action = 'call'; jump = callM2[1]; }
           else {
-            const parsed = parseLabelContentToBlocks(choiceBodyLines.join('\n'));
+            const parsed = parseLabelContentToBlocks(normalizedChoiceBodyLines.join('\n'));
             if (parsed.length) { action = 'blocks'; choiceBlocks = parsed; }
             else { action = 'code'; code = bodyText; }
           }
         } else {
-          const parsed = parseLabelContentToBlocks(choiceBodyLines.join('\n'));
+          const parsed = parseLabelContentToBlocks(normalizedChoiceBodyLines.join('\n'));
           if (parsed.length) { action = 'blocks'; choiceBlocks = parsed; }
           else { action = 'code'; code = bodyText; }
         }

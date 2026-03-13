@@ -269,6 +269,34 @@ ipcMain.handle('select-project-folder', async () => {
   return currentGamePath;
 });
 
+// ── Re-select current project folder (no dialog) ──
+ipcMain.handle('reselect-project-folder', async () => {
+  let selectedPath = currentGamePath || settings.lastGamePath || '';
+  if (!selectedPath || !fs.existsSync(selectedPath)) return null;
+
+  // Keep same normalization logic as manual select: if path has game/ child, use it.
+  const gameSub = path.join(selectedPath, 'game');
+  if (fs.existsSync(gameSub) && fs.statSync(gameSub).isDirectory()) {
+    selectedPath = gameSub;
+  }
+
+  currentGamePath = selectedPath;
+  settings.lastProjectPath = path.dirname(selectedPath);
+  settings.lastGamePath = selectedPath;
+  saveSettings();
+
+  autoCreateRpyFiles(currentGamePath);
+  startFileWatcher(currentGamePath);
+
+  // Mimic native dialog focus reset that seems to unblock input state.
+  if (mainWindow) {
+    mainWindow.blur();
+    setTimeout(() => { if (mainWindow) mainWindow.focus(); }, 40);
+  }
+
+  return currentGamePath;
+});
+
 // ── Read text file ──
 ipcMain.handle('read-file', (_, relativePath) => {
   if (!currentGamePath) return null;
@@ -369,6 +397,24 @@ ipcMain.handle('load-last-project', () => {
   currentGamePath = settings.lastGamePath;
   autoCreateRpyFiles(currentGamePath);
   startFileWatcher(currentGamePath);
+  return currentGamePath;
+});
+
+// ── Reload current project (same flow as opening a project, without dialog) ──
+ipcMain.handle('reload-current-project', () => {
+  const basePath = currentGamePath || settings.lastGamePath;
+  if (!basePath) return null;
+  if (!fs.existsSync(basePath)) return null;
+
+  currentGamePath = basePath;
+  settings.lastProjectPath = path.dirname(basePath);
+  settings.lastGamePath = basePath;
+  saveSettings();
+
+  autoCreateRpyFiles(currentGamePath);
+  startFileWatcher(currentGamePath);
+  if (mainWindow) mainWindow.focus();
+
   return currentGamePath;
 });
 

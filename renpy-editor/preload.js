@@ -3,7 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // Project
   selectProjectFolder: () => ipcRenderer.invoke('select-project-folder'),
+  reselectProjectFolder: () => ipcRenderer.invoke('reselect-project-folder'),
   loadLastProject: () => ipcRenderer.invoke('load-last-project'),
+  reloadCurrentProject: () => ipcRenderer.invoke('reload-current-project'),
   readFile: (relativePath) => ipcRenderer.invoke('read-file', relativePath),
   writeFile: (relativePath, content) => ipcRenderer.invoke('write-file', relativePath, content),
   fileExists: (relativePath) => ipcRenderer.invoke('file-exists', relativePath),
