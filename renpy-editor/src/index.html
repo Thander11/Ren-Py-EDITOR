@@ -53,11 +53,12 @@
         <button class="toolbar-btn" onclick="addBlock('hide')" data-i18n="block_hide">🫥 Ocultar sprite</button>
         <button class="toolbar-btn" onclick="addBlock('hide_multi')" data-i18n="block_hide_multi">🫧 Ocultar varios</button>
         <button class="toolbar-btn" onclick="addBlock('scene')" data-i18n="block_scene">🌄 Cambio escena</button>
-        <button class="toolbar-btn" onclick="addBlock('label')" data-i18n="block_label">📌 Label</button>
+        <button class="toolbar-btn" onclick="addBlock('label')">📌 Label</button>
         <button class="toolbar-btn" onclick="addBlock('menu')" data-i18n="block_menu">❓ Decisión</button>
         <button class="toolbar-btn" onclick="addBlock('pause')" data-i18n="block_pause">⏸️ Pausa</button>
         <button class="toolbar-btn" onclick="addBlock('music')" data-i18n="block_music">🎵 Música</button>
         <button class="toolbar-btn" onclick="addBlock('jump')" data-i18n="block_jump">↪️ Jump</button>
+        <button class="toolbar-btn" onclick="addBlock('call')" data-i18n="block_call">📞 Call</button>
         <button class="toolbar-btn" onclick="addBlock('comment')" data-i18n="block_comment">💭 Comentario</button>
         <button class="toolbar-btn" onclick="addBlock('custom')" data-i18n="block_custom">📋 Código libre</button>
       </div>
@@ -93,7 +94,7 @@
     <div id="modal-box">
       <div id="modal-header">
         <span id="modal-title"></span>
-        <button class="btn btn-secondary btn-sm" onclick="closeModal()" data-i18n="cancel">Cancelar</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()" title="Cerrar" aria-label="Cerrar">X</button>
       </div>
       <div id="modal-body"></div>
       <div id="modal-footer">

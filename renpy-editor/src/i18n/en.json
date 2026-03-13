@@ -25,6 +25,7 @@
   "block_pause": "Pause",
   "block_music": "Music",
   "block_jump": "Jump",
+  "block_call": "Call",
   "block_comment": "Comment",
   "block_custom": "Custom code",
   "btn_up": "Move up",

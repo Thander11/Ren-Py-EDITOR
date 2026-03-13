@@ -44,17 +44,33 @@ function applyI18n() {
     const val = t(key);
     if (val !== key) {
       const text = el.textContent;
-      // Check if text starts with emoji/icon (non-ASCII before first space)
+      
+      // Detectar icono en el texto actual del HTML
       const spaceIdx = text.indexOf(' ');
+      let currentIcon = '';
       if (spaceIdx > 0 && spaceIdx <= 2) {
         const prefix = text.substring(0, spaceIdx);
-        // Only keep prefix if it contains no ASCII letters/numbers
         if (!/[a-zA-Z0-9]/.test(prefix)) {
-          el.textContent = prefix + ' ' + val;
-          return;
+          currentIcon = prefix;
         }
       }
-      el.textContent = val;
+      
+      // Detectar y eliminar icono en el texto traducido
+      const valSpaceIdx = val.indexOf(' ');
+      let newText = val;
+      if (valSpaceIdx > 0 && valSpaceIdx <= 2) {
+        const prefix = val.substring(0, valSpaceIdx);
+        if (!/[a-zA-Z0-9]/.test(prefix)) {
+          newText = val.substring(valSpaceIdx + 1);
+        }
+      }
+      
+      // Usar el icono actual (del HTML) con el nuevo texto (sin icono)
+      if (currentIcon) {
+        el.textContent = currentIcon + ' ' + newText;
+      } else {
+        el.textContent = val;
+      }
     }
   });
 }
@@ -301,6 +317,7 @@ const BLOCK_META = {
   pause:      { icon: '⏸️', labelKey: 'block_pause',         color: '#6b7a96' },
   music:      { icon: '🎵', labelKey: 'block_music',          color: '#3498db' },
   jump:       { icon: '↪️', labelKey: 'block_jump',           color: '#f5a623' },
+  call:       { icon: '📞', labelKey: 'block_call',           color: '#9b59b6' },
   comment:    { icon: '💭', labelKey: 'block_comment',        color: '#6b7a96' },
   custom:     { icon: '📋', labelKey: 'block_custom',         color: '#2d3f62' },
 };
@@ -318,7 +335,8 @@ function blockDesc(b) {
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
     case 'pause':     return b.duration ? `pause ${b.duration}s` : 'pause';
     case 'music':     return `${b.action} music "${b.file||'...'}"`;
-    case 'jump':      return `jump ${b.label||'...'}`;
+    case 'jump':      return `jump ${b.label||'...'}`;  
+    case 'call':      return `call ${b.label||'...'}`;
     case 'comment':   return `# ${b.text}`;
     case 'custom':    return truncate(b.code, 80);
     default:          return '';
@@ -509,6 +527,9 @@ function blockToCode(b, indent = '    ') {
 
     case 'jump':
       return `${indent}jump ${b.label}`;
+
+    case 'call':
+      return `${indent}call ${b.label}`;
 
     case 'comment':
       return `${indent}# ${b.text}`;
@@ -749,6 +770,10 @@ function parseLabelContentToBlocks(labelText) {
     const jumpM = trimmed.match(/^jump\s+(\w+)$/);
     if (jumpM) { result.push({ type: 'jump', label: jumpM[1] }); i++; continue; }
 
+    // Call
+    const callM = trimmed.match(/^call\s+(\w+)$/);
+    if (callM) { result.push({ type: 'call', label: callM[1] }); i++; continue; }
+
     // Menu (with optional show_character_choice / set_choice_position context)
     // Detect call show_character_choice("CharId") or $ show_character_choice("CharId") before menu
     const showCharChoiceM = trimmed.match(/^(?:call|\\$)\s*show_character_choice\(\s*"([^"]+)"\s*\)$/);
@@ -971,11 +996,26 @@ function openModal(type, existing) {
   const overlay = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-title');
   const body = document.getElementById('modal-body');
+  const modalBox = document.getElementById('modal-box');
 
   const meta = BLOCK_META[type] || { icon: '?', labelKey: type };
   title.textContent = `${meta.icon} ${existing ? t('edit') : t('add')}: ${t(meta.labelKey)}`;
   body.innerHTML = buildModalBody(type, pendingBlock);
   overlay.classList.add('open');
+
+  // Aplicar clase narrow para modales estrechos
+  if (['label', 'call', 'jump', 'pause'].includes(type)) {
+    modalBox.classList.add('modal-narrow');
+  } else {
+    modalBox.classList.remove('modal-narrow');
+  }
+
+  // Aplicar clase tall para modales altos
+  if (type === 'scene') {
+    modalBox.classList.add('modal-tall');
+  } else {
+    modalBox.classList.remove('modal-tall');
+  }
 
   // Post-render tasks
   if (type === 'dialogue' || type === 'show') {
@@ -1016,14 +1056,43 @@ function openModal(type, existing) {
 
 let choiceBlockContext = null;
 
+function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop) {
+  const restoreGeneralScroll = () => {
+    const modalBox = document.getElementById('modal-box');
+    if (modalBox) modalBox.scrollTop = savedMenuScrollTop || 0;
+  };
+
+  // Primer intento inmediato.
+  setTimeout(() => {
+    restoreGeneralScroll();
+
+    const choiceEl = document.getElementById('choice-' + choiceIdx);
+    if (choiceEl) {
+      choiceEl.classList.add('choice-focus');
+      setTimeout(() => choiceEl.classList.remove('choice-focus'), 900);
+    }
+
+    const textInput = document.getElementById('ct-' + choiceIdx);
+    if (textInput) textInput.focus({ preventScroll: true });
+  }, 0);
+
+  // Segundo intento tras el render tardio de bloques para fijar el scroll correcto.
+  setTimeout(() => {
+    restoreGeneralScroll();
+    const choiceBlocksList = document.getElementById('cbl-' + choiceIdx);
+    if (choiceBlocksList) choiceBlocksList.scrollTop = savedChoiceBlocksScrollTop || 0;
+  }, 140);
+}
+
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   if (choiceBlockContext) {
-    const { savedMenuBlock, savedEditingIndex } = choiceBlockContext;
+    const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, choiceIdx } = choiceBlockContext;
     choiceBlockContext = null;
     editingIndex = savedEditingIndex;
     pendingBlock = {};
     openModal('menu', savedMenuBlock);
+    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
     return;
   }
   pendingBlock = {};
@@ -1341,6 +1410,13 @@ function buildModalBody(type, b) {
         <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
       </div>`;
 
+    case 'call': return `
+      <div class="form-group">
+        <label class="form-label">Label de destino</label>
+        <input class="form-input" id="f-label" list="dl-labels" value="${b.label || ''}" placeholder="Ej: funcion_importante">
+        <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
+      </div>`;
+
     case 'comment': return `
       <div class="form-group">
         <label class="form-label">${t('comment_text')}</label>
@@ -1362,7 +1438,7 @@ function buildModalBody(type, b) {
 // MENU MODAL
 // ═══════════════════════════════════════════════════════════════════
 function buildMenuBody(b) {
-  const choices = b.choices || [{ text: '', action: 'jump', jump: '', code: '', blocks: [] }];
+  const choices = b.choices || [{ text: '', action: 'blocks', jump: '', code: '', blocks: [] }];
   const showChar = !!b.showCharacterChoice;
   const html = `
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">${t('menu_hint')}</div>
@@ -1390,7 +1466,7 @@ function buildMenuBody(b) {
     </div>
     <button class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="addChoice()">${t('add_option')}</button>`;
   setTimeout(() => {
-    choices.forEach((ch, i) => { if (ch.action === 'blocks') renderChoiceBlocks(i); });
+    choices.forEach((ch, i) => renderChoiceBlocks(i));
   }, 60);
   return html;
 }
@@ -1443,39 +1519,14 @@ function buildChoiceHtml(ch, i) {
       <label class="form-label">${t('option_text')}</label>
       <input class="form-input" id="ct-${i}" value="${escHtml(ch.text || '')}" placeholder="Ej: Ir con Lucco">
     </div>
-    <div class="form-group">
-      <label class="form-label">${t('action')}</label>
-      <div class="radio-group">
-        <label class="radio-option"><input type="radio" name="ca-${i}" value="jump" ${(ch.action || 'jump') === 'jump' ? 'checked' : ''} onchange="toggleChoiceAction(${i})"> jump</label>
-        <label class="radio-option"><input type="radio" name="ca-${i}" value="call" ${ch.action === 'call' ? 'checked' : ''} onchange="toggleChoiceAction(${i})"> call</label>
-        <label class="radio-option"><input type="radio" name="ca-${i}" value="code" ${ch.action === 'code' ? 'checked' : ''} onchange="toggleChoiceAction(${i})"> ${t('code_label')}</label>
-        <label class="radio-option"><input type="radio" name="ca-${i}" value="blocks" ${ch.action === 'blocks' ? 'checked' : ''} onchange="toggleChoiceAction(${i})"> 🧱 ${t('blocks_label')}</label>
-        <label class="radio-option"><input type="radio" name="ca-${i}" value="none" ${ch.action === 'none' ? 'checked' : ''} onchange="toggleChoiceAction(${i})"> pass</label>
-      </div>
+    <input type="hidden" id="cb-${i}" value="${blocksJson}">
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+      ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','pause','music','jump','call','comment','custom'].map(t2 => {
+        const m = BLOCK_META[t2];
+        return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addChoiceBlock(${i},'${t2}')">${m.icon}</button>`;
+      }).join('')}
     </div>
-    <div id="caj-${i}" ${(ch.action === 'code' || ch.action === 'none' || ch.action === 'blocks') ? 'style="display:none"' : ''}>
-      <div class="form-group">
-        <label class="form-label">${t('label_dest')}</label>
-        <input class="form-input" id="cj-${i}" list="dl-labels-c" value="${ch.jump || ''}" placeholder="Ej: opcion_lucco">
-        <datalist id="dl-labels-c">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
-      </div>
-    </div>
-    <div id="cac-${i}" ${ch.action !== 'code' ? 'style="display:none"' : ''}>
-      <div class="form-group">
-        <label class="form-label">${t('code_label')}</label>
-        <textarea class="form-textarea" id="cc-${i}" rows="3" style="font-family:monospace;" placeholder="Ej: $ amistad += 1">${ch.code || ''}</textarea>
-      </div>
-    </div>
-    <div id="cab-${i}" ${ch.action !== 'blocks' ? 'style="display:none"' : ''}>
-      <input type="hidden" id="cb-${i}" value="${blocksJson}">
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','pause','music','jump','comment','custom'].map(t2 => {
-          const m = BLOCK_META[t2];
-          return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addChoiceBlock(${i},'${t2}')">${m.icon}</button>`;
-        }).join('')}
-      </div>
-      <div id="cbl-${i}" class="choice-blocks-list"></div>
-    </div>
+    <div id="cbl-${i}" class="choice-blocks-list"></div>
   </div>`;
 }
 
@@ -1556,12 +1607,9 @@ function readCurrentMenuState() {
   const choices = [];
   for (let i = 0; i < list.children.length; i++) {
     const txt = document.getElementById('ct-' + i)?.value || '';
-    const action = document.querySelector(`input[name="ca-${i}"]:checked`)?.value || 'jump';
-    const jump = document.getElementById('cj-' + i)?.value || '';
-    const code = document.getElementById('cc-' + i)?.value || '';
     let choiceBlocks = [];
     try { choiceBlocks = JSON.parse(document.getElementById('cb-' + i)?.value || '[]'); } catch (e) {}
-    choices.push({ text: txt, action, jump, code, blocks: choiceBlocks });
+    choices.push({ text: txt, action: 'blocks', jump: '', code: '', blocks: choiceBlocks });
   }
   const menuBlock = { type: 'menu', choices };
   // Capture menu character choice state
@@ -1577,7 +1625,9 @@ function readCurrentMenuState() {
 
 function addChoiceBlock(choiceIdx, type) {
   const savedMenuBlock = readCurrentMenuState();
-  choiceBlockContext = { choiceIdx, blockIdx: -1, savedMenuBlock, savedEditingIndex: editingIndex };
+  const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
+  const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
+  choiceBlockContext = { choiceIdx, blockIdx: -1, savedMenuBlock, savedEditingIndex: editingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(type);
@@ -1587,7 +1637,9 @@ function editChoiceBlock(choiceIdx, blockIdx) {
   const savedMenuBlock = readCurrentMenuState();
   const block = savedMenuBlock.choices[choiceIdx]?.blocks?.[blockIdx];
   if (!block) return;
-  choiceBlockContext = { choiceIdx, blockIdx, savedMenuBlock, savedEditingIndex: editingIndex };
+  const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
+  const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
+  choiceBlockContext = { choiceIdx, blockIdx, savedMenuBlock, savedEditingIndex: editingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(block.type, { ...block });
@@ -1626,7 +1678,7 @@ function addChoice() {
   const list = document.getElementById('choices-list');
   const i = list.children.length;
   const div = document.createElement('div');
-  div.innerHTML = buildChoiceHtml({ text: '', action: 'jump', jump: '', code: '', blocks: [] }, i);
+  div.innerHTML = buildChoiceHtml({ text: '', action: 'blocks', jump: '', code: '', blocks: [] }, i);
   list.appendChild(div.firstElementChild);
 }
 
@@ -1644,7 +1696,7 @@ function saveBlock() {
   if (!b) return;
 
   if (choiceBlockContext) {
-    const { choiceIdx, blockIdx, savedMenuBlock, savedEditingIndex } = choiceBlockContext;
+    const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop } = choiceBlockContext;
     if (blockIdx >= 0) {
       savedMenuBlock.choices[choiceIdx].blocks[blockIdx] = b;
     } else {
@@ -1656,6 +1708,7 @@ function saveBlock() {
     document.getElementById('modal-overlay').classList.remove('open');
     pendingBlock = {};
     openModal('menu', savedMenuBlock);
+    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
     notify(ctx.blockIdx >= 0 ? t('choice_block_edited') : t('choice_block_added'), 'ok');
     return;
   }
@@ -1735,12 +1788,9 @@ function readModalValues() {
       const choices = [];
       for (let i = 0; i < list.children.length; i++) {
         const txt = document.getElementById('ct-' + i)?.value || '';
-        const action = document.querySelector(`input[name="ca-${i}"]:checked`)?.value || 'jump';
-        const jump = document.getElementById('cj-' + i)?.value || '';
-        const code = document.getElementById('cc-' + i)?.value || '';
         let choiceBlocks = [];
         try { choiceBlocks = JSON.parse(document.getElementById('cb-' + i)?.value || '[]'); } catch (e) {}
-        if (txt) choices.push({ text: txt, action, jump, code, blocks: choiceBlocks });
+        if (txt) choices.push({ text: txt, action: 'blocks', jump: '', code: '', blocks: choiceBlocks });
       }
       if (!choices.length) { notify(t('add_one_option'), 'err'); return null; }
       b.choices = choices;
@@ -1762,6 +1812,10 @@ function readModalValues() {
       if (b.action !== 'stop' && !b.file) { notify(t('write_audio_file'), 'err'); return null; }
       break;
     case 'jump':
+      b.label = (g('f-label') || '').trim();
+      if (!b.label) { notify(t('write_label_dest'), 'err'); return null; }
+      break;
+    case 'call':
       b.label = (g('f-label') || '').trim();
       if (!b.label) { notify(t('write_label_dest'), 'err'); return null; }
       break;
