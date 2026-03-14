@@ -997,10 +997,19 @@ function exportToFile() {
 // ═══════════════════════════════════════════════════════════════════
 function getShownSprites(blockList, limit) {
   if (!blockList) blockList = blocks;
-  if (limit === undefined) limit = editingIndex >= 0 ? editingIndex : blockList.length;
+  
+  if (limit === undefined) {
+    if (choiceBlockContext && blockList === blocks) {
+      limit = choiceBlockContext.savedEditingIndex >= 0 ? choiceBlockContext.savedEditingIndex : blocks.length;
+    } else {
+      limit = editingIndex >= 0 ? editingIndex : blockList.length;
+    }
+  }
+
   const shown = new Map();
   for (let i = 0; i < limit; i++) {
     const b = blockList[i];
+    if (!b) continue;
     if (b.type === 'show' && b.image) shown.set(b.image, b.image);
     else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
     else if (b.type === 'hide' && b.image) shown.delete(b.image);
@@ -1008,15 +1017,37 @@ function getShownSprites(blockList, limit) {
     else if (b.type === 'scene') shown.clear();
     // FIX: look inside choice blocks
     else if (b.type === 'menu' && b.choices) {
-      for (const ch of b.choices) {
+      for (let chIdx = 0; chIdx < b.choices.length; chIdx++) {
+        const ch = b.choices[chIdx];
         if (ch.action === 'blocks' && ch.blocks) {
-          const innerShown = getShownSprites(ch.blocks, ch.blocks.length);
+          const innerLimit = ch.blocks.length;
+          const innerShown = getShownSprites(ch.blocks, innerLimit);
           // Sprites shown in any choice branch might be visible
           innerShown.forEach(k => shown.set(k, k));
         }
       }
     }
   }
+
+  // Si estamos evaluando la lista principal y estamos dentro de un bloque choice,
+  // añadir también los sprites del branch actual evaluados hasta el bloque actual.
+  if (choiceBlockContext && blockList === blocks) {
+    const currentMenuBlock = choiceBlockContext.savedMenuBlock;
+    const currentChoice = currentMenuBlock?.choices?.[choiceBlockContext.choiceIdx];
+    if (currentChoice && currentChoice.blocks) {
+      const innerLimit = choiceBlockContext.blockIdx >= 0 ? choiceBlockContext.blockIdx : currentChoice.blocks.length;
+      for (let i = 0; i < innerLimit; i++) {
+        const b = currentChoice.blocks[i];
+        if (!b) continue;
+        if (b.type === 'show' && b.image) shown.set(b.image, b.image);
+        else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
+        else if (b.type === 'hide' && b.image) shown.delete(b.image);
+        else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
+        else if (b.type === 'scene') shown.clear();
+      }
+    }
+  }
+
   return [...shown.values()];
 }
 
