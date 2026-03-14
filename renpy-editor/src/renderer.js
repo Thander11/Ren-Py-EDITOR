@@ -961,6 +961,16 @@ async function onTargetLabelChange() {
   if (blocks.length > 0) {
     if (!confirm(t('load_label_confirm', blocks.length, labelName))) return;
   }
+
+  // Workaround: reselect/reload project when switching labels to avoid input lock state.
+  const reselectedPath = await window.api.reselectProjectFolder();
+  if (reselectedPath) {
+    gamePath = reselectedPath;
+    await loadProjectData();
+    renderAssetBrowser();
+    setStatus(gamePath, 'ok');
+  }
+
   const scriptText = await getScriptText();
   if (!scriptText) { notify(t('could_not_read', activeRpyFile), 'err'); return; }
   const content = extractLabelContent(scriptText, labelName);
