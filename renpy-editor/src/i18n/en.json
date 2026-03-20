@@ -146,6 +146,7 @@
   "char_id": "Non-visible name (letters only)",
   "char_name": "Visible name in the story",
   "char_image": "Associated expressions",
+  "char_unknown": "Unknown character (declared at the top of the file)",
   "sprites_title": "Character sprites",
   "sprite_variant": "Variant/Type",
   "add_individual": "+ Add image",

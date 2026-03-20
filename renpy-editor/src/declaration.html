@@ -31,6 +31,12 @@
           <div class="form-group"><label data-i18n="char_name">Nombre visible en la historia</label><input class="form-input" id="nc-name" placeholder="Ej: Ryusaki"></div>
           <div class="form-group"><label data-i18n="char_image">Expresiones asociadas</label><select class="form-select" id="nc-image"></select></div>
         </div>
+        <div class="form-group" style="margin-top: 8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);font-weight:normal;">
+            <input type="checkbox" id="nc-unknown">
+            <span data-i18n="char_unknown">Personaje desconocido (se declara al principio del fichero)</span>
+          </label>
+        </div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="saveCharacter()" data-i18n="save">Guardar</button>
           <button class="btn btn-secondary" onclick="hideAddCharForm()" data-i18n="cancel">Cancelar</button>

@@ -206,12 +206,33 @@ async function saveCharacter() {
   } else {
     // ── ADD new character ──
     if (characters.find(c => c.id === id)) { notify(t('char_exists', id), 'err'); return; }
+    const isUnknown = document.getElementById('nc-unknown') && document.getElementById('nc-unknown').checked;
     const ptxt = await window.declApi.readFile('personajes.rpy') || '';
     const imgPart = imageAttr ? `, image = "${imageAttr}"` : '';
-    const defineLine = `define ${id} = Character("${name}"${imgPart})\n`;
-    const newText = ptxt.trimEnd() + '\n\n' + defineLine;
+    const defineLine = `define ${id} = Character("${name}"${imgPart})`;
+    
+    let newText = '';
+    if (isUnknown) {
+      const lines = ptxt.split('\n');
+      const headerIdx = lines.findIndex(l => l.trim().toLowerCase() === '# unknown');
+      if (headerIdx !== -1) {
+        lines.splice(headerIdx + 1, 0, defineLine);
+        newText = lines.join('\n');
+      } else {
+        newText = '# Unknown\n' + defineLine + '\n\n' + ptxt.trimStart() + '\n';
+      }
+    } else {
+      newText = ptxt.trimEnd() + '\n\n' + defineLine + '\n';
+    }
+    
     await window.declApi.writeFile('personajes.rpy', newText);
-    characters.push({ id, displayName: name, imageAttr, images: [] });
+    
+    if (isUnknown) {
+      characters.unshift({ id, displayName: name, imageAttr, images: [] });
+    } else {
+      characters.push({ id, displayName: name, imageAttr, images: [] });
+    }
+    
     renderCharList();
     hideAddCharForm();
     notifyMainReload();

@@ -148,6 +148,7 @@
   "char_id": "Nombre no visible (solo letras)",
   "char_name": "Nombre visible en la historia",
   "char_image": "Expresiones asociadas",
+  "char_unknown": "Personaje desconocido (se declara al principio del fichero)",
   "sprites_title": "Sprites de personaje",
   "sprite_variant": "Variante/Tipo",
   "add_individual": "+ Añadir imagen",

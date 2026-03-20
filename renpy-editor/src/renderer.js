@@ -5,6 +5,7 @@
 // ── State ──
 let gamePath = '';
 let activeRpyFile = 'script.rpy';
+let activeScriptText = '';
 let rpyFiles = [];
 let blocks = [];
 let editingIndex = -1;
@@ -124,14 +125,14 @@ async function loadProjectData() {
   const animText       = await window.api.readFile('Animaciones.rpy');
   const posText        = await window.api.readFile('positions.rpy');
   const exprText       = await window.api.readFile('expresiones.rpy');
-  const scriptText     = await window.api.readFile(activeRpyFile);
+  activeScriptText     = await window.api.readFile(activeRpyFile);
 
   if (personajesText) parsePersonajes(personajesText);
   if (fondosText)     parseFondos(fondosText);
   if (animText)       parseAnimaciones(animText);
   if (posText)        parsePositions(posText);
   if (exprText)       parseExpresiones(exprText);
-  if (scriptText)     parseScriptLabels(scriptText);
+  if (activeScriptText) parseScriptLabels(activeScriptText);
   refreshLabelSelector();
 
   // Audio files
@@ -244,8 +245,8 @@ async function selectRpyFile(filename) {
   activeRpyFile = filename;
   blocks = [];
   data.labels = [];
-  const text = await getScriptText();
-  if (text) parseScriptLabels(text);
+  activeScriptText = await getScriptText();
+  if (activeScriptText) parseScriptLabels(activeScriptText);
   refreshLabelSelector();
   renderBlocks();
   updateCodePreview();
@@ -560,7 +561,40 @@ function getExpressionCharId(charId) {
 // ═══════════════════════════════════════════════════════════════════
 // CODE PREVIEW
 // ═══════════════════════════════════════════════════════════════════
+function getCollapsedScriptText(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  let out = [];
+  let inLabel = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^label\s+[a-zA-Z0-9_]+/.test(line)) {
+      out.push(line.replace(/\s+$/, '') + ' ...');
+      inLabel = true;
+    } else if (inLabel) {
+      if (line.trim() !== '' && !/^[ \t]/.test(line)) {
+        inLabel = false;
+        if (/^label\s+[a-zA-Z0-9_]+/.test(line)) {
+          out.push(line.replace(/\s+$/, '') + ' ...');
+          inLabel = true;
+        } else {
+          out.push(line);
+        }
+      }
+    } else {
+      out.push(line);
+    }
+  }
+  return out.join('\n');
+}
+
 function updateCodePreview() {
+  const sel = document.getElementById('target-label');
+  const isTargetSelected = sel && sel.value !== '';
+  if (blocks.length === 0 && !isTargetSelected) {
+    document.getElementById('code-preview').textContent = getCollapsedScriptText(activeScriptText) || t('no_blocks');
+    return;
+  }
   const code = generateCode(blocks);
   document.getElementById('code-preview').textContent = code || t('no_blocks');
 }
@@ -1526,11 +1560,31 @@ function buildModalBody(type, b) {
     case 'custom': return `
       <div class="form-group">
         <label class="form-label">${t('custom_code')}</label>
-        <textarea class="form-textarea" id="f-code" rows="8" style="font-family:monospace;" placeholder="Escribe cualquier código RenPy...">${b.code || ''}</textarea>
+        <textarea class="form-textarea" id="f-code" rows="8" style="font-family:monospace;" placeholder="Escribe cualquier código RenPy..." onkeydown="handleCustomCodeKeydown(event, this)">${b.code || ''}</textarea>
       </div>
       <div style="font-size:10px;color:var(--text3);">${t('custom_code_hint')}</div>`;
 
     default: return `<p>${t('unknown_type')}</p>`;
+  }
+}
+
+function handleCustomCodeKeydown(e, el) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    el.value = el.value.substring(0, start) + '    ' + el.value.substring(end);
+    el.selectionStart = el.selectionEnd = start + 4;
+  } else if (e.key === 'Backspace') {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    if (start === end && start > 0) {
+      if (start >= 4 && el.value.substring(start - 4, start) === '    ') {
+        e.preventDefault();
+        el.value = el.value.substring(0, start - 4) + el.value.substring(start);
+        el.selectionStart = el.selectionEnd = start - 4;
+      }
+    }
   }
 }
 
