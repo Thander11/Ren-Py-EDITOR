@@ -259,6 +259,7 @@ body {
 .type-scene      { border-left-color: #9c59d1; }
 .type-label      { border-left-color: #e94560; }
 .type-menu       { border-left-color: #e67e22; }
+.type-condition  { border-left-color: #8e7cc3; }
 .type-pause      { border-left-color: #6b7a96; }
 .type-music      { border-left-color: #3498db; }
 .type-jump       { border-left-color: #f5a623; }

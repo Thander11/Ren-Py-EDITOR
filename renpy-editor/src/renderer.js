@@ -315,6 +315,7 @@ const BLOCK_META = {
   scene:      { icon: '🌄', labelKey: 'block_scene',          color: '#9c59d1' },
   label:      { icon: '📌', labelKey: 'block_label',         color: '#e94560' },
   menu:       { icon: '❓', labelKey: 'block_menu',            color: '#e67e22' },
+  condition:  { icon: '🔀', labelKey: 'block_condition',       color: '#8e7cc3' },
   pause:      { icon: '⏸️', labelKey: 'block_pause',         color: '#6b7a96' },
   music:      { icon: '🎵', labelKey: 'block_music',          color: '#3498db' },
   jump:       { icon: '↪️', labelKey: 'block_jump',           color: '#f5a623' },
@@ -334,6 +335,11 @@ function blockDesc(b) {
     case 'scene':     return `scene ${b.background}${b.transition?' with '+b.transition:''}`;
     case 'label':     return `label ${b.name}:`;
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
+    case 'condition': {
+      const hasElse = !!b.hasElse;
+      const elseInfo = hasElse ? ` + else (${b.elseBlocks?.length || 0} ${t('blocks_label')})` : '';
+      return `if ${b.condition || '...'} (${b.blocks?.length || 0} ${t('blocks_label')})${elseInfo}`;
+    }
     case 'pause':     return b.duration ? `pause ${b.duration}s` : 'pause';
     case 'music':     return `${b.action} music "${b.file||'...'}"`;
     case 'jump':      return `jump ${b.label||'...'}`;  
@@ -513,6 +519,28 @@ function blockToCode(b, indent = '    ') {
         return block;
       });
       lines.push(choiceLines.join(''));
+      return lines.join('\n');
+    }
+
+    case 'condition': {
+      const cond = (b.condition || '').trim();
+      if (!cond) return '';
+      const lines = [`${indent}if ${cond}:`];
+      if (b.blocks && b.blocks.length) {
+        const innerIndent = indent + '    ';
+        lines.push(b.blocks.map(ib => blockToCode(ib, innerIndent)).filter(Boolean).join('\n\n'));
+      } else {
+        lines.push(`${indent}    pass`);
+      }
+      if (b.hasElse) {
+        lines.push(`${indent}else:`);
+        if (b.elseBlocks && b.elseBlocks.length) {
+          const elseIndent = indent + '    ';
+          lines.push(b.elseBlocks.map(ib => blockToCode(ib, elseIndent)).filter(Boolean).join('\n\n'));
+        } else {
+          lines.push(`${indent}    pass`);
+        }
+      }
       return lines.join('\n');
     }
 
@@ -964,6 +992,66 @@ function parseLabelContentToBlocks(labelText) {
       continue;
     }
 
+    // Condition (if / else)
+    const ifM = trimmed.match(/^if\s+(.+)\s*:\s*$/);
+    if (ifM) {
+      const cond = ifM[1].trim();
+      const baseIndent = raw.match(/^(\s*)/)[1].length;
+      const thenLines = [];
+      let j = i + 1;
+      while (j < lines.length) {
+        const nextRaw = lines[j];
+        const nextTrimmed = nextRaw.trim();
+        if (!nextTrimmed) { thenLines.push(''); j++; continue; }
+        const nextIndent = nextRaw.match(/^(\s*)/)[1].length;
+        if (nextIndent <= baseIndent) break;
+        const stripIndent = baseIndent + 4;
+        if (nextRaw.startsWith(' '.repeat(stripIndent))) {
+          thenLines.push(nextRaw.slice(stripIndent));
+        } else {
+          thenLines.push(nextRaw.trimStart());
+        }
+        j++;
+      }
+
+      const thenBlocks = parseLabelContentToBlocks(thenLines.join('\n'));
+      let hasElse = false;
+      let elseBlocks = [];
+
+      let k = j;
+      while (k < lines.length && !lines[k].trim()) k++;
+      if (k < lines.length) {
+        const elseRaw = lines[k];
+        const elseTrimmed = elseRaw.trim();
+        const elseIndent = elseRaw.match(/^(\s*)/)[1].length;
+        if (elseIndent === baseIndent && /^else\s*:\s*$/.test(elseTrimmed)) {
+          hasElse = true;
+          k++;
+          const elseLines = [];
+          while (k < lines.length) {
+            const nextRaw = lines[k];
+            const nextTrimmed = nextRaw.trim();
+            if (!nextTrimmed) { elseLines.push(''); k++; continue; }
+            const nextIndent = nextRaw.match(/^(\s*)/)[1].length;
+            if (nextIndent <= baseIndent) break;
+            const stripIndent = baseIndent + 4;
+            if (nextRaw.startsWith(' '.repeat(stripIndent))) {
+              elseLines.push(nextRaw.slice(stripIndent));
+            } else {
+              elseLines.push(nextRaw.trimStart());
+            }
+            k++;
+          }
+          elseBlocks = parseLabelContentToBlocks(elseLines.join('\n'));
+          j = k;
+        }
+      }
+
+      result.push({ type: 'condition', condition: cond, blocks: thenBlocks, hasElse, elseBlocks });
+      i = j;
+      continue;
+    }
+
     // Narration
     const narrM = trimmed.match(/^"((?:[^"\\]|\\.)*)"$/);
     if (narrM) { result.push({ type: 'narration', text: unescRpy(narrM[1]) }); i++; continue; }
@@ -1100,6 +1188,14 @@ function getShownSprites(blockList, limit) {
         }
       }
     }
+    else if (b.type === 'condition') {
+      const thenShown = getShownSprites(b.blocks || [], (b.blocks || []).length);
+      thenShown.forEach(k => shown.set(k, k));
+      if (b.hasElse && b.elseBlocks) {
+        const elseShown = getShownSprites(b.elseBlocks, b.elseBlocks.length);
+        elseShown.forEach(k => shown.set(k, k));
+      }
+    }
   }
 
   // Si estamos evaluando la lista principal y estamos dentro de un bloque choice,
@@ -1118,6 +1214,28 @@ function getShownSprites(blockList, limit) {
         else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
         else if (b.type === 'scene') shown.clear();
       }
+    }
+  }
+
+  // Si estamos dentro de un bloque condition, añadir sprites del branch actual
+  // evaluados hasta el bloque en edición.
+  if (conditionBlockContext && blockList === blocks) {
+    const currentConditionBlock = conditionBlockContext.savedConditionBlock;
+    const branchBlocks = conditionBlockContext.branch === 'else'
+      ? (currentConditionBlock?.elseBlocks || [])
+      : (currentConditionBlock?.blocks || []);
+    const innerLimit = conditionBlockContext.blockIdx >= 0
+      ? conditionBlockContext.blockIdx
+      : branchBlocks.length;
+
+    for (let i = 0; i < innerLimit; i++) {
+      const b = branchBlocks[i];
+      if (!b) continue;
+      if (b.type === 'show' && b.image) shown.set(b.image, b.image);
+      else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
+      else if (b.type === 'hide' && b.image) shown.delete(b.image);
+      else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
+      else if (b.type === 'scene') shown.clear();
     }
   }
 
@@ -1190,9 +1308,16 @@ function openModal(type, existing) {
       }
     }, 50);
   }
+  if (type === 'condition') {
+    setTimeout(() => {
+      renderConditionBlocks('then');
+      renderConditionBlocks('else');
+    }, 50);
+  }
 }
 
 let choiceBlockContext = null;
+let conditionBlockContext = null;
 
 function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop) {
   const restoreGeneralScroll = () => {
@@ -1224,6 +1349,14 @@ function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScr
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
+  if (conditionBlockContext) {
+    const { savedConditionBlock, savedEditingIndex } = conditionBlockContext;
+    conditionBlockContext = null;
+    editingIndex = savedEditingIndex;
+    pendingBlock = {};
+    openModal('condition', savedConditionBlock);
+    return;
+  }
   if (choiceBlockContext) {
     const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, choiceIdx } = choiceBlockContext;
     choiceBlockContext = null;
@@ -1533,6 +1666,8 @@ function buildModalBody(type, b) {
 
     case 'menu': return buildMenuBody(b);
 
+    case 'condition': return buildConditionBody(b);
+
     case 'pause': return `
       <div class="form-group">
         <label class="form-label">${t('pause_duration')}</label>
@@ -1647,6 +1782,55 @@ function buildMenuBody(b) {
   return html;
 }
 
+function buildConditionBody(b) {
+  const blocksJson = b.blocks ? escHtml(JSON.stringify(b.blocks)) : '[]';
+  const elseBlocksJson = b.elseBlocks ? escHtml(JSON.stringify(b.elseBlocks)) : '[]';
+  const hasElse = !!b.hasElse;
+  return `
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">${t('condition_hint')}</div>
+    <div class="form-group">
+      <label class="form-label">${t('condition_expression')}</label>
+      <input class="form-input" id="f-cond" value="${escHtml(b.condition || '')}" placeholder="${t('condition_expression_placeholder')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('condition_blocks')}</label>
+      <input type="hidden" id="ifb" value="${blocksJson}">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+          const m = BLOCK_META[t2];
+          return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('then','${t2}')">${m.icon}</button>`;
+        }).join('')}
+      </div>
+      <div id="ifbl" class="choice-blocks-list"></div>
+    </div>
+    <div class="form-group" style="margin-top:10px;">
+      <label class="radio-option">
+        <input type="checkbox" id="f-cond-has-else" ${hasElse ? 'checked' : ''} onchange="toggleConditionElse()">
+        ${t('condition_enable_else')}
+      </label>
+    </div>
+    <div id="if-else-section" ${hasElse ? '' : 'style="display:none"'}>
+      <div class="form-group">
+        <label class="form-label">${t('condition_else_blocks')}</label>
+        <input type="hidden" id="ifeb" value="${elseBlocksJson}">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+          ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+            const m = BLOCK_META[t2];
+            return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('else','${t2}')">${m.icon}</button>`;
+          }).join('')}
+        </div>
+        <div id="ifebl" class="choice-blocks-list"></div>
+      </div>
+    </div>`;
+}
+
+function toggleConditionElse() {
+  const show = document.getElementById('f-cond-has-else')?.checked;
+  const sec = document.getElementById('if-else-section');
+  if (sec) sec.style.display = show ? '' : 'none';
+  if (show) renderConditionBlocks('else');
+}
+
 function toggleMenuChar() {
   const show = document.getElementById('f-menu-show-char')?.checked;
   document.getElementById('menu-char-section').style.display = show ? '' : 'none';
@@ -1697,7 +1881,7 @@ function buildChoiceHtml(ch, i) {
     </div>
     <input type="hidden" id="cb-${i}" value="${blocksJson}">
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-      ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','pause','music','jump','call','comment','custom'].map(t2 => {
+      ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','condition','pause','music','jump','call','comment','custom'].map(t2 => {
         const m = BLOCK_META[t2];
         return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addChoiceBlock(${i},'${t2}')">${m.icon}</button>`;
       }).join('')}
@@ -1858,6 +2042,134 @@ function addChoice() {
   list.appendChild(div.firstElementChild);
 }
 
+function getConditionBlocks(branch = 'then') {
+  const id = branch === 'else' ? 'ifeb' : 'ifb';
+  try { return JSON.parse(document.getElementById(id)?.value || '[]'); }
+  catch (e) { return []; }
+}
+
+function setConditionBlocks(branch, bArr) {
+  const id = branch === 'else' ? 'ifeb' : 'ifb';
+  const inp = document.getElementById(id);
+  if (inp) inp.value = JSON.stringify(bArr);
+  renderConditionBlocks(branch);
+}
+
+function renderConditionBlocks(branch = 'then') {
+  const listId = branch === 'else' ? 'ifebl' : 'ifbl';
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const bArr = getConditionBlocks(branch);
+  if (!bArr.length) {
+    list.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:10px;">${branch === 'else' ? t('no_blocks_in_condition_else') : t('no_blocks_in_condition')}</div>`;
+    return;
+  }
+  list.innerHTML = bArr.map((b, j) => {
+    const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--surface);border-radius:4px;margin-bottom:3px;border-left:3px solid ${meta.color || 'var(--border)'};" draggable="true"
+      ondragstart="onConditionDragStart(event,'${branch}',${j})" ondragend="onConditionDragEnd(event)"
+      ondragover="onConditionDragOver(event,'${branch}',${j})" ondrop="onConditionDrop(event,'${branch}',${j})">
+      <span style="font-size:12px;">${meta.icon}</span>
+      <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}">✏️</button>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateConditionBlock('${branch}',${j})" title="${t('btn_duplicate')}">📋</button>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateConditionBlockToEnd('${branch}',${j})" title="${t('btn_duplicate_end')}">⬇️</button>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveConditionBlock('${branch}',${j},-1)" title="${t('btn_up')}">▲</button>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveConditionBlock('${branch}',${j},1)" title="${t('btn_down')}">▼</button>
+      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--red);padding:2px;" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+let conditionDragSrc = null;
+function onConditionDragStart(e, branch, blockIdx) {
+  conditionDragSrc = { branch, blockIdx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', blockIdx);
+  requestAnimationFrame(() => e.target.style.opacity = '0.4');
+}
+
+function onConditionDragEnd(e) {
+  e.target.style.opacity = '1';
+  conditionDragSrc = null;
+}
+
+function onConditionDragOver(e, branch) {
+  e.preventDefault();
+  if (conditionDragSrc && conditionDragSrc.branch === branch) e.dataTransfer.dropEffect = 'move';
+}
+
+function onConditionDrop(e, branch, targetIdx) {
+  e.preventDefault();
+  if (!conditionDragSrc || conditionDragSrc.branch !== branch || conditionDragSrc.blockIdx === targetIdx) return;
+  const bArr = getConditionBlocks(branch);
+  const [moved] = bArr.splice(conditionDragSrc.blockIdx, 1);
+  bArr.splice(targetIdx, 0, moved);
+  setConditionBlocks(branch, bArr);
+  conditionDragSrc = null;
+}
+
+function readCurrentConditionState() {
+  let condBlocks = [];
+  let elseBlocks = [];
+  try { condBlocks = JSON.parse(document.getElementById('ifb')?.value || '[]'); } catch (e) {}
+  try { elseBlocks = JSON.parse(document.getElementById('ifeb')?.value || '[]'); } catch (e) {}
+  return {
+    type: 'condition',
+    condition: (document.getElementById('f-cond')?.value || '').trim(),
+    blocks: condBlocks,
+    hasElse: !!document.getElementById('f-cond-has-else')?.checked,
+    elseBlocks
+  };
+}
+
+function addConditionBlock(branch, type) {
+  const savedConditionBlock = readCurrentConditionState();
+  conditionBlockContext = { branch, blockIdx: -1, savedConditionBlock, savedEditingIndex: editingIndex };
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingIndex = -1;
+  openModal(type);
+}
+
+function editConditionBlock(branch, blockIdx) {
+  const savedConditionBlock = readCurrentConditionState();
+  const source = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
+  const block = source?.[blockIdx];
+  if (!block) return;
+  conditionBlockContext = { branch, blockIdx, savedConditionBlock, savedEditingIndex: editingIndex };
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingIndex = -1;
+  openModal(block.type, { ...block });
+}
+
+function moveConditionBlock(branch, blockIdx, dir) {
+  const bArr = getConditionBlocks(branch);
+  const newIdx = blockIdx + dir;
+  if (newIdx < 0 || newIdx >= bArr.length) return;
+  [bArr[blockIdx], bArr[newIdx]] = [bArr[newIdx], bArr[blockIdx]];
+  setConditionBlocks(branch, bArr);
+}
+
+function duplicateConditionBlock(branch, blockIdx) {
+  const bArr = getConditionBlocks(branch);
+  const clone = JSON.parse(JSON.stringify(bArr[blockIdx]));
+  bArr.splice(blockIdx + 1, 0, clone);
+  setConditionBlocks(branch, bArr);
+}
+
+function duplicateConditionBlockToEnd(branch, blockIdx) {
+  const bArr = getConditionBlocks(branch);
+  const clone = JSON.parse(JSON.stringify(bArr[blockIdx]));
+  bArr.push(clone);
+  setConditionBlocks(branch, bArr);
+}
+
+function removeConditionBlock(branch, blockIdx) {
+  const bArr = getConditionBlocks(branch);
+  bArr.splice(blockIdx, 1);
+  setConditionBlocks(branch, bArr);
+}
+
 function removeChoice(i) {
   const el = document.getElementById('choice-' + i);
   if (el && document.getElementById('choices-list').children.length > 1) el.remove();
@@ -1908,6 +2220,25 @@ async function saveBlock() {
     openModal('menu', savedMenuBlock);
     restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
     notify(ctx.blockIdx >= 0 ? t('choice_block_edited') : t('choice_block_added'), 'ok');
+    return;
+  }
+
+  if (conditionBlockContext) {
+    const { branch, blockIdx, savedConditionBlock } = conditionBlockContext;
+    const targetArr = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
+    if (branch === 'else') savedConditionBlock.hasElse = true;
+    if (blockIdx >= 0) {
+      targetArr[blockIdx] = b;
+    } else {
+      targetArr.push(b);
+    }
+    const ctx = conditionBlockContext;
+    conditionBlockContext = null;
+    editingIndex = ctx.savedEditingIndex;
+    document.getElementById('modal-overlay').classList.remove('open');
+    pendingBlock = {};
+    openModal('condition', savedConditionBlock);
+    notify(ctx.blockIdx >= 0 ? t('condition_block_edited') : t('condition_block_added'), 'ok');
     return;
   }
 
@@ -2002,6 +2333,23 @@ function readModalValues() {
         b.choiceCharacter = g('f-menu-sprite') || '';
       }
       b.choicePosition = document.querySelector('input[name="f-choice-pos"]:checked')?.value || 'center';
+      break;
+    }
+    case 'condition': {
+      b.condition = (g('f-cond') || '').trim();
+      if (!b.condition) { notify(t('write_condition'), 'err'); return null; }
+      try {
+        b.blocks = JSON.parse(document.getElementById('ifb')?.value || '[]');
+      } catch (e) {
+        b.blocks = [];
+      }
+      b.hasElse = gb('f-cond-has-else');
+      try {
+        b.elseBlocks = JSON.parse(document.getElementById('ifeb')?.value || '[]');
+      } catch (e) {
+        b.elseBlocks = [];
+      }
+      if (!b.hasElse) b.elseBlocks = [];
       break;
     }
     case 'pause':
