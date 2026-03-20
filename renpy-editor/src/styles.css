@@ -183,20 +183,20 @@ body {
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
-  color: #d4d4d4;
-  background-color: #1e1e1e;
+  color: var(--text);
+  background-color: var(--bg);
   tab-size: 4;
   border-radius: 4px;
 }
 
 /* Syntax Highlighting */
-.hl-keyword { color: #c586c0; font-weight: bold; }
-.hl-string { color: #ce9178; }
-.hl-comment { color: #6a9955; font-style: italic; }
-.hl-number { color: #b5cea8; }
-.hl-operator { color: #d4d4d4; }
-.hl-python { color: #569cd6; }
-.hl-function { color: #dcdcaa; }
+.hl-keyword { color: var(--red); font-weight: bold; }
+.hl-string { color: var(--orange); }
+.hl-comment { color: var(--green); font-style: italic; }
+.hl-number { color: var(--accent); }
+.hl-operator { color: var(--text2); }
+.hl-python { color: var(--text); }
+.hl-function { color: var(--accent); font-weight: bold; }
 
 /* ── Buttons ── */
 .btn {
