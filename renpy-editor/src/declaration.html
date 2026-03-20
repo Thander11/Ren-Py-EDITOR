@@ -13,7 +13,8 @@
       <button class="tab" onclick="switchTab('sprites')" data-i18n="tab_sprites">Sprites</button>
       <button class="tab" onclick="switchTab('expressions')" data-i18n="tab_expressions">Expresiones</button>
       <button class="tab" onclick="switchTab('backgrounds')" data-i18n="tab_backgrounds">Fondos</button>
-      <button class="tab" onclick="switchTab('transforms')" data-i18n="tab_transforms">Transformaciones</button>
+      <button class="tab" onclick="switchTab('animations')" data-i18n="tab_animations">Animaciones</button>
+      <button class="tab" onclick="switchTab('positions')" data-i18n="tab_positions">Posiciones</button>
     </div>
   </header>
 
@@ -171,41 +172,60 @@
       <div id="bg-list" class="preview-grid"></div>
     </section>
 
-    <!-- Transforms -->
-    <section id="tab-transforms" class="tab-content">
+    <!-- Animations -->
+    <section id="tab-animations" class="tab-content">
       <div class="section-header">
-        <h2 data-i18n="transforms_title">Animaciones y posiciones</h2>
+        <h2 data-i18n="animations_title">Animaciones</h2>
       </div>
       <div class="form-card">
-        <div class="form-row">
-          <div class="form-group">
-            <label data-i18n="target_file">Archivo destino</label>
-            <select class="form-select" id="tf-file">
-              <option value="Animaciones.rpy">Animaciones.rpy</option>
-              <option value="positions.rpy">positions.rpy</option>
-            </select>
-          </div>
-        </div>
         <div class="form-group">
-          <label data-i18n="transform_code">Código del transform</label>
-          <textarea class="form-textarea" id="tf-code" rows="6" placeholder="transform mi_animacion:&#10;    xalign 0.5&#10;    yalign 1.0"></textarea>
+          <label data-i18n="animation_code">Código de la animación</label>
+          <textarea class="form-textarea" id="anim-code" rows="6" placeholder="transform mi_animacion:&#10;    xalign 0.5&#10;    yalign 1.0"></textarea>
         </div>
         <div class="form-actions">
-          <button class="btn btn-primary" onclick="addTransform()" data-i18n="add_transform">+ Añadir transform</button>
+          <button class="btn btn-primary" onclick="addTransform('Animaciones.rpy', 'anim-code')" data-i18n="add_animation">+ Añadir animación</button>
         </div>
       </div>
-      <div id="transform-edit-form" class="form-card" style="display:none;">
-        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" id="te-label">Editando transform</div>
+      <div id="anim-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" id="ae-label">Editando animación</div>
         <div class="form-group">
-          <label data-i18n="transform_code">Código del transform</label>
-          <textarea class="form-textarea" id="te-code" rows="8"></textarea>
+          <label data-i18n="animation_code">Código de la animación</label>
+          <textarea class="form-textarea" id="ae-code" rows="8"></textarea>
         </div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="saveTransformEdit()" data-i18n="save">Guardar</button>
           <button class="btn btn-secondary" onclick="hideTransformEditForm()" data-i18n="cancel">Cancelar</button>
         </div>
       </div>
-      <div id="transform-list" class="item-list"></div>
+      <div id="anim-list" class="item-list"></div>
+    </section>
+
+    <!-- Positions -->
+    <section id="tab-positions" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="positions_title">Posiciones</h2>
+      </div>
+      <div class="form-card">
+        <div class="form-group">
+          <label data-i18n="position_code">Código de la posición</label>
+          <textarea class="form-textarea" id="pos-code" rows="6" placeholder="transform mi_posicion:&#10;    xalign 0.5&#10;    yalign 1.0"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addTransform('positions.rpy', 'pos-code')" data-i18n="add_position">+ Añadir posición</button>
+        </div>
+      </div>
+      <div id="pos-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" id="pe-label">Editando posición</div>
+        <div class="form-group">
+          <label data-i18n="position_code">Código de la posición</label>
+          <textarea class="form-textarea" id="pe-code" rows="8"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveTransformEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideTransformEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="pos-list" class="item-list"></div>
     </section>
   </main>
 

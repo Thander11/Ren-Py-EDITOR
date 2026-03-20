@@ -50,14 +50,15 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name)?.classList.add('active');
   const tabs = document.querySelectorAll('.tab');
-  const tabNames = ['characters', 'sprites', 'expressions', 'backgrounds', 'transforms'];
+  const tabNames = ['characters', 'sprites', 'expressions', 'backgrounds', 'animations', 'positions'];
   const idx = tabNames.indexOf(name);
   if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
 
   if (name === 'sprites') { populateCharSelector('sp-char'); loadCharSprites(); }
   if (name === 'expressions') { populateCharSelector('ex-char'); loadCharExpressions(); }
   if (name === 'backgrounds') loadBackgrounds();
-  if (name === 'transforms') loadTransforms();
+  if (name === 'animations') loadAnimations();
+  if (name === 'positions') loadPositions();
 }
 
 function populateCharSelector(selId) {
@@ -867,40 +868,56 @@ async function deleteBackground(idx) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TRANSFORMS TAB
+// ANIMATIONS & POSITIONS
 // ═══════════════════════════════════════════════════════════
-function loadTransforms() {
-  const list = document.getElementById('transform-list');
-  const allTransforms = [];
-  // Parse from both files
-  const animRe = /^(transform|define)\s+(\w+)/gm;
+function loadAnimations() {
+  const list = document.getElementById('anim-list');
+  const items = [];
+  const re = /^(transform|define)\s+(\w+)/gm;
   let m;
-  while ((m = animRe.exec(transformsAnim)) !== null) allTransforms.push({ name: m[2], file: 'Animaciones.rpy', type: m[1] });
-  const posRe = /^(transform|define)\s+(\w+)/gm;
-  while ((m = posRe.exec(transformsPos)) !== null) allTransforms.push({ name: m[2], file: 'positions.rpy', type: m[1] });
+  while ((m = re.exec(transformsAnim)) !== null) items.push({ name: m[2], type: m[1] });
 
-  list.innerHTML = allTransforms.map(tf =>
+  list.innerHTML = items.map(tf =>
     `<div class="item-row">
       <span class="item-name">${tf.name}</span>
-      <span class="item-detail">${tf.type} — ${tf.file}</span>
+      <span class="item-detail">${tf.type}</span>
       <span class="item-actions">
-        <button onclick="showTransformEditForm('${tf.name}', '${tf.file}')" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteTransform('${tf.name}', '${tf.file}')" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showTransformEditForm('${tf.name}', 'Animaciones.rpy', 'anim')" title="${t('edit_item')}">✏️</button>
+        <button onclick="deleteTransform('${tf.name}', 'Animaciones.rpy')" title="${t('delete_item')}">🗑️</button>
       </span>
     </div>`).join('');
 }
 
-// ── Transform edit ──
+function loadPositions() {
+  const list = document.getElementById('pos-list');
+  const items = [];
+  const re = /^(transform|define)\s+(\w+)/gm;
+  let m;
+  while ((m = re.exec(transformsPos)) !== null) items.push({ name: m[2], type: m[1] });
+
+  list.innerHTML = items.map(tf =>
+    `<div class="item-row">
+      <span class="item-name">${tf.name}</span>
+      <span class="item-detail">${tf.type}</span>
+      <span class="item-actions">
+        <button onclick="showTransformEditForm('${tf.name}', 'positions.rpy', 'pos')" title="${t('edit_item')}">✏️</button>
+        <button onclick="deleteTransform('${tf.name}', 'positions.rpy')" title="${t('delete_item')}">🗑️</button>
+      </span>
+    </div>`).join('');
+}
+
+// ── Edit ──
 let editingTransformName = '';
 let editingTransformFile = '';
+let editingTransformPrefix = '';
 
-function showTransformEditForm(name, file) {
+function showTransformEditForm(name, file, prefix) {
   editingTransformName = name;
   editingTransformFile = file;
+  editingTransformPrefix = prefix;
   const txt = file === 'Animaciones.rpy' ? transformsAnim : transformsPos;
   const lines = txt.split('\n');
 
-  // Extract the full block
   let startIdx = -1;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^(transform|define)\s+(\w+)/);
@@ -918,22 +935,27 @@ function showTransformEditForm(name, file) {
   }
 
   const block = lines.slice(startIdx, endIdx).join('\n');
-  document.getElementById('te-code').value = block;
-  document.getElementById('te-label').textContent = t('transform_edit_prompt', name);
-  const tform = document.getElementById('transform-edit-form');
-  tform.style.display = '';
-  tform.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById(prefix + 'e-code').value = block;
+  document.getElementById(prefix + 'e-label').textContent = t('edit_item') + ' ' + name;
+  const form = document.getElementById(prefix + '-edit-form');
+  form.style.display = '';
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function hideTransformEditForm() {
-  document.getElementById('transform-edit-form').style.display = 'none';
+function hideTransformEditForm(formId) {
+  if (formId) {
+    document.getElementById(formId).style.display = 'none';
+  } else if (editingTransformPrefix) {
+    document.getElementById(editingTransformPrefix + '-edit-form').style.display = 'none';
+  }
   editingTransformName = '';
   editingTransformFile = '';
+  editingTransformPrefix = '';
 }
 
 async function saveTransformEdit() {
-  if (!editingTransformName || !editingTransformFile) return;
-  const newCode = document.getElementById('te-code').value.trimEnd();
+  if (!editingTransformName || !editingTransformFile || !editingTransformPrefix) return;
+  const newCode = document.getElementById(editingTransformPrefix + 'e-code').value.trimEnd();
   if (!newCode) return;
 
   const file = editingTransformFile;
@@ -961,22 +983,25 @@ async function saveTransformEdit() {
   const newText = lines.join('\n');
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') transformsAnim = newText;
-  else transformsPos = newText;
+  if (file === 'Animaciones.rpy') {
+    transformsAnim = newText;
+    loadAnimations();
+  } else {
+    transformsPos = newText;
+    loadPositions();
+  }
 
-  loadTransforms();
   hideTransformEditForm();
   notifyMainReload();
-  notify(t('transform_edited'), 'ok');
+  notify(t('saved'), 'ok');
 }
 
 async function deleteTransform(name, file) {
-  if (!confirm(t('confirm_delete_transform', name))) return;
+  if (!confirm(t('delete_item') + ' ' + name + '?')) return;
 
   const txt = await window.declApi.readFile(file) || '';
   const lines = txt.split('\n');
 
-  // Find the transform/define block start and remove until next block or end
   let startIdx = -1;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^(transform|define)\s+(\w+)/);
@@ -984,48 +1009,52 @@ async function deleteTransform(name, file) {
   }
   if (startIdx < 0) return;
 
-  // Find next block start or end of file
   let endIdx = lines.length;
   for (let i = startIdx + 1; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    // New block starts at a non-indented, non-empty, non-comment line
     if (trimmed && !lines[i].startsWith(' ') && !lines[i].startsWith('\t') && !trimmed.startsWith('#')) {
       endIdx = i;
       break;
     }
   }
 
-  // Remove blank lines before the block too
   while (startIdx > 0 && lines[startIdx - 1].trim() === '') startIdx--;
 
   lines.splice(startIdx, endIdx - startIdx);
   const newText = lines.join('\n');
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') transformsAnim = newText;
-  else transformsPos = newText;
+  if (file === 'Animaciones.rpy') {
+    transformsAnim = newText;
+    loadAnimations();
+  } else {
+    transformsPos = newText;
+    loadPositions();
+  }
 
-  loadTransforms();
   notifyMainReload();
-  notify(t('transform_deleted'), 'ok');
+  notify(t('deleted'), 'ok');
 }
 
-async function addTransform() {
-  const file = document.getElementById('tf-file').value;
-  const code = document.getElementById('tf-code').value.trim();
-  if (!code) { notify(t('write_transform_code'), 'err'); return; }
+async function addTransform(file, inputId) {
+  const code = document.getElementById(inputId).value.trim();
+  if (!code) { notify(t('fill_all_fields'), 'err'); return; }
 
   const existing = await window.declApi.readFile(file) || '';
   const newText = existing.trimEnd() + '\n\n' + code + '\n';
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') transformsAnim = newText;
-  else transformsPos = newText;
+  if (file === 'Animaciones.rpy') {
+    transformsAnim = newText;
+    loadAnimations();
+  } else {
+    transformsPos = newText;
+    loadPositions();
+  }
 
-  loadTransforms();
-  document.getElementById('tf-code').value = '';
+  document.getElementById(inputId).value = '';
   notifyMainReload();
-  notify(t('transform_added'), 'ok');
+  notify(t('saved'), 'ok');
 }
 
 // ── Notify main window ──
@@ -1064,10 +1093,14 @@ function notify(msg, type = 'ok') {
   });
 
   // Editor de código en Transforms: Tab y Backspace (mismo compartamiento que en renderer.js)
-  const tfCode = document.getElementById('tf-code');
-  const teCode = document.getElementById('te-code');
-  if (tfCode) tfCode.addEventListener('keydown', handleCustomCodeKeydown);
-  if (teCode) teCode.addEventListener('keydown', handleCustomCodeKeydown);
+  const animCode = document.getElementById('anim-code');
+  const posCode = document.getElementById('pos-code');
+  const aeCode = document.getElementById('ae-code');
+  const peCode = document.getElementById('pe-code');
+  if (animCode) animCode.addEventListener('keydown', handleCustomCodeKeydown);
+  if (posCode) posCode.addEventListener('keydown', handleCustomCodeKeydown);
+  if (aeCode) aeCode.addEventListener('keydown', handleCustomCodeKeydown);
+  if (peCode) peCode.addEventListener('keydown', handleCustomCodeKeydown);
 })();
 
 function handleCustomCodeKeydown(e) {
