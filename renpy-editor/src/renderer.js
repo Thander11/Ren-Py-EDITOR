@@ -1449,15 +1449,14 @@ function buildModalBody(type, b) {
       <div class="form-group">
         <label class="form-label">${t('select_background')}</label>
         <div id="bg-picker" class="img-picker" style="grid-template-columns:repeat(3,1fr);"></div>
-        <input type="hidden" id="f-bg" value="${b.background || 'bg black'}">
+        <input type="hidden" id="f-bg" value="${b.background || ''}">
       </div>`;
     }
 
     case 'label': return `
       <div class="form-group">
         <label class="form-label">${t('label_name')}</label>
-        <input class="form-input" id="f-name" list="dl-labels" value="${b.name || ''}" placeholder="Ej: capitulo_2_inicio">
-        <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
+        <input class="form-input" id="f-name" value="${b.name || ''}" placeholder="Ej: capitulo_2_inicio">
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px;">${t('label_hint')}</div>
       ${(!b.name || editingIndex < 0) ? `
@@ -1503,15 +1502,19 @@ function buildModalBody(type, b) {
     case 'jump': return `
       <div class="form-group">
         <label class="form-label">${t('jump_label')}</label>
-        <input class="form-input" id="f-label" list="dl-labels" value="${b.label || ''}" placeholder="Ej: capitulo_2">
-        <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
+        <select class="form-select" id="f-label">
+          <option value="" disabled selected>${t('select_label')}</option>
+          ${data.labels.map(l => `<option value="${l}" ${b.label === l ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
       </div>`;
 
     case 'call': return `
       <div class="form-group">
-        <label class="form-label">Label de destino</label>
-        <input class="form-input" id="f-label" list="dl-labels" value="${b.label || ''}" placeholder="Ej: funcion_importante">
-        <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
+        <label class="form-label">${t('jump_label')}</label>
+        <select class="form-select" id="f-label">
+          <option value="" disabled selected>${t('select_label')}</option>
+          ${data.labels.map(l => `<option value="${l}" ${b.label === l ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
       </div>`;
 
     case 'comment': return `
@@ -1895,7 +1898,8 @@ function readModalValues() {
       break;
     }
     case 'scene':
-      b.background = g('f-bg') || 'bg black';
+      b.background = g('f-bg') || '';
+      if (!b.background) { notify(t('select_background'), 'err'); return null; }
       b.transition = g('f-trans') || '';
       break;
     case 'label':
@@ -1996,11 +2000,11 @@ function onDialogueCharChange() {
 function populateBgPicker(selectedKey) {
   const picker = document.getElementById('bg-picker');
   if (!picker) return;
-  const allBgs = [{ key: 'bg black', path: null }, ...data.backgrounds];
+  const allBgs = data.backgrounds;
   picker.innerHTML = allBgs.map(bg => {
     const safeId = 'bgp-' + bg.key.replace(/\s/g, '_');
     return `<div class="img-option ${bg.key === selectedKey ? 'selected' : ''}" onclick="selectBgOption('${bg.key.replace(/'/g, "\\'")}')" title="${bg.key}" id="${safeId}" style="aspect-ratio:16/9;overflow:hidden;">
-      ${bg.path ? `<img src="${getImageURL(bg.path)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'" />` : '<div style="width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;font-size:10px;color:#888;">bg black</div>'}
+      <img src="${getImageURL(bg.path)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'" />
       <div class="lbl">${bg.key}</div>
     </div>`;
   }).join('');
