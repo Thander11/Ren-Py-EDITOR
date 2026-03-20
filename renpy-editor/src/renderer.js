@@ -651,6 +651,7 @@ function refreshLabelSelector() {
   const allLabels = [...new Set(data.labels)];
   sel.innerHTML = `<option value="">${t('end_of_file')}</option>` +
     allLabels.map(l => `<option value="${l}" ${l===current?'selected':''}>${l}</option>`).join('');
+  sel.dataset.prev = sel.value;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -956,10 +957,17 @@ async function getScriptText() {
 }
 
 async function onTargetLabelChange() {
-  const labelName = document.getElementById('target-label').value;
-  if (!labelName) return;
+  const sel = document.getElementById('target-label');
+  const labelName = sel.value;
+  if (!labelName) {
+    sel.dataset.prev = labelName;
+    return;
+  }
   if (blocks.length > 0) {
-    if (!confirm(t('load_label_confirm', blocks.length, labelName))) return;
+    if (!confirm(t('load_label_confirm', blocks.length, labelName))) {
+      sel.value = sel.dataset.prev || '';
+      return;
+    }
   }
 
   // Workaround: reselect/reload project when switching labels to avoid input lock state.
@@ -972,11 +980,20 @@ async function onTargetLabelChange() {
   }
 
   const scriptText = await getScriptText();
-  if (!scriptText) { notify(t('could_not_read', activeRpyFile), 'err'); return; }
+  if (!scriptText) {
+    notify(t('could_not_read', activeRpyFile), 'err');
+    sel.value = sel.dataset.prev || '';
+    return;
+  }
   const content = extractLabelContent(scriptText, labelName);
-  if (content === null) { notify(t('label_not_found', labelName), 'err'); return; }
+  if (content === null) {
+    notify(t('label_not_found', labelName), 'err');
+    sel.value = sel.dataset.prev || '';
+    return;
+  }
   const parsed = parseLabelContentToBlocks(content);
   blocks = parsed;
+  sel.dataset.prev = labelName;
   renderBlocks(); updateCodePreview();
   notify(t('loaded_blocks', parsed.length, labelName), 'ok');
 }
@@ -1442,7 +1459,22 @@ function buildModalBody(type, b) {
         <input class="form-input" id="f-name" list="dl-labels" value="${b.name || ''}" placeholder="Ej: capitulo_2_inicio">
         <datalist id="dl-labels">${data.labels.map(l => `<option value="${l}">`).join('')}</datalist>
       </div>
-      <div style="font-size:11px;color:var(--text2);margin-top:6px;">${t('label_hint')}</div>`;
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;">${t('label_hint')}</div>
+      ${(!b.name || editingIndex < 0) ? `
+      <div class="form-group" style="margin-top: 15px;">
+        <label class="form-label">${t('label_placement')}</label>
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="radio" name="f-label-pos" id="f-pos-after" value="after" ${!b.endOfFile ? 'checked' : ''}>
+            <span>${t('label_pos_after')}</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="radio" name="f-label-pos" id="f-pos-end" value="end" ${b.endOfFile ? 'checked' : ''}>
+            <span>${t('label_pos_end')}</span>
+          </label>
+        </div>
+      </div>
+      ` : ''}`;
 
     case 'menu': return buildMenuBody(b);
 
@@ -1756,9 +1788,31 @@ function removeChoice(i) {
 // ═══════════════════════════════════════════════════════════════════
 // SAVE BLOCK
 // ═══════════════════════════════════════════════════════════════════
-function saveBlock() {
+async function saveBlock() {
   const b = readModalValues();
   if (!b) return;
+
+  if (b.type === 'label' && b.endOfFile) {
+    // Añadir directamente al final del archivo
+    const scriptText = await getScriptText() || '';
+    const newCode = `\n\nlabel ${b.name}:\n    return\n`;
+    const modified = scriptText.replace(/\n+$/, '') + newCode;
+    const ok = await window.api.writeFile(activeRpyFile, modified);
+    if (ok) {
+      notify(t('block_added'), 'ok');
+      const result = await window.api.reselectProjectFolder();
+      if (result) {
+        gamePath = result;
+        await loadProjectData();
+        renderAssetBrowser();
+        setStatus(gamePath, 'ok');
+      }
+    } else {
+      notify(t('save_error', 'write failed'), 'err');
+    }
+    closeModal();
+    return;
+  }
 
   if (choiceBlockContext) {
     const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop } = choiceBlockContext;
@@ -1847,6 +1901,9 @@ function readModalValues() {
     case 'label':
       b.name = (g('f-name') || '').trim().replace(/\s+/g, '_');
       if (!b.name) { notify(t('label_empty'), 'err'); return null; }
+      if (document.getElementById('f-pos-end')) {
+        b.endOfFile = gb('f-pos-end');
+      }
       break;
     case 'menu': {
       const list = document.getElementById('choices-list');
