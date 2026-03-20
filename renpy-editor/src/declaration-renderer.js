@@ -1062,4 +1062,31 @@ function notify(msg, type = 'ok') {
       loadI18n(s.language).then(() => applyI18n());
     }
   });
+
+  // Editor de código en Transforms: Tab y Backspace (mismo compartamiento que en renderer.js)
+  const tfCode = document.getElementById('tf-code');
+  const teCode = document.getElementById('te-code');
+  if (tfCode) tfCode.addEventListener('keydown', handleCustomCodeKeydown);
+  if (teCode) teCode.addEventListener('keydown', handleCustomCodeKeydown);
 })();
+
+function handleCustomCodeKeydown(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 4;
+  } else if (e.key === 'Backspace') {
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    if (start === end && start >= 4) {
+      const preceding = this.value.substring(start - 4, start);
+      if (preceding === "    ") {
+        e.preventDefault();
+        this.value = this.value.substring(0, start - 4) + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start - 4;
+      }
+    }
+  }
+}

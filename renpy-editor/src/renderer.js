@@ -561,6 +561,27 @@ function getExpressionCharId(charId) {
 // ═══════════════════════════════════════════════════════════════════
 // CODE PREVIEW
 // ═══════════════════════════════════════════════════════════════════
+function highlightRenpyCode(text) {
+  if (!text) return '';
+  let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  
+  const tokenRegex = /(#.*)|(".*?"|'.*?')|^(\s*\$\s+)(.*)|\b(label|jump|call|scene|show|hide|window|play|stop|return|menu|if|elif|else|pass|init|python|image|define|default|transform|with|pause|voice)\b|\b(\d+(\.\d+)?)\b/gm;
+
+  html = html.replace(tokenRegex, function(match, isComment, isString, isPythonDollar, isPythonBody, isKeyword, isNumber) {
+    if (isComment)   return `<span class="hl-comment">${isComment}</span>`;
+    if (isString)    return `<span class="hl-string">${isString}</span>`;
+    if (isPythonDollar) return `<span class="hl-keyword">${isPythonDollar}</span><span class="hl-python">${isPythonBody}</span>`;
+    if (isKeyword)   return `<span class="hl-keyword">${isKeyword}</span>`;
+    if (isNumber)    return `<span class="hl-number">${isNumber}</span>`;
+    return match;
+  });
+
+  // Color especial para el nombre del label: "label nombre:"
+  html = html.replace(/(<span class="hl-keyword">label<\/span>\s+)([a-zA-Z0-9_]+)/g, '$1<span class="hl-function">$2</span>');
+
+  return html;
+}
+
 function getCollapsedScriptText(text) {
   if (!text) return '';
   const lines = text.split('\n');
@@ -592,11 +613,12 @@ function updateCodePreview() {
   const sel = document.getElementById('target-label');
   const isTargetSelected = sel && sel.value !== '';
   if (blocks.length === 0 && !isTargetSelected) {
-    document.getElementById('code-preview').textContent = getCollapsedScriptText(activeScriptText) || t('no_blocks');
+    const rawText = getCollapsedScriptText(activeScriptText) || t('no_blocks');
+    document.getElementById('code-preview').innerHTML = highlightRenpyCode(rawText);
     return;
   }
   const code = generateCode(blocks);
-  document.getElementById('code-preview').textContent = code || t('no_blocks');
+  document.getElementById('code-preview').innerHTML = highlightRenpyCode(code || t('no_blocks'));
 }
 
 async function copyCode() {
