@@ -2613,6 +2613,40 @@ function openDeclarations() {
   window.api.openDeclarationWindow();
 }
 
+async function launchProjectFromEditor() {
+  if (!gamePath) {
+    notify(t('open_project_first'), 'err');
+    return;
+  }
+
+  setStatus(t('launching_project'));
+  const result = await window.api.launchRenpyProject();
+
+  if (result?.ok) {
+    setStatus(t('project_launched'), 'ok');
+    notify(t('project_launched'), 'ok');
+    return;
+  }
+
+  if (result?.error === 'cancelled') {
+    setStatus(t('launch_cancelled'), 'err');
+    notify(t('launch_cancelled'), 'err');
+    return;
+  }
+
+  if (result?.error === 'invalid-executable') {
+    notify(t('launch_invalid_executable'), 'err');
+    return;
+  }
+
+  if (result?.error === 'invalid-project') {
+    notify(t('launch_invalid_project'), 'err');
+    return;
+  }
+
+  notify(t('launch_failed'), 'err');
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════

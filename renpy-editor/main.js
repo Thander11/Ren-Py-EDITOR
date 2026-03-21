@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu } = require('el
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
+const { spawn } = require('child_process');
 
 let mainWindow = null;
 let declWindow = null;
@@ -11,6 +12,7 @@ let settings = {
   language: 'es',
   lastProjectPath: '',
   lastGamePath: '',
+  renpyExecutablePath: '',
   windowMaximized: false,
   panelSizes: { panelCode: 560, panelAssets: 220 }
 };
@@ -235,6 +237,38 @@ function listDirRecursive(dirPath, basePath) {
   return result;
 }
 
+function getProjectRootFromGamePath(gamePath) {
+  if (!gamePath) return '';
+  const norm = path.normalize(gamePath);
+  if (path.basename(norm).toLowerCase() === 'game') {
+    return path.dirname(norm);
+  }
+  return norm;
+}
+
+async function ensureRenpyExecutablePath() {
+  const savedPath = settings.renpyExecutablePath;
+  if (savedPath && fs.existsSync(savedPath) && fs.statSync(savedPath).isFile()) {
+    return savedPath;
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Seleccionar ejecutable de Ren\'Py (renpy.exe)',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Ejecutables', extensions: ['exe', 'bat', 'cmd'] },
+      { name: 'Todos los archivos', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) return null;
+
+  const selected = result.filePaths[0];
+  settings.renpyExecutablePath = selected;
+  saveSettings();
+  return selected;
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // IPC HANDLERS
 // ═════════════════════════════════════════════════════════════════════
@@ -422,6 +456,40 @@ ipcMain.handle('reload-current-project', () => {
 ipcMain.handle('reload-project-data', () => {
   if (mainWindow) mainWindow.webContents.send('reload-data');
   return true;
+});
+
+// ── Launch Ren'Py project from editor ──
+ipcMain.handle('launch-renpy-project', async () => {
+  if (!currentGamePath) {
+    return { ok: false, error: 'no-project' };
+  }
+
+  const renpyExecutable = await ensureRenpyExecutablePath();
+  if (!renpyExecutable) {
+    return { ok: false, error: 'cancelled' };
+  }
+
+  if (!fs.existsSync(renpyExecutable)) {
+    settings.renpyExecutablePath = '';
+    saveSettings();
+    return { ok: false, error: 'invalid-executable' };
+  }
+
+  const projectRoot = getProjectRootFromGamePath(currentGamePath);
+  if (!projectRoot || !fs.existsSync(projectRoot)) {
+    return { ok: false, error: 'invalid-project' };
+  }
+
+  try {
+    const child = spawn(renpyExecutable, [projectRoot], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: 'launch-failed', message: e.message };
+  }
 });
 
 // ── Select images for import (declaration window) ──

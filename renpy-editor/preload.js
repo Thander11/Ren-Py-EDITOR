@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   reselectProjectFolder: () => ipcRenderer.invoke('reselect-project-folder'),
   loadLastProject: () => ipcRenderer.invoke('load-last-project'),
   reloadCurrentProject: () => ipcRenderer.invoke('reload-current-project'),
+  launchRenpyProject: () => ipcRenderer.invoke('launch-renpy-project'),
   readFile: (relativePath) => ipcRenderer.invoke('read-file', relativePath),
   writeFile: (relativePath, content) => ipcRenderer.invoke('write-file', relativePath, content),
   fileExists: (relativePath) => ipcRenderer.invoke('file-exists', relativePath),
