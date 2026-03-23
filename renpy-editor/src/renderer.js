@@ -15,6 +15,7 @@ let currentLang = 'es';
 const data = {
   characters: [],
   backgrounds: [],
+  scenes: [],
   animations: [],
   positions: [],
   expressions: [],   // { charId, key, path }[]
@@ -117,11 +118,12 @@ async function openProjectFolder() {
 
 async function loadProjectData() {
   data.characters = []; data.backgrounds = []; data.animations = [];
-  data.positions = []; data.expressions = []; data.labels = [];
+  data.positions = []; data.expressions = []; data.labels = []; data.scenes = [];
   data.audioFiles = [];
 
   const personajesText = await window.api.readFile('characters.rpy');
   const fondosText     = await window.api.readFile('backgrounds.rpy');
+  const scenesText     = await window.api.readFile('scenes.rpy');
   const animText       = await window.api.readFile('animations.rpy');
   const posText        = await window.api.readFile('positions.rpy');
   const exprText       = await window.api.readFile('expressions.rpy');
@@ -129,6 +131,7 @@ async function loadProjectData() {
 
   if (personajesText) parsePersonajes(personajesText);
   if (fondosText)     parseFondos(fondosText);
+  if (scenesText)     parseScenes(scenesText);
   if (animText)       parseAnimaciones(animText);
   if (posText)        parsePositions(posText);
   if (exprText)       parseExpresiones(exprText);
@@ -170,6 +173,14 @@ function parseFondos(text) {
   let m;
   while ((m = re.exec(text)) !== null) {
     data.backgrounds.push({ key: m[1], path: m[2] });
+  }
+}
+
+function parseScenes(text) {
+  const re = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    data.scenes.push({ key: m[1], path: m[2] });
   }
 }
 
@@ -1293,7 +1304,7 @@ function openModal(type, existing) {
     setTimeout(() => populateShownSpritesPicker(pendingBlock.image), 50);
   }
   if (type === 'scene') {
-    setTimeout(() => populateBgPicker(pendingBlock.background), 50);
+    setTimeout(() => initializeScenePicker(pendingBlock.background), 50);
   }
   if (type === 'menu') {
     setTimeout(() => {
@@ -1631,16 +1642,21 @@ function buildModalBody(type, b) {
       </div>`;
 
     case 'scene': {
-      // FIX: transition at top
+      const selectedSceneAsset = b.background || '';
       return `
       <div class="form-group">
         <label class="form-label">${t('transition_with')}</label>
         ${buildTransitionSelect('f-trans', b.transition)}
       </div>
       <div class="form-group">
-        <label class="form-label">${t('select_background')}</label>
-        <div id="bg-picker" class="img-picker" style="grid-template-columns:repeat(3,1fr);"></div>
-        <input type="hidden" id="f-bg" value="${b.background || ''}">
+        <label class="form-label">${t('select_scene_asset')}</label>
+        <div class="scene-picker-tabs">
+          <button type="button" id="scene-tab-backgrounds" class="scene-picker-tab" onclick="switchScenePickerTab('backgrounds')">${t('tab_backgrounds')}</button>
+          <button type="button" id="scene-tab-scenes" class="scene-picker-tab" onclick="switchScenePickerTab('scenes')">${t('tab_scenes')}</button>
+        </div>
+        <div id="scene-picker-backgrounds" class="img-picker" style="grid-template-columns:repeat(3,1fr);"></div>
+        <div id="scene-picker-scenes" class="img-picker" style="grid-template-columns:repeat(3,1fr);display:none;"></div>
+        <input type="hidden" id="f-bg" value="${selectedSceneAsset}">
       </div>`;
     }
 
@@ -2457,22 +2473,58 @@ function onDialogueCharChange() {
 }
 
 // ── Visual background picker ──
-function populateBgPicker(selectedKey) {
-  const picker = document.getElementById('bg-picker');
+function getSceneAssetType(key) {
+  if (!key) return 'backgrounds';
+  if (data.scenes.some(s => s.key === key)) return 'scenes';
+  return 'backgrounds';
+}
+
+function switchScenePickerTab(type) {
+  const isScenes = type === 'scenes';
+  const bgTab = document.getElementById('scene-tab-backgrounds');
+  const scTab = document.getElementById('scene-tab-scenes');
+  const bgPanel = document.getElementById('scene-picker-backgrounds');
+  const scPanel = document.getElementById('scene-picker-scenes');
+  if (!bgTab || !scTab || !bgPanel || !scPanel) return;
+
+  bgTab.classList.toggle('active', !isScenes);
+  scTab.classList.toggle('active', isScenes);
+  bgPanel.style.display = isScenes ? 'none' : '';
+  scPanel.style.display = isScenes ? '' : 'none';
+}
+
+function renderSceneAssetPicker(type, selectedKey) {
+  const pickerId = type === 'scenes' ? 'scene-picker-scenes' : 'scene-picker-backgrounds';
+  const picker = document.getElementById(pickerId);
   if (!picker) return;
-  const allBgs = data.backgrounds;
-  picker.innerHTML = allBgs.map(bg => {
-    const safeId = 'bgp-' + bg.key.replace(/\s/g, '_');
-    return `<div class="img-option ${bg.key === selectedKey ? 'selected' : ''}" onclick="selectBgOption('${bg.key.replace(/'/g, "\\'")}')" title="${bg.key}" id="${safeId}" style="aspect-ratio:16/9;overflow:hidden;">
-      <img src="${getImageURL(bg.path)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'" />
-      <div class="lbl">${bg.key}</div>
+
+  const assets = type === 'scenes' ? data.scenes : data.backgrounds;
+  if (!assets.length) {
+    const msg = type === 'scenes' ? t('no_scenes_declared') : t('no_backgrounds_declared');
+    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${msg}</div>`;
+    return;
+  }
+
+  picker.innerHTML = assets.map(asset => {
+    const safeId = `sap-${type}-${encodeURIComponent(asset.key)}`;
+    return `<div class="img-option ${asset.key === selectedKey ? 'selected' : ''}" onclick="selectSceneAsset('${type}','${asset.key.replace(/'/g, "\\'")}')" title="${asset.key}" id="${safeId}" style="aspect-ratio:16/9;overflow:hidden;">
+      <img src="${getImageURL(asset.path)}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'" />
+      <div class="lbl">${asset.key}</div>
     </div>`;
   }).join('');
 }
 
-function selectBgOption(key) {
-  document.querySelectorAll('#bg-picker .img-option').forEach(el => el.classList.remove('selected'));
-  const safeId = 'bgp-' + key.replace(/\s/g, '_');
+function initializeScenePicker(selectedKey) {
+  renderSceneAssetPicker('backgrounds', selectedKey);
+  renderSceneAssetPicker('scenes', selectedKey);
+  switchScenePickerTab(getSceneAssetType(selectedKey));
+}
+
+function selectSceneAsset(type, key) {
+  ['scene-picker-backgrounds', 'scene-picker-scenes'].forEach(pid => {
+    document.querySelectorAll('#' + pid + ' .img-option').forEach(el => el.classList.remove('selected'));
+  });
+  const safeId = `sap-${type}-${encodeURIComponent(key)}`;
   document.getElementById(safeId)?.classList.add('selected');
   document.getElementById('f-bg').value = key;
 }

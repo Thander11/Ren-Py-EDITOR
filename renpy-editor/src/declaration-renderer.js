@@ -20,6 +20,7 @@ function getImageURL(relativePath) {
 // Parsed data
 let characters = [];   // { id, displayName, imageAttr, images[] }
 let backgrounds = [];  // { key, path }
+let scenes = [];       // { key, path }
 let expressions = [];  // { charId, key, path }
 let transformsAnim = ''; // raw text of animations.rpy
 let transformsPos = '';  // raw text of positions.rpy
@@ -50,13 +51,14 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name)?.classList.add('active');
   const tabs = document.querySelectorAll('.tab');
-  const tabNames = ['characters', 'sprites', 'expressions', 'backgrounds', 'animations', 'positions'];
+  const tabNames = ['characters', 'sprites', 'expressions', 'backgrounds', 'scenes', 'animations', 'positions'];
   const idx = tabNames.indexOf(name);
   if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
 
   if (name === 'sprites') { populateCharSelector('sp-char'); loadCharSprites(); }
   if (name === 'expressions') { populateCharSelector('ex-char'); loadCharExpressions(); }
   if (name === 'backgrounds') loadBackgrounds();
+  if (name === 'scenes') loadScenes();
   if (name === 'animations') loadAnimations();
   if (name === 'positions') loadPositions();
 }
@@ -77,13 +79,15 @@ async function loadAllData() {
 
   const ptxt = await window.declApi.readFile('characters.rpy');
   const ftxt = await window.declApi.readFile('backgrounds.rpy');
+  const stxt = await window.declApi.readFile('scenes.rpy');
   const etxt = await window.declApi.readFile('expressions.rpy');
   transformsAnim = await window.declApi.readFile('animations.rpy') || '';
   transformsPos = await window.declApi.readFile('positions.rpy') || '';
 
-  characters = []; backgrounds = []; expressions = [];
+  characters = []; backgrounds = []; scenes = []; expressions = [];
   if (ptxt) parsePersonajes(ptxt);
   if (ftxt) parseFondos(ftxt);
+  if (stxt) parseScenes(stxt);
   if (etxt) parseExpresiones(etxt);
 
   renderCharList();
@@ -111,6 +115,12 @@ function parseFondos(text) {
   const re = /^image\s+(.+?)\s*=\s*"([^"]+)"/gm;
   let m;
   while ((m = re.exec(text)) !== null) backgrounds.push({ key: m[1], path: m[2] });
+}
+
+function parseScenes(text) {
+  const re = /^image\s+(.+?)\s*=\s*"([^"]+)"/gm;
+  let m;
+  while ((m = re.exec(text)) !== null) scenes.push({ key: m[1], path: m[2] });
 }
 
 function parseExpresiones(text) {
@@ -865,6 +875,152 @@ async function deleteBackground(idx) {
   loadBackgrounds();
   notifyMainReload();
   notify(t('bg_deleted'), 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCENES TAB
+// ═══════════════════════════════════════════════════════════
+function loadScenes() {
+  const list = document.getElementById('sc-list');
+  list.innerHTML = scenes.map((sc, i) =>
+    `<div class="preview-item">
+      <img src="${getImageURL(sc.path)}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;" onerror="this.style.display='none'" />
+      <div class="lbl">${sc.key}</div>
+      <div class="item-actions" style="margin-top:4px;">
+        <button onclick="showSceneEditForm(${i})" title="${t('edit_item')}">✏️</button>
+        <button onclick="deleteScene(${i})" title="${t('delete_item')}">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+let newSceneImagePath = '';
+
+function showSceneAddForm() {
+  newSceneImagePath = '';
+  document.getElementById('sca-key').value = '';
+  document.getElementById('sca-file').textContent = t('no_file_selected');
+  const form = document.getElementById('sc-add-form');
+  form.style.display = '';
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function hideSceneAddForm() {
+  document.getElementById('sc-add-form').style.display = 'none';
+  newSceneImagePath = '';
+}
+
+async function selectNewSceneImage() {
+  const files = await window.declApi.selectImageFiles();
+  if (!files || !files.length) return;
+  newSceneImagePath = files[0];
+  const fileName = newSceneImagePath.split(/[/\\]/).pop();
+  document.getElementById('sca-file').textContent = fileName;
+}
+
+async function saveNewScene() {
+  const key = document.getElementById('sca-key').value.trim();
+  if (!key) { notify(t('scene_needs_name'), 'warn'); return; }
+  if (!newSceneImagePath) { notify(t('scene_needs_image'), 'warn'); return; }
+
+  const fileName = newSceneImagePath.split(/[/\\]/).pop();
+  const destRelative = `scenes/${fileName}`;
+  await window.declApi.copyImageToProject(newSceneImagePath, `images/${destRelative}`);
+
+  const stxt = await window.declApi.readFile('scenes.rpy') || '';
+  const newLine = `image ${key} = "${destRelative}"`;
+  const newText = stxt.trimEnd() + '\n' + newLine + '\n';
+  await window.declApi.writeFile('scenes.rpy', newText);
+
+  scenes.push({ key, path: destRelative });
+  loadScenes();
+  hideSceneAddForm();
+  notifyMainReload();
+  notify(t('scenes_added', 1), 'ok');
+}
+
+let editingSceneIdx = -1;
+let editSceneImagePath = '';
+
+function showSceneEditForm(idx) {
+  editingSceneIdx = idx;
+  editSceneImagePath = '';
+  const sc = scenes[idx];
+  if (!sc) return;
+  document.getElementById('sce-key').value = sc.key;
+  document.getElementById('sce-file').textContent = t('no_file_selected');
+  document.getElementById('sce-preview').innerHTML =
+    `<img src="${getImageURL(sc.path)}" style="max-height:80px;border-radius:4px;width:100%;object-fit:cover;" onerror="this.style.display='none'" />`;
+  const form = document.getElementById('sc-edit-form');
+  form.style.display = '';
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function hideSceneEditForm() {
+  document.getElementById('sc-edit-form').style.display = 'none';
+  editingSceneIdx = -1;
+  editSceneImagePath = '';
+}
+
+async function selectSceneEditImage() {
+  const files = await window.declApi.selectImageFiles();
+  if (!files || !files.length) return;
+  editSceneImagePath = files[0];
+  const fileName = editSceneImagePath.split(/[/\\]/).pop();
+  document.getElementById('sce-file').textContent = fileName;
+}
+
+async function saveSceneEdit() {
+  if (editingSceneIdx < 0) return;
+  const sc = scenes[editingSceneIdx];
+  const newKey = document.getElementById('sce-key').value.trim();
+  if (!newKey) return;
+
+  let newPath = sc.path;
+  if (editSceneImagePath) {
+    const fileName = editSceneImagePath.split(/[/\\]/).pop();
+    newPath = `scenes/${fileName}`;
+    await window.declApi.copyImageToProject(editSceneImagePath, `images/${newPath}`);
+  }
+
+  const stxt = await window.declApi.readFile('scenes.rpy') || '';
+  const lines = stxt.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^image\s+(.+?)\s*=/);
+    if (m && m[1] === sc.key) {
+      lines[i] = `image ${newKey} = "${newPath}"`;
+      break;
+    }
+  }
+  await window.declApi.writeFile('scenes.rpy', lines.join('\n'));
+  sc.key = newKey;
+  sc.path = newPath;
+  loadScenes();
+  hideSceneEditForm();
+  notifyMainReload();
+  notify(t('scene_edited'), 'ok');
+}
+
+async function deleteScene(idx) {
+  const sc = scenes[idx];
+  if (!sc || !confirm(t('confirm_delete_scene', sc.key))) return;
+
+  const stxt = await window.declApi.readFile('scenes.rpy') || '';
+  const lines = stxt.split('\n');
+  const filtered = lines.filter(line => {
+    const m = line.match(/^image\s+(.+?)\s*=/);
+    return !(m && m[1] === sc.key);
+  });
+  await window.declApi.writeFile('scenes.rpy', filtered.join('\n'));
+
+  if (sc.path) {
+    const del = confirm(t('confirm_delete_with_file'));
+    if (del) await window.declApi.deleteImage(sc.path);
+  }
+
+  scenes.splice(idx, 1);
+  loadScenes();
+  notifyMainReload();
+  notify(t('scene_deleted'), 'ok');
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -501,3 +501,25 @@ body {
   max-height: 300px;
   overflow-y: auto;
 }
+
+/* ── Scene picker tabs ── */
+.scene-picker-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.scene-picker-tab {
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.scene-picker-tab.active {
+  border-color: var(--accent);
+  background: rgba(78,205,196,0.15);
+}

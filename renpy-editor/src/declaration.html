@@ -13,6 +13,7 @@
       <button class="tab" onclick="switchTab('sprites')" data-i18n="tab_sprites">Sprites</button>
       <button class="tab" onclick="switchTab('expressions')" data-i18n="tab_expressions">Expresiones</button>
       <button class="tab" onclick="switchTab('backgrounds')" data-i18n="tab_backgrounds">Fondos</button>
+      <button class="tab" onclick="switchTab('scenes')" data-i18n="tab_scenes">Escenas</button>
       <button class="tab" onclick="switchTab('animations')" data-i18n="tab_animations">Animaciones</button>
       <button class="tab" onclick="switchTab('positions')" data-i18n="tab_positions">Posiciones</button>
     </div>
@@ -170,6 +171,50 @@
         </div>
       </div>
       <div id="bg-list" class="preview-grid"></div>
+    </section>
+
+    <!-- Scenes -->
+    <section id="tab-scenes" class="tab-content">
+      <div class="section-header">
+        <h2 data-i18n="scenes_title">Escenas declaradas</h2>
+        <button class="btn btn-primary" onclick="showSceneAddForm()" data-i18n="add_scene">+ Añadir escena</button>
+      </div>
+      <div id="sc-add-form" class="form-card" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="scene_name">Nombre de la escena</label><input class="form-input" id="sca-key" placeholder="Ej: intro_room"></div>
+          <div class="form-group">
+            <label data-i18n="select_image">Imagen</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="sca-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectNewSceneImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="sca-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveNewScene()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideSceneAddForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="sc-edit-form" class="form-card" style="display:none;">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="scene_edited">Editando escena</div>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="new_key">Nueva clave</label><input class="form-input" id="sce-key"></div>
+          <div class="form-group">
+            <label data-i18n="change_image">Cambiar imagen (opcional)</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="sce-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
+              <button class="btn btn-secondary" onclick="selectSceneEditImage()" data-i18n="select_file">📂 Elegir</button>
+            </div>
+          </div>
+        </div>
+        <div id="sce-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveSceneEdit()" data-i18n="save">Guardar</button>
+          <button class="btn btn-secondary" onclick="hideSceneEditForm()" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="sc-list" class="preview-grid"></div>
     </section>
 
     <!-- Animations -->
