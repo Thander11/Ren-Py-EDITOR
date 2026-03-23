@@ -21,7 +21,7 @@ function getImageURL(relativePath) {
 let characters = [];   // { id, displayName, imageAttr, images[] }
 let backgrounds = [];  // { key, path }
 let expressions = [];  // { charId, key, path }
-let transformsAnim = ''; // raw text of Animaciones.rpy
+let transformsAnim = ''; // raw text of animations.rpy
 let transformsPos = '';  // raw text of positions.rpy
 
 // ── I18N ──
@@ -75,10 +75,10 @@ async function loadAllData() {
   gamePath = await window.declApi.getGamePath();
   if (!gamePath) return;
 
-  const ptxt = await window.declApi.readFile('personajes.rpy');
-  const ftxt = await window.declApi.readFile('fondos.rpy');
-  const etxt = await window.declApi.readFile('expresiones.rpy');
-  transformsAnim = await window.declApi.readFile('Animaciones.rpy') || '';
+  const ptxt = await window.declApi.readFile('characters.rpy');
+  const ftxt = await window.declApi.readFile('backgrounds.rpy');
+  const etxt = await window.declApi.readFile('expressions.rpy');
+  transformsAnim = await window.declApi.readFile('animations.rpy') || '';
   transformsPos = await window.declApi.readFile('positions.rpy') || '';
 
   characters = []; backgrounds = []; expressions = [];
@@ -169,7 +169,7 @@ async function saveCharacter() {
   if (editingCharIdx >= 0) {
     // ── EDIT existing character ──
     const oldChar = characters[editingCharIdx];
-    const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+    const ptxt = await window.declApi.readFile('characters.rpy') || '';
     const lines = ptxt.split('\n');
 
     // Update define line
@@ -196,7 +196,7 @@ async function saveCharacter() {
       });
     }
 
-    await window.declApi.writeFile('personajes.rpy', lines.join('\n'));
+    await window.declApi.writeFile('characters.rpy', lines.join('\n'));
     oldChar.id = id;
     oldChar.displayName = name;
     oldChar.imageAttr = imageAttr;
@@ -208,7 +208,7 @@ async function saveCharacter() {
     // ── ADD new character ──
     if (characters.find(c => c.id === id)) { notify(t('char_exists', id), 'err'); return; }
     const isUnknown = document.getElementById('nc-unknown') && document.getElementById('nc-unknown').checked;
-    const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+    const ptxt = await window.declApi.readFile('characters.rpy') || '';
     const imgPart = imageAttr ? `, image = "${imageAttr}"` : '';
     const defineLine = `define ${id} = Character("${name}"${imgPart})`;
     
@@ -226,7 +226,7 @@ async function saveCharacter() {
       newText = ptxt.trimEnd() + '\n\n' + defineLine + '\n';
     }
     
-    await window.declApi.writeFile('personajes.rpy', newText);
+    await window.declApi.writeFile('characters.rpy', newText);
     
     if (isUnknown) {
       characters.unshift({ id, displayName: name, imageAttr, images: [] });
@@ -245,14 +245,14 @@ async function deleteCharacter(idx) {
   const c = characters[idx];
   if (!confirm(t('confirm_delete_char', c.displayName))) return;
 
-  const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+  const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const lines = ptxt.split('\n');
   const filtered = lines.filter(line => {
     if (new RegExp(`^define\\s+${c.id}\\s*=`).test(line)) return false;
     if (new RegExp(`^image\\s+${c.id}_`).test(line)) return false;
     return true;
   });
-  await window.declApi.writeFile('personajes.rpy', filtered.join('\n'));
+  await window.declApi.writeFile('characters.rpy', filtered.join('\n'));
 
   // Offer to delete image files
   if (c.images.length > 0) {
@@ -360,7 +360,7 @@ async function saveSpriteEdit() {
     await window.declApi.copyImageToProject(newSpriteImagePath, `images/${newPath}`);
   }
 
-  const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+  const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const lines = ptxt.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^image\s+(\S+)\s*=/);
@@ -369,7 +369,7 @@ async function saveSpriteEdit() {
       break;
     }
   }
-  await window.declApi.writeFile('personajes.rpy', lines.join('\n'));
+  await window.declApi.writeFile('characters.rpy', lines.join('\n'));
   img.key = newKey;
   img.path = newPath;
   loadCharSprites();
@@ -384,13 +384,13 @@ async function deleteSprite(charId, imgIdx) {
   const img = chr.images[imgIdx];
   if (!img || !confirm(t('confirm_delete_sprite', img.key))) return;
 
-  const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+  const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const lines = ptxt.split('\n');
   const filtered = lines.filter(line => {
     const m = line.match(/^image\s+(\S+)\s*=/);
     return !(m && m[1] === img.key);
   });
-  await window.declApi.writeFile('personajes.rpy', filtered.join('\n'));
+  await window.declApi.writeFile('characters.rpy', filtered.join('\n'));
 
   // Delete image file
   if (img.path) {
@@ -432,7 +432,7 @@ async function addSpriteIndividual() {
     counter++;
   }
 
-  // Append to personajes.rpy
+  // Append to characters.rpy
   await appendSpritesToFile(charId, newImages);
   chr.images.push(...newImages);
   loadCharSprites();
@@ -478,7 +478,7 @@ async function addSpriteBatch() {
 }
 
 async function appendSpritesToFile(charId, newImages) {
-  const ptxt = await window.declApi.readFile('personajes.rpy') || '';
+  const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const imageLines = newImages.map(img => `image ${img.key} = "${img.path}"`).join('\n');
 
   // Try to find the last image line for this character
@@ -505,7 +505,7 @@ async function appendSpritesToFile(charId, newImages) {
       newText = ptxt.trimEnd() + '\n\n' + imageLines + '\n';
     }
   }
-  await window.declApi.writeFile('personajes.rpy', newText);
+  await window.declApi.writeFile('characters.rpy', newText);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -582,7 +582,7 @@ async function saveExprEdit() {
     await window.declApi.copyImageToProject(newExprImagePath, `images/${newPath}`);
   }
 
-  const etxt = await window.declApi.readFile('expresiones.rpy') || '';
+  const etxt = await window.declApi.readFile('expressions.rpy') || '';
   const lines = etxt.split('\n');
   const oldPattern = `image side ${expr.charId} ${expr.key}`;
   for (let i = 0; i < lines.length; i++) {
@@ -591,7 +591,7 @@ async function saveExprEdit() {
       break;
     }
   }
-  await window.declApi.writeFile('expresiones.rpy', lines.join('\n'));
+  await window.declApi.writeFile('expressions.rpy', lines.join('\n'));
   expr.key = newKey;
   expr.path = newPath;
   loadCharExpressions();
@@ -604,11 +604,11 @@ async function deleteExpression(exprIdx) {
   const expr = expressions[exprIdx];
   if (!expr || !confirm(t('confirm_delete_expr', expr.key))) return;
 
-  const etxt = await window.declApi.readFile('expresiones.rpy') || '';
+  const etxt = await window.declApi.readFile('expressions.rpy') || '';
   const lines = etxt.split('\n');
   const pattern = `image side ${expr.charId} ${expr.key}`;
   const filtered = lines.filter(line => !line.trimStart().startsWith(pattern));
-  await window.declApi.writeFile('expresiones.rpy', filtered.join('\n'));
+  await window.declApi.writeFile('expressions.rpy', filtered.join('\n'));
 
   // Delete image file
   if (expr.path) {
@@ -689,7 +689,7 @@ async function addExprBatch() {
 }
 
 async function appendExpressionsToFile(imgAttr, newExprs) {
-  const etxt = await window.declApi.readFile('expresiones.rpy') || '';
+  const etxt = await window.declApi.readFile('expressions.rpy') || '';
   const newLines = newExprs.map(e => `image side ${e.charId} ${e.key} = "${e.path}"`).join('\n');
 
   // Find section header for this character
@@ -715,7 +715,7 @@ async function appendExpressionsToFile(imgAttr, newExprs) {
   } else {
     newText = etxt.trimEnd() + `\n\n# ${imgAttr}\n` + newLines + '\n';
   }
-  await window.declApi.writeFile('expresiones.rpy', newText);
+  await window.declApi.writeFile('expressions.rpy', newText);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -768,10 +768,10 @@ async function saveNewBg() {
   const destRelative = `fondos/${fileName}`;
   await window.declApi.copyImageToProject(newBgImagePath, `images/${destRelative}`);
 
-  const ftxt = await window.declApi.readFile('fondos.rpy') || '';
+  const ftxt = await window.declApi.readFile('backgrounds.rpy') || '';
   const newLine = `image ${key} = "${destRelative}"`;
   const newText = ftxt.trimEnd() + '\n' + newLine + '\n';
-  await window.declApi.writeFile('fondos.rpy', newText);
+  await window.declApi.writeFile('backgrounds.rpy', newText);
 
   backgrounds.push({ key, path: destRelative });
   loadBackgrounds();
@@ -825,7 +825,7 @@ async function saveBgEdit() {
     await window.declApi.copyImageToProject(editBgImagePath, `images/${newPath}`);
   }
 
-  const ftxt = await window.declApi.readFile('fondos.rpy') || '';
+  const ftxt = await window.declApi.readFile('backgrounds.rpy') || '';
   const lines = ftxt.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^image\s+(.+?)\s*=/);
@@ -834,7 +834,7 @@ async function saveBgEdit() {
       break;
     }
   }
-  await window.declApi.writeFile('fondos.rpy', lines.join('\n'));
+  await window.declApi.writeFile('backgrounds.rpy', lines.join('\n'));
   bg.key = newKey;
   bg.path = newPath;
   loadBackgrounds();
@@ -847,13 +847,13 @@ async function deleteBackground(idx) {
   const bg = backgrounds[idx];
   if (!bg || !confirm(t('confirm_delete_bg', bg.key))) return;
 
-  const ftxt = await window.declApi.readFile('fondos.rpy') || '';
+  const ftxt = await window.declApi.readFile('backgrounds.rpy') || '';
   const lines = ftxt.split('\n');
   const filtered = lines.filter(line => {
     const m = line.match(/^image\s+(.+?)\s*=/);
     return !(m && m[1] === bg.key);
   });
-  await window.declApi.writeFile('fondos.rpy', filtered.join('\n'));
+  await window.declApi.writeFile('backgrounds.rpy', filtered.join('\n'));
 
   // Delete image file
   if (bg.path) {
@@ -882,8 +882,8 @@ function loadAnimations() {
       <span class="item-name">${tf.name}</span>
       <span class="item-detail">${tf.type}</span>
       <span class="item-actions">
-        <button onclick="showTransformEditForm('${tf.name}', 'Animaciones.rpy', 'anim')" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteTransform('${tf.name}', 'Animaciones.rpy')" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showTransformEditForm('${tf.name}', 'animations.rpy', 'anim')" title="${t('edit_item')}">✏️</button>
+        <button onclick="deleteTransform('${tf.name}', 'animations.rpy')" title="${t('delete_item')}">🗑️</button>
       </span>
     </div>`).join('');
 }
@@ -915,7 +915,7 @@ function showTransformEditForm(name, file, prefix) {
   editingTransformName = name;
   editingTransformFile = file;
   editingTransformPrefix = prefix;
-  const txt = file === 'Animaciones.rpy' ? transformsAnim : transformsPos;
+  const txt = file === 'animations.rpy' ? transformsAnim : transformsPos;
   const lines = txt.split('\n');
 
   let startIdx = -1;
@@ -983,7 +983,7 @@ async function saveTransformEdit() {
   const newText = lines.join('\n');
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') {
+  if (file === 'animations.rpy') {
     transformsAnim = newText;
     loadAnimations();
   } else {
@@ -1024,7 +1024,7 @@ async function deleteTransform(name, file) {
   const newText = lines.join('\n');
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') {
+  if (file === 'animations.rpy') {
     transformsAnim = newText;
     loadAnimations();
   } else {
@@ -1044,7 +1044,7 @@ async function addTransform(file, inputId) {
   const newText = existing.trimEnd() + '\n\n' + code + '\n';
   await window.declApi.writeFile(file, newText);
 
-  if (file === 'Animaciones.rpy') {
+  if (file === 'animations.rpy') {
     transformsAnim = newText;
     loadAnimations();
   } else {

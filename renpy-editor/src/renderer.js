@@ -120,11 +120,11 @@ async function loadProjectData() {
   data.positions = []; data.expressions = []; data.labels = [];
   data.audioFiles = [];
 
-  const personajesText = await window.api.readFile('personajes.rpy');
-  const fondosText     = await window.api.readFile('fondos.rpy');
-  const animText       = await window.api.readFile('Animaciones.rpy');
+  const personajesText = await window.api.readFile('characters.rpy');
+  const fondosText     = await window.api.readFile('backgrounds.rpy');
+  const animText       = await window.api.readFile('animations.rpy');
   const posText        = await window.api.readFile('positions.rpy');
-  const exprText       = await window.api.readFile('expresiones.rpy');
+  const exprText       = await window.api.readFile('expressions.rpy');
   activeScriptText     = await window.api.readFile(activeRpyFile);
 
   if (personajesText) parsePersonajes(personajesText);

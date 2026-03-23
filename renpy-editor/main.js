@@ -141,10 +141,12 @@ function createDeclarationWindow() {
 // ── Auto-create default .rpy files if missing ──
 function autoCreateRpyFiles(gamePath) {
   const defaults = {
-    'personajes.rpy': '# Personajes\n',
-    'fondos.rpy': '# Fondos\n',
-    'expresiones.rpy': '# Expresiones\n',
-    'Animaciones.rpy': `# Animaciones
+    'characters.rpy': '# Characters\n',
+    'backgrounds.rpy': '# Backgrounds\n',
+    'expressions.rpy': '# Expressions\n',
+    'scenes.rpy': '# Scenes\n',
+    'audio.rpy': '# Audio\n',
+    'animations.rpy': `# Animations
 
 transform move_center_to_right:
     xalign 0.5 yalign 0.5
@@ -182,7 +184,7 @@ transform aparecer_desde_abajo:
     xpos 0.3 ypos 1.5
     linear 1.0 ypos 0.0
 `,
-    'positions.rpy': `# Posiciones
+    'positions.rpy': `# Positions
 define center_left = Position(xalign=0.3, yalign=1.0)
 define center_right = Position(xalign=0.7, yalign=1.0)
 
