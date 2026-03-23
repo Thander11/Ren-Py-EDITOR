@@ -1350,16 +1350,18 @@ function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScr
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   if (conditionBlockContext) {
-    const { savedConditionBlock, savedEditingIndex } = conditionBlockContext;
-    conditionBlockContext = null;
+    const { savedConditionBlock, savedEditingIndex, parentConditionContext, parentChoiceContext } = conditionBlockContext;
+    conditionBlockContext = parentConditionContext || null;
+    choiceBlockContext = parentChoiceContext || null;
     editingIndex = savedEditingIndex;
     pendingBlock = {};
     openModal('condition', savedConditionBlock);
     return;
   }
   if (choiceBlockContext) {
-    const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, choiceIdx } = choiceBlockContext;
-    choiceBlockContext = null;
+    const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, choiceIdx, parentChoiceContext, parentConditionContext } = choiceBlockContext;
+    choiceBlockContext = parentChoiceContext || null;
+    conditionBlockContext = parentConditionContext || null;
     editingIndex = savedEditingIndex;
     pendingBlock = {};
     openModal('menu', savedMenuBlock);
@@ -1987,7 +1989,16 @@ function addChoiceBlock(choiceIdx, type) {
   const savedMenuBlock = readCurrentMenuState();
   const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
   const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
-  choiceBlockContext = { choiceIdx, blockIdx: -1, savedMenuBlock, savedEditingIndex: editingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop };
+  choiceBlockContext = {
+    choiceIdx,
+    blockIdx: -1,
+    savedMenuBlock,
+    savedEditingIndex: editingIndex,
+    savedMenuScrollTop,
+    savedChoiceBlocksScrollTop,
+    parentChoiceContext: choiceBlockContext,
+    parentConditionContext: conditionBlockContext
+  };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(type);
@@ -1999,7 +2010,16 @@ function editChoiceBlock(choiceIdx, blockIdx) {
   if (!block) return;
   const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
   const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
-  choiceBlockContext = { choiceIdx, blockIdx, savedMenuBlock, savedEditingIndex: editingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop };
+  choiceBlockContext = {
+    choiceIdx,
+    blockIdx,
+    savedMenuBlock,
+    savedEditingIndex: editingIndex,
+    savedMenuScrollTop,
+    savedChoiceBlocksScrollTop,
+    parentChoiceContext: choiceBlockContext,
+    parentConditionContext: conditionBlockContext
+  };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(block.type, { ...block });
@@ -2125,7 +2145,14 @@ function readCurrentConditionState() {
 
 function addConditionBlock(branch, type) {
   const savedConditionBlock = readCurrentConditionState();
-  conditionBlockContext = { branch, blockIdx: -1, savedConditionBlock, savedEditingIndex: editingIndex };
+  conditionBlockContext = {
+    branch,
+    blockIdx: -1,
+    savedConditionBlock,
+    savedEditingIndex: editingIndex,
+    parentConditionContext: conditionBlockContext,
+    parentChoiceContext: choiceBlockContext
+  };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(type);
@@ -2136,7 +2163,14 @@ function editConditionBlock(branch, blockIdx) {
   const source = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
   const block = source?.[blockIdx];
   if (!block) return;
-  conditionBlockContext = { branch, blockIdx, savedConditionBlock, savedEditingIndex: editingIndex };
+  conditionBlockContext = {
+    branch,
+    blockIdx,
+    savedConditionBlock,
+    savedEditingIndex: editingIndex,
+    parentConditionContext: conditionBlockContext,
+    parentChoiceContext: choiceBlockContext
+  };
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(block.type, { ...block });
@@ -2205,26 +2239,9 @@ async function saveBlock() {
     return;
   }
 
-  if (choiceBlockContext) {
-    const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop } = choiceBlockContext;
-    if (blockIdx >= 0) {
-      savedMenuBlock.choices[choiceIdx].blocks[blockIdx] = b;
-    } else {
-      savedMenuBlock.choices[choiceIdx].blocks.push(b);
-    }
-    const ctx = choiceBlockContext;
-    choiceBlockContext = null;
-    editingIndex = ctx.savedEditingIndex;
-    document.getElementById('modal-overlay').classList.remove('open');
-    pendingBlock = {};
-    openModal('menu', savedMenuBlock);
-    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
-    notify(ctx.blockIdx >= 0 ? t('choice_block_edited') : t('choice_block_added'), 'ok');
-    return;
-  }
-
   if (conditionBlockContext) {
-    const { branch, blockIdx, savedConditionBlock } = conditionBlockContext;
+    const ctx = conditionBlockContext;
+    const { branch, blockIdx, savedConditionBlock } = ctx;
     const targetArr = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
     if (branch === 'else') savedConditionBlock.hasElse = true;
     if (blockIdx >= 0) {
@@ -2232,13 +2249,32 @@ async function saveBlock() {
     } else {
       targetArr.push(b);
     }
-    const ctx = conditionBlockContext;
-    conditionBlockContext = null;
+    conditionBlockContext = ctx.parentConditionContext || null;
+    choiceBlockContext = ctx.parentChoiceContext || null;
     editingIndex = ctx.savedEditingIndex;
     document.getElementById('modal-overlay').classList.remove('open');
     pendingBlock = {};
     openModal('condition', savedConditionBlock);
     notify(ctx.blockIdx >= 0 ? t('condition_block_edited') : t('condition_block_added'), 'ok');
+    return;
+  }
+
+  if (choiceBlockContext) {
+    const ctx = choiceBlockContext;
+    const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop } = ctx;
+    if (blockIdx >= 0) {
+      savedMenuBlock.choices[choiceIdx].blocks[blockIdx] = b;
+    } else {
+      savedMenuBlock.choices[choiceIdx].blocks.push(b);
+    }
+    choiceBlockContext = ctx.parentChoiceContext || null;
+    conditionBlockContext = ctx.parentConditionContext || null;
+    editingIndex = ctx.savedEditingIndex;
+    document.getElementById('modal-overlay').classList.remove('open');
+    pendingBlock = {};
+    openModal('menu', savedMenuBlock);
+    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
+    notify(ctx.blockIdx >= 0 ? t('choice_block_edited') : t('choice_block_added'), 'ok');
     return;
   }
 
