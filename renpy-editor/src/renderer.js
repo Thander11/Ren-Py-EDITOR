@@ -11,6 +11,14 @@ let blocks = [];
 let editingIndex = -1;
 let translations = {};
 let currentLang = 'es';
+let codePreviewIsEditing = false;
+let codePreviewHasManual = false;
+let codePreviewManualText = '';
+let codePreviewIsSyncing = false;
+let codePreviewRefreshTimer = null;
+let codePreviewBlocksTimer = null;
+let codePreviewUndoStack = [];
+let codePreviewRedoStack = [];
 
 const data = {
   characters: [],
@@ -253,6 +261,7 @@ function renderAssetBrowser() {
 async function selectRpyFile(filename) {
   if (filename === activeRpyFile) return;
   if (blocks.length > 0 && !confirm(t('change_file_confirm', blocks.length, filename))) return;
+  resetManualCodePreview();
   activeRpyFile = filename;
   blocks = [];
   data.labels = [];
@@ -648,20 +657,195 @@ function getCollapsedScriptText(text) {
   return out.join('\n');
 }
 
-function updateCodePreview() {
+function getGeneratedPreviewText() {
   const sel = document.getElementById('target-label');
   const isTargetSelected = sel && sel.value !== '';
   if (blocks.length === 0 && !isTargetSelected) {
-    const rawText = getCollapsedScriptText(activeScriptText) || t('no_blocks');
-    document.getElementById('code-preview').innerHTML = highlightRenpyCode(rawText);
-    return;
+    return getCollapsedScriptText(activeScriptText) || t('no_blocks');
   }
-  const code = generateCode(blocks);
-  document.getElementById('code-preview').innerHTML = highlightRenpyCode(code || t('no_blocks'));
+  return generateCode(blocks) || t('no_blocks');
+}
+
+function getCodePreviewText() {
+  return codePreviewHasManual ? codePreviewManualText : getGeneratedPreviewText();
+}
+
+function resetManualCodePreview() {
+  codePreviewHasManual = false;
+  codePreviewManualText = '';
+  if (codePreviewIsEditing) {
+    codePreviewIsEditing = false;
+    const el = document.getElementById('code-preview');
+    if (el) el.classList.remove('editing');
+  }
+}
+
+function updateCodePreview() {
+  if (codePreviewIsEditing) return;
+  const code = getCodePreviewText();
+  document.getElementById('code-preview').innerHTML = highlightRenpyCode(code);
+}
+
+function enterCodePreviewEdit() {
+  if (codePreviewIsEditing) return;
+  const el = document.getElementById('code-preview');
+  codePreviewIsEditing = true;
+  el.classList.add('editing');
+  codePreviewUndoStack = [{ text: getCodePreviewText(), caret: getCaretOffsetWithin(el) }];
+  codePreviewRedoStack = [];
+}
+
+function syncManualCodePreview() {
+  const el = document.getElementById('code-preview');
+  const plain = (el.textContent || '').replace(/\r\n/g, '\n');
+  codePreviewManualText = plain;
+  codePreviewHasManual = true;
+}
+
+function exitCodePreviewEdit() {
+  if (!codePreviewIsEditing) return;
+  syncManualCodePreview();
+  codePreviewIsEditing = false;
+  document.getElementById('code-preview').classList.remove('editing');
+  updateCodePreview();
+  codePreviewUndoStack = [];
+  codePreviewRedoStack = [];
+}
+
+function insertTextAtCursor(text) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const node = document.createTextNode(text);
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function getCaretOffsetWithin(el) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return 0;
+  const range = sel.getRangeAt(0);
+  if (!el.contains(range.endContainer)) return 0;
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(el);
+  preRange.setEnd(range.endContainer, range.endOffset);
+  return preRange.toString().length;
+}
+
+function setCaretOffsetWithin(el, offset) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  let node = walker.nextNode();
+  let count = 0;
+  while (node) {
+    const nextCount = count + node.textContent.length;
+    if (offset <= nextCount) {
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.setStart(node, Math.max(0, offset - count));
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    count = nextCount;
+    node = walker.nextNode();
+  }
+}
+
+function getCurrentLineIndent(el) {
+  const text = (el.textContent || '').replace(/\r\n/g, '\n');
+  const caretOffset = getCaretOffsetWithin(el);
+  const lineStart = text.lastIndexOf('\n', Math.max(0, caretOffset - 1)) + 1;
+  const line = text.slice(lineStart, caretOffset);
+  const match = line.match(/^[ \t]*/);
+  return match ? match[0] : '';
+}
+
+function refreshEditingHighlight() {
+  if (codePreviewIsSyncing) return;
+  const el = document.getElementById('code-preview');
+  const caretOffset = getCaretOffsetWithin(el);
+  const plain = (el.textContent || '').replace(/\r\n/g, '\n');
+  codePreviewIsSyncing = true;
+  el.innerHTML = highlightRenpyCode(plain);
+  setCaretOffsetWithin(el, caretOffset);
+  codePreviewIsSyncing = false;
+}
+
+function scheduleEditingHighlight() {
+  if (codePreviewRefreshTimer) clearTimeout(codePreviewRefreshTimer);
+  codePreviewRefreshTimer = setTimeout(() => {
+    refreshEditingHighlight();
+    codePreviewRefreshTimer = null;
+  }, 80);
+}
+
+function pushUndoState() {
+  const el = document.getElementById('code-preview');
+  if (!el) return;
+  const text = (el.textContent || '').replace(/\r\n/g, '\n');
+  const caret = getCaretOffsetWithin(el);
+  const last = codePreviewUndoStack[codePreviewUndoStack.length - 1];
+  if (!last || last.text !== text) {
+    codePreviewUndoStack.push({ text, caret });
+    if (codePreviewUndoStack.length > 200) codePreviewUndoStack.shift();
+    codePreviewRedoStack = [];
+  }
+}
+
+function applyUndoRedoState(state) {
+  const el = document.getElementById('code-preview');
+  if (!el) return;
+  codePreviewIsSyncing = true;
+  el.innerHTML = highlightRenpyCode(state.text);
+  setCaretOffsetWithin(el, Math.min(state.caret, state.text.length));
+  codePreviewIsSyncing = false;
+  codePreviewManualText = state.text;
+  codePreviewHasManual = true;
+}
+
+function undoCodePreview() {
+  if (codePreviewUndoStack.length <= 1) return;
+  const current = codePreviewUndoStack.pop();
+  codePreviewRedoStack.push(current);
+  const prev = codePreviewUndoStack[codePreviewUndoStack.length - 1];
+  applyUndoRedoState(prev);
+  scheduleBlocksFromManualText();
+}
+
+function redoCodePreview() {
+  if (!codePreviewRedoStack.length) return;
+  const next = codePreviewRedoStack.pop();
+  codePreviewUndoStack.push(next);
+  applyUndoRedoState(next);
+  scheduleBlocksFromManualText();
+}
+
+function updateBlocksFromManualText() {
+  if (!codePreviewHasManual) return;
+  const raw = (codePreviewManualText || '').replace(/\r\n/g, '\n');
+  if (!raw.trim()) {
+    blocks = [];
+  } else {
+    blocks = parseLabelContentToBlocks(raw);
+  }
+  renderBlocks();
+}
+
+function scheduleBlocksFromManualText() {
+  if (codePreviewBlocksTimer) clearTimeout(codePreviewBlocksTimer);
+  codePreviewBlocksTimer = setTimeout(() => {
+    updateBlocksFromManualText();
+    codePreviewBlocksTimer = null;
+  }, 200);
 }
 
 async function copyCode() {
-  const code = generateCode(blocks);
+  const code = codePreviewHasManual ? codePreviewManualText : generateCode(blocks);
   await navigator.clipboard.writeText(code);
   notify(t('code_copied'), 'ok');
 }
@@ -708,14 +892,15 @@ function buildModifiedScript(existing, newCode) {
 
 async function appendToScript() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
-  if (!blocks.length) { notify(t('no_blocks_to_save'), 'err'); return; }
+  const codeText = codePreviewHasManual ? codePreviewManualText : generateCode(blocks);
+  if (!codeText.trim()) { notify(t('no_blocks_to_save'), 'err'); return; }
 
   const labelName = (document.getElementById('target-label')?.value || '').trim();
   if (labelName) {
     if (!confirm(t('overwrite_label', labelName))) return;
   }
 
-  const newCode = generateCode(blocks);
+  const newCode = codeText;
   const existing = await getScriptText() || '';
   const modified = buildModifiedScript(existing, newCode);
 
@@ -1114,6 +1299,7 @@ async function getScriptText() {
 async function onTargetLabelChange() {
   const sel = document.getElementById('target-label');
   const labelName = sel.value;
+  resetManualCodePreview();
   if (!labelName) {
     sel.dataset.prev = labelName;
     return;
@@ -1154,7 +1340,7 @@ async function onTargetLabelChange() {
 }
 
 function exportToFile() {
-  const code = generateCode(blocks);
+  const code = codePreviewHasManual ? codePreviewManualText : generateCode(blocks);
   if (!code.trim()) { notify(t('no_code_export'), 'err'); return; }
   const blob = new Blob([code], { type: 'text/plain' });
   const a = document.createElement('a');
@@ -2821,6 +3007,55 @@ function notify(msg, type = 'ok') {
   applyI18n();
   renderBlocks();
   updateCodePreview();
+
+  const codePreview = document.getElementById('code-preview');
+  if (codePreview) {
+    codePreview.setAttribute('contenteditable', 'true');
+    codePreview.setAttribute('spellcheck', 'false');
+    codePreview.addEventListener('focus', enterCodePreviewEdit);
+    codePreview.addEventListener('blur', exitCodePreviewEdit);
+    codePreview.addEventListener('input', () => {
+      syncManualCodePreview();
+      pushUndoState();
+      scheduleEditingHighlight();
+      scheduleBlocksFromManualText();
+    });
+    codePreview.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (text) insertTextAtCursor(text.replace(/\r\n/g, '\n'));
+      syncManualCodePreview();
+      pushUndoState();
+      scheduleEditingHighlight();
+      scheduleBlocksFromManualText();
+    });
+    codePreview.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (e.ctrlKey && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redoCodePreview();
+        else undoCodePreview();
+        return;
+      }
+      if (e.ctrlKey && key === 'y') {
+        e.preventDefault();
+        redoCodePreview();
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        insertTextAtCursor('    ');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const indent = getCurrentLineIndent(codePreview);
+        insertTextAtCursor('\n' + indent);
+        syncManualCodePreview();
+        pushUndoState();
+        scheduleEditingHighlight();
+        scheduleBlocksFromManualText();
+      }
+    });
+  }
 
   // Try to auto-load last project
   const lastPath = await window.api.loadLastProject();

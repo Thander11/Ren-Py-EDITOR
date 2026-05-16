@@ -188,6 +188,11 @@ body {
   tab-size: 4;
   border-radius: 4px;
 }
+#code-preview[contenteditable="true"] { cursor: text; }
+#code-preview.editing {
+  outline: 1px solid var(--accent);
+  background-color: var(--surface2);
+}
 
 /* Syntax Highlighting */
 .hl-keyword { color: var(--red); font-weight: bold; }
