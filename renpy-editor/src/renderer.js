@@ -19,6 +19,8 @@ let codePreviewRefreshTimer = null;
 let codePreviewBlocksTimer = null;
 let codePreviewUndoStack = [];
 let codePreviewRedoStack = [];
+let codePreviewDirty = false;
+let lastGeneratedPreviewText = '';
 
 const data = {
   characters: [],
@@ -681,7 +683,12 @@ function resetManualCodePreview() {
 }
 
 function updateCodePreview() {
-  if (codePreviewIsEditing) return;
+  const generated = getGeneratedPreviewText();
+  if (!codePreviewIsEditing && codePreviewHasManual && generated !== lastGeneratedPreviewText) {
+    resetManualCodePreview();
+  }
+  lastGeneratedPreviewText = generated;
+  if (codePreviewIsEditing && codePreviewHasManual) return;
   const code = getCodePreviewText();
   document.getElementById('code-preview').innerHTML = highlightRenpyCode(code);
 }
@@ -691,6 +698,7 @@ function enterCodePreviewEdit() {
   const el = document.getElementById('code-preview');
   codePreviewIsEditing = true;
   el.classList.add('editing');
+  codePreviewDirty = false;
   codePreviewUndoStack = [{ text: getCodePreviewText(), caret: getCaretOffsetWithin(el) }];
   codePreviewRedoStack = [];
 }
@@ -704,12 +712,13 @@ function syncManualCodePreview() {
 
 function exitCodePreviewEdit() {
   if (!codePreviewIsEditing) return;
-  syncManualCodePreview();
+  if (codePreviewDirty) syncManualCodePreview();
   codePreviewIsEditing = false;
   document.getElementById('code-preview').classList.remove('editing');
   updateCodePreview();
   codePreviewUndoStack = [];
   codePreviewRedoStack = [];
+  codePreviewDirty = false;
 }
 
 function insertTextAtCursor(text) {
@@ -3015,6 +3024,7 @@ function notify(msg, type = 'ok') {
     codePreview.addEventListener('focus', enterCodePreviewEdit);
     codePreview.addEventListener('blur', exitCodePreviewEdit);
     codePreview.addEventListener('input', () => {
+      codePreviewDirty = true;
       syncManualCodePreview();
       pushUndoState();
       scheduleEditingHighlight();
@@ -3024,6 +3034,7 @@ function notify(msg, type = 'ok') {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text');
       if (text) insertTextAtCursor(text.replace(/\r\n/g, '\n'));
+      codePreviewDirty = true;
       syncManualCodePreview();
       pushUndoState();
       scheduleEditingHighlight();
@@ -3049,6 +3060,7 @@ function notify(msg, type = 'ok') {
         e.preventDefault();
         const indent = getCurrentLineIndent(codePreview);
         insertTextAtCursor('\n' + indent);
+        codePreviewDirty = true;
         syncManualCodePreview();
         pushUndoState();
         scheduleEditingHighlight();
