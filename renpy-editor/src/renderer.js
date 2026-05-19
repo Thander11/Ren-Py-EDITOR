@@ -1548,7 +1548,7 @@ function openModal(type, existing) {
 let choiceBlockContext = null;
 let conditionBlockContext = null;
 
-function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop) {
+function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop, savedChoiceBlocksAtBottom) {
   const restoreGeneralScroll = () => {
     const modalBox = document.getElementById('modal-box');
     if (modalBox) modalBox.scrollTop = savedMenuScrollTop || 0;
@@ -1572,29 +1572,33 @@ function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScr
   setTimeout(() => {
     restoreGeneralScroll();
     const choiceBlocksList = document.getElementById('cbl-' + choiceIdx);
-    if (choiceBlocksList) choiceBlocksList.scrollTop = savedChoiceBlocksScrollTop || 0;
+    if (choiceBlocksList) {
+      if (savedChoiceBlocksAtBottom) choiceBlocksList.scrollTop = choiceBlocksList.scrollHeight;
+      else choiceBlocksList.scrollTop = savedChoiceBlocksScrollTop || 0;
+    }
   }, 140);
 }
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   if (conditionBlockContext) {
-    const { savedConditionBlock, savedEditingIndex, parentConditionContext, parentChoiceContext } = conditionBlockContext;
+    const { savedConditionBlock, savedEditingIndex, parentConditionContext, parentChoiceContext, branch, savedConditionScrollTop, savedBranchScrollTop, savedBranchAtBottom } = conditionBlockContext;
     conditionBlockContext = parentConditionContext || null;
     choiceBlockContext = parentChoiceContext || null;
     editingIndex = savedEditingIndex;
     pendingBlock = {};
     openModal('condition', savedConditionBlock);
+    restoreConditionPosition(branch, savedConditionScrollTop, savedBranchScrollTop, savedBranchAtBottom);
     return;
   }
   if (choiceBlockContext) {
-    const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, choiceIdx, parentChoiceContext, parentConditionContext } = choiceBlockContext;
+    const { savedMenuBlock, savedEditingIndex, savedMenuScrollTop, savedChoiceBlocksScrollTop, savedChoiceBlocksAtBottom, choiceIdx, parentChoiceContext, parentConditionContext } = choiceBlockContext;
     choiceBlockContext = parentChoiceContext || null;
     conditionBlockContext = parentConditionContext || null;
     editingIndex = savedEditingIndex;
     pendingBlock = {};
     openModal('menu', savedMenuBlock);
-    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
+    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop, savedChoiceBlocksAtBottom);
     return;
   }
   pendingBlock = {};
@@ -2260,6 +2264,10 @@ function addChoiceBlock(choiceIdx, type) {
   const savedMenuBlock = readCurrentMenuState();
   const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
   const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
+  const choiceBlocksList = document.getElementById('cbl-' + choiceIdx);
+  const savedChoiceBlocksAtBottom = choiceBlocksList
+    ? (choiceBlocksList.scrollTop + choiceBlocksList.clientHeight >= choiceBlocksList.scrollHeight - 8)
+    : false;
   choiceBlockContext = {
     choiceIdx,
     blockIdx: -1,
@@ -2267,6 +2275,7 @@ function addChoiceBlock(choiceIdx, type) {
     savedEditingIndex: editingIndex,
     savedMenuScrollTop,
     savedChoiceBlocksScrollTop,
+    savedChoiceBlocksAtBottom,
     parentChoiceContext: choiceBlockContext,
     parentConditionContext: conditionBlockContext
   };
@@ -2281,6 +2290,10 @@ function editChoiceBlock(choiceIdx, blockIdx) {
   if (!block) return;
   const savedMenuScrollTop = document.getElementById('modal-box')?.scrollTop || 0;
   const savedChoiceBlocksScrollTop = document.getElementById('cbl-' + choiceIdx)?.scrollTop || 0;
+  const choiceBlocksList = document.getElementById('cbl-' + choiceIdx);
+  const savedChoiceBlocksAtBottom = choiceBlocksList
+    ? (choiceBlocksList.scrollTop + choiceBlocksList.clientHeight >= choiceBlocksList.scrollHeight - 8)
+    : false;
   choiceBlockContext = {
     choiceIdx,
     blockIdx,
@@ -2288,6 +2301,7 @@ function editChoiceBlock(choiceIdx, blockIdx) {
     savedEditingIndex: editingIndex,
     savedMenuScrollTop,
     savedChoiceBlocksScrollTop,
+    savedChoiceBlocksAtBottom,
     parentChoiceContext: choiceBlockContext,
     parentConditionContext: conditionBlockContext
   };
@@ -2317,12 +2331,22 @@ function duplicateChoiceBlockToEnd(choiceIdx, blockIdx) {
   const clone = JSON.parse(JSON.stringify(bArr[blockIdx]));
   bArr.push(clone);
   setChoiceBlocks(choiceIdx, bArr);
+  scrollChoiceBlocksToBottom(choiceIdx);
 }
 
 function removeChoiceBlock(choiceIdx, blockIdx) {
   const bArr = getChoiceBlocks(choiceIdx);
   bArr.splice(blockIdx, 1);
   setChoiceBlocks(choiceIdx, bArr);
+}
+
+function scrollChoiceBlocksToBottom(choiceIdx) {
+  const doScroll = () => {
+    const listEl = document.getElementById('cbl-' + choiceIdx);
+    if (listEl) listEl.scrollTop = listEl.scrollHeight;
+  };
+  setTimeout(doScroll, 0);
+  setTimeout(doScroll, 140);
 }
 
 function addChoice() {
@@ -2338,6 +2362,38 @@ function parseConditionBranch(branch) {
   const m = /^elif-(\d+)$/.exec(branch);
   if (m) return { type: 'elif', index: parseInt(m[1], 10) };
   return { type: 'then' };
+}
+
+function getConditionBranchListId(branch) {
+  const info = parseConditionBranch(branch);
+  if (info.type === 'else') return 'ifebl';
+  if (info.type === 'elif') return `ifel-${info.index}`;
+  return 'ifbl';
+}
+
+function restoreConditionPosition(branch, savedModalScrollTop, savedBranchScrollTop, savedBranchAtBottom) {
+  const restore = () => {
+    const modalBox = document.getElementById('modal-box');
+    if (modalBox) modalBox.scrollTop = savedModalScrollTop || 0;
+    const listId = getConditionBranchListId(branch);
+    const listEl = document.getElementById(listId);
+    if (listEl) {
+      if (savedBranchAtBottom) listEl.scrollTop = listEl.scrollHeight;
+      else listEl.scrollTop = savedBranchScrollTop || 0;
+    }
+  };
+  setTimeout(restore, 0);
+  setTimeout(restore, 140);
+}
+
+function scrollConditionBranchToBottom(branch) {
+  const doScroll = () => {
+    const listId = getConditionBranchListId(branch);
+    const listEl = document.getElementById(listId);
+    if (listEl) listEl.scrollTop = listEl.scrollHeight;
+  };
+  setTimeout(doScroll, 0);
+  setTimeout(doScroll, 140);
 }
 
 function getConditionBranchBlocks(conditionBlock, branch) {
@@ -2497,11 +2553,22 @@ function readCurrentConditionState() {
 
 function addConditionBlock(branch, type) {
   const savedConditionBlock = readCurrentConditionState();
+  const modalBox = document.getElementById('modal-box');
+  const listId = getConditionBranchListId(branch);
+  const listEl = document.getElementById(listId);
+  const savedConditionScrollTop = modalBox?.scrollTop || 0;
+  const savedBranchScrollTop = listEl?.scrollTop || 0;
+  const savedBranchAtBottom = listEl
+    ? (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 8)
+    : false;
   conditionBlockContext = {
     branch,
     blockIdx: -1,
     savedConditionBlock,
     savedEditingIndex: editingIndex,
+    savedConditionScrollTop,
+    savedBranchScrollTop,
+    savedBranchAtBottom,
     parentConditionContext: conditionBlockContext,
     parentChoiceContext: choiceBlockContext
   };
@@ -2515,11 +2582,22 @@ function editConditionBlock(branch, blockIdx) {
   const source = getConditionBranchBlocks(savedConditionBlock, branch);
   const block = source?.[blockIdx];
   if (!block) return;
+  const modalBox = document.getElementById('modal-box');
+  const listId = getConditionBranchListId(branch);
+  const listEl = document.getElementById(listId);
+  const savedConditionScrollTop = modalBox?.scrollTop || 0;
+  const savedBranchScrollTop = listEl?.scrollTop || 0;
+  const savedBranchAtBottom = listEl
+    ? (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 8)
+    : false;
   conditionBlockContext = {
     branch,
     blockIdx,
     savedConditionBlock,
     savedEditingIndex: editingIndex,
+    savedConditionScrollTop,
+    savedBranchScrollTop,
+    savedBranchAtBottom,
     parentConditionContext: conditionBlockContext,
     parentChoiceContext: choiceBlockContext
   };
@@ -2548,6 +2626,7 @@ function duplicateConditionBlockToEnd(branch, blockIdx) {
   const clone = JSON.parse(JSON.stringify(bArr[blockIdx]));
   bArr.push(clone);
   setConditionBlocks(branch, bArr);
+  scrollConditionBranchToBottom(branch);
 }
 
 function removeConditionBlock(branch, blockIdx) {
@@ -2593,7 +2672,7 @@ async function saveBlock() {
 
   if (conditionBlockContext) {
     const ctx = conditionBlockContext;
-    const { branch, blockIdx, savedConditionBlock } = ctx;
+    const { branch, blockIdx, savedConditionBlock, savedConditionScrollTop, savedBranchScrollTop, savedBranchAtBottom } = ctx;
     const info = parseConditionBranch(branch);
     let targetArr = [];
     if (info.type === 'else') {
@@ -2619,13 +2698,14 @@ async function saveBlock() {
     document.getElementById('modal-overlay').classList.remove('open');
     pendingBlock = {};
     openModal('condition', savedConditionBlock);
+    restoreConditionPosition(branch, savedConditionScrollTop, savedBranchScrollTop, savedBranchAtBottom);
     notify(ctx.blockIdx >= 0 ? t('condition_block_edited') : t('condition_block_added'), 'ok');
     return;
   }
 
   if (choiceBlockContext) {
     const ctx = choiceBlockContext;
-    const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop } = ctx;
+    const { choiceIdx, blockIdx, savedMenuBlock, savedMenuScrollTop, savedChoiceBlocksScrollTop, savedChoiceBlocksAtBottom } = ctx;
     if (blockIdx >= 0) {
       savedMenuBlock.choices[choiceIdx].blocks[blockIdx] = b;
     } else {
@@ -2637,7 +2717,7 @@ async function saveBlock() {
     document.getElementById('modal-overlay').classList.remove('open');
     pendingBlock = {};
     openModal('menu', savedMenuBlock);
-    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop);
+    restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScrollTop, savedChoiceBlocksAtBottom);
     notify(ctx.blockIdx >= 0 ? t('choice_block_edited') : t('choice_block_added'), 'ok');
     return;
   }
