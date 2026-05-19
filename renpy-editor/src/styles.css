@@ -220,6 +220,7 @@ body {
 .btn-secondary:hover { background: var(--border); }
 .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
 .btn-sm { padding: 3px 8px; font-size: 11px; }
+.toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* ── Blocks ── */
 .block {

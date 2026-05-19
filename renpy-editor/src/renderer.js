@@ -359,8 +359,10 @@ function blockDesc(b) {
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
     case 'condition': {
       const hasElse = !!b.hasElse;
+      const elifCount = (b.elifBlocks || []).length;
+      const elifInfo = elifCount ? ` + ${elifCount} elif` : '';
       const elseInfo = hasElse ? ` + else (${b.elseBlocks?.length || 0} ${t('blocks_label')})` : '';
-      return `if ${b.condition || '...'} (${b.blocks?.length || 0} ${t('blocks_label')})${elseInfo}`;
+      return `if ${b.condition || '...'} (${b.blocks?.length || 0} ${t('blocks_label')})${elifInfo}${elseInfo}`;
     }
     case 'pause':     return b.duration ? `pause ${b.duration}s` : 'pause';
     case 'music':     return `${b.action} music "${b.file||'...'}"`;
@@ -553,6 +555,19 @@ function blockToCode(b, indent = '    ') {
         lines.push(b.blocks.map(ib => blockToCode(ib, innerIndent)).filter(Boolean).join('\n\n'));
       } else {
         lines.push(`${indent}    pass`);
+      }
+      if (b.elifBlocks && b.elifBlocks.length) {
+        const innerIndent = indent + '    ';
+        b.elifBlocks.forEach(eb => {
+          const elifCond = (eb.condition || '').trim();
+          if (!elifCond) return;
+          lines.push(`${indent}elif ${elifCond}:`);
+          if (eb.blocks && eb.blocks.length) {
+            lines.push(eb.blocks.map(ib => blockToCode(ib, innerIndent)).filter(Boolean).join('\n\n'));
+          } else {
+            lines.push(`${indent}    pass`);
+          }
+        });
       }
       if (b.hasElse) {
         lines.push(`${indent}else:`);
@@ -1202,58 +1217,61 @@ function parseLabelContentToBlocks(labelText) {
     if (ifM) {
       const cond = ifM[1].trim();
       const baseIndent = raw.match(/^(\s*)/)[1].length;
-      const thenLines = [];
-      let j = i + 1;
-      while (j < lines.length) {
-        const nextRaw = lines[j];
-        const nextTrimmed = nextRaw.trim();
-        if (!nextTrimmed) { thenLines.push(''); j++; continue; }
-        const nextIndent = nextRaw.match(/^(\s*)/)[1].length;
-        if (nextIndent <= baseIndent) break;
-        const stripIndent = baseIndent + 4;
-        if (nextRaw.startsWith(' '.repeat(stripIndent))) {
-          thenLines.push(nextRaw.slice(stripIndent));
-        } else {
-          thenLines.push(nextRaw.trimStart());
+      const collectBranchLines = (startIdx) => {
+        const branchLines = [];
+        let idx = startIdx;
+        while (idx < lines.length) {
+          const nextRaw = lines[idx];
+          const nextTrimmed = nextRaw.trim();
+          if (!nextTrimmed) { branchLines.push(''); idx++; continue; }
+          const nextIndent = nextRaw.match(/^(\s*)/)[1].length;
+          if (nextIndent <= baseIndent) break;
+          const stripIndent = baseIndent + 4;
+          if (nextRaw.startsWith(' '.repeat(stripIndent))) {
+            branchLines.push(nextRaw.slice(stripIndent));
+          } else {
+            branchLines.push(nextRaw.trimStart());
+          }
+          idx++;
         }
-        j++;
-      }
+        return { branchLines, nextIdx: idx };
+      };
 
+      const { branchLines: thenLines, nextIdx: thenEnd } = collectBranchLines(i + 1);
       const thenBlocks = parseLabelContentToBlocks(thenLines.join('\n'));
+      const elifBlocks = [];
       let hasElse = false;
       let elseBlocks = [];
 
-      let k = j;
-      while (k < lines.length && !lines[k].trim()) k++;
-      if (k < lines.length) {
-        const elseRaw = lines[k];
-        const elseTrimmed = elseRaw.trim();
-        const elseIndent = elseRaw.match(/^(\s*)/)[1].length;
-        if (elseIndent === baseIndent && /^else\s*:\s*$/.test(elseTrimmed)) {
-          hasElse = true;
-          k++;
-          const elseLines = [];
-          while (k < lines.length) {
-            const nextRaw = lines[k];
-            const nextTrimmed = nextRaw.trim();
-            if (!nextTrimmed) { elseLines.push(''); k++; continue; }
-            const nextIndent = nextRaw.match(/^(\s*)/)[1].length;
-            if (nextIndent <= baseIndent) break;
-            const stripIndent = baseIndent + 4;
-            if (nextRaw.startsWith(' '.repeat(stripIndent))) {
-              elseLines.push(nextRaw.slice(stripIndent));
-            } else {
-              elseLines.push(nextRaw.trimStart());
-            }
-            k++;
-          }
-          elseBlocks = parseLabelContentToBlocks(elseLines.join('\n'));
-          j = k;
+      let k = thenEnd;
+      while (k < lines.length) {
+        while (k < lines.length && !lines[k].trim()) k++;
+        if (k >= lines.length) break;
+        const branchRaw = lines[k];
+        const branchTrimmed = branchRaw.trim();
+        const branchIndent = branchRaw.match(/^(\s*)/)[1].length;
+        if (branchIndent !== baseIndent) break;
+
+        const elifM = branchTrimmed.match(/^elif\s+(.+)\s*:\s*$/);
+        if (elifM) {
+          const elifCond = elifM[1].trim();
+          const { branchLines, nextIdx } = collectBranchLines(k + 1);
+          elifBlocks.push({ condition: elifCond, blocks: parseLabelContentToBlocks(branchLines.join('\n')) });
+          k = nextIdx;
+          continue;
         }
+
+        if (/^else\s*:\s*$/.test(branchTrimmed)) {
+          hasElse = true;
+          const { branchLines, nextIdx } = collectBranchLines(k + 1);
+          elseBlocks = parseLabelContentToBlocks(branchLines.join('\n'));
+          k = nextIdx;
+        }
+        break;
       }
 
-      result.push({ type: 'condition', condition: cond, blocks: thenBlocks, hasElse, elseBlocks });
-      i = j;
+      result.push({ type: 'condition', condition: cond, blocks: thenBlocks, elifBlocks, hasElse, elseBlocks });
+      i = k;
       continue;
     }
 
@@ -1397,6 +1415,12 @@ function getShownSprites(blockList, limit) {
     else if (b.type === 'condition') {
       const thenShown = getShownSprites(b.blocks || [], (b.blocks || []).length);
       thenShown.forEach(k => shown.set(k, k));
+      if (b.elifBlocks && b.elifBlocks.length) {
+        b.elifBlocks.forEach(eb => {
+          const elifShown = getShownSprites(eb.blocks || [], (eb.blocks || []).length);
+          elifShown.forEach(k => shown.set(k, k));
+        });
+      }
       if (b.hasElse && b.elseBlocks) {
         const elseShown = getShownSprites(b.elseBlocks, b.elseBlocks.length);
         elseShown.forEach(k => shown.set(k, k));
@@ -1427,9 +1451,7 @@ function getShownSprites(blockList, limit) {
   // evaluados hasta el bloque en edición.
   if (conditionBlockContext && blockList === blocks) {
     const currentConditionBlock = conditionBlockContext.savedConditionBlock;
-    const branchBlocks = conditionBlockContext.branch === 'else'
-      ? (currentConditionBlock?.elseBlocks || [])
-      : (currentConditionBlock?.blocks || []);
+    const branchBlocks = getConditionBranchBlocks(currentConditionBlock, conditionBlockContext.branch);
     const innerLimit = conditionBlockContext.blockIdx >= 0
       ? conditionBlockContext.blockIdx
       : branchBlocks.length;
@@ -1517,6 +1539,7 @@ function openModal(type, existing) {
   if (type === 'condition') {
     setTimeout(() => {
       renderConditionBlocks('then');
+      renderAllElifBlocks();
       renderConditionBlocks('else');
     }, 50);
   }
@@ -1998,6 +2021,7 @@ function buildMenuBody(b) {
 function buildConditionBody(b) {
   const blocksJson = b.blocks ? escHtml(JSON.stringify(b.blocks)) : '[]';
   const elseBlocksJson = b.elseBlocks ? escHtml(JSON.stringify(b.elseBlocks)) : '[]';
+  const elifBlocks = Array.isArray(b.elifBlocks) ? b.elifBlocks : [];
   const hasElse = !!b.hasElse;
   return `
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">${t('condition_hint')}</div>
@@ -2017,10 +2041,16 @@ function buildConditionBody(b) {
       <div id="ifbl" class="choice-blocks-list"></div>
     </div>
     <div class="form-group" style="margin-top:10px;">
-      <label class="radio-option">
-        <input type="checkbox" id="f-cond-has-else" ${hasElse ? 'checked' : ''} onchange="toggleConditionElse()">
-        ${t('condition_enable_else')}
-      </label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <label class="form-label" style="margin-bottom:0;">${t('condition_elif_blocks')}</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="addElifBlock()">${t('condition_add_elif')}</button>
+          <button class="btn btn-secondary btn-sm toggle-btn ${hasElse ? 'active' : ''}" type="button" onclick="toggleConditionElse()" id="f-cond-has-else">${hasElse ? t('condition_else_added') : t('condition_enable_else')}</button>
+        </div>
+      </div>
+      <div id="elif-list" style="margin-top:6px;">
+        ${elifBlocks.map((eb, i) => buildConditionElifHtml(eb, i)).join('')}
+      </div>
     </div>
     <div id="if-else-section" ${hasElse ? '' : 'style="display:none"'}>
       <div class="form-group">
@@ -2037,8 +2067,38 @@ function buildConditionBody(b) {
     </div>`;
 }
 
+function buildConditionElifHtml(eb, i) {
+  const blocksJson = eb.blocks ? escHtml(JSON.stringify(eb.blocks)) : '[]';
+  return `<div class="choice-item" id="elif-${i}" data-elif-index="${i}">
+    <div class="choice-header">
+      <span class="choice-number">ELIF ${i + 1}</span>
+      <button class="btn btn-secondary choice-remove" type="button" onclick="removeElifBlock(${i})" title="${t('remove_elif')}">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('condition_elif_condition')}</label>
+      <input class="form-input" id="ife-cond-${i}" value="${escHtml(eb.condition || '')}" placeholder="${t('condition_expression_placeholder')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('condition_elif_blocks')}</label>
+      <input type="hidden" id="ife-${i}" value="${blocksJson}">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+          const m = BLOCK_META[t2];
+          return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('elif-${i}','${t2}')">${m.icon}</button>`;
+        }).join('')}
+      </div>
+      <div id="ifel-${i}" class="choice-blocks-list"></div>
+    </div>
+  </div>`;
+}
+
 function toggleConditionElse() {
-  const show = document.getElementById('f-cond-has-else')?.checked;
+  const btn = document.getElementById('f-cond-has-else');
+  const show = !btn?.classList.contains('active');
+  if (btn) {
+    btn.classList.toggle('active', show);
+    btn.textContent = show ? t('condition_else_added') : t('condition_enable_else');
+  }
   const sec = document.getElementById('if-else-section');
   if (sec) sec.style.display = show ? '' : 'none';
   if (show) renderConditionBlocks('else');
@@ -2273,26 +2333,60 @@ function addChoice() {
   list.appendChild(div.firstElementChild);
 }
 
+function parseConditionBranch(branch) {
+  if (branch === 'then' || branch === 'else') return { type: branch };
+  const m = /^elif-(\d+)$/.exec(branch);
+  if (m) return { type: 'elif', index: parseInt(m[1], 10) };
+  return { type: 'then' };
+}
+
+function getConditionBranchBlocks(conditionBlock, branch) {
+  const info = parseConditionBranch(branch);
+  if (info.type === 'else') return conditionBlock?.elseBlocks || [];
+  if (info.type === 'elif') return conditionBlock?.elifBlocks?.[info.index]?.blocks || [];
+  return conditionBlock?.blocks || [];
+}
+
 function getConditionBlocks(branch = 'then') {
-  const id = branch === 'else' ? 'ifeb' : 'ifb';
+  const info = parseConditionBranch(branch);
+  const id = info.type === 'else'
+    ? 'ifeb'
+    : info.type === 'elif'
+      ? `ife-${info.index}`
+      : 'ifb';
   try { return JSON.parse(document.getElementById(id)?.value || '[]'); }
   catch (e) { return []; }
 }
 
 function setConditionBlocks(branch, bArr) {
-  const id = branch === 'else' ? 'ifeb' : 'ifb';
+  const info = parseConditionBranch(branch);
+  const id = info.type === 'else'
+    ? 'ifeb'
+    : info.type === 'elif'
+      ? `ife-${info.index}`
+      : 'ifb';
   const inp = document.getElementById(id);
   if (inp) inp.value = JSON.stringify(bArr);
   renderConditionBlocks(branch);
 }
 
 function renderConditionBlocks(branch = 'then') {
-  const listId = branch === 'else' ? 'ifebl' : 'ifbl';
+  const info = parseConditionBranch(branch);
+  const listId = info.type === 'else'
+    ? 'ifebl'
+    : info.type === 'elif'
+      ? `ifel-${info.index}`
+      : 'ifbl';
   const list = document.getElementById(listId);
   if (!list) return;
   const bArr = getConditionBlocks(branch);
   if (!bArr.length) {
-    list.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:10px;">${branch === 'else' ? t('no_blocks_in_condition_else') : t('no_blocks_in_condition')}</div>`;
+    const emptyMsg = info.type === 'else'
+      ? t('no_blocks_in_condition_else')
+      : info.type === 'elif'
+        ? t('no_blocks_in_condition_elif')
+        : t('no_blocks_in_condition');
+    list.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:10px;">${emptyMsg}</div>`;
     return;
   }
   list.innerHTML = bArr.map((b, j) => {
@@ -2310,6 +2404,51 @@ function renderConditionBlocks(branch = 'then') {
       <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--red);padding:2px;" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}">🗑</button>
     </div>`;
   }).join('');
+}
+
+function renderAllElifBlocks() {
+  const list = document.getElementById('elif-list');
+  if (!list) return;
+  const items = list.querySelectorAll('[data-elif-index]');
+  items.forEach(el => {
+    const idx = parseInt(el.dataset.elifIndex, 10);
+    if (!Number.isNaN(idx)) renderConditionBlocks(`elif-${idx}`);
+  });
+}
+
+function readConditionElifs() {
+  const list = document.getElementById('elif-list');
+  if (!list) return [];
+  const items = list.querySelectorAll('[data-elif-index]');
+  const elifs = [];
+  items.forEach(el => {
+    const idx = parseInt(el.dataset.elifIndex, 10);
+    const condition = document.getElementById(`ife-cond-${idx}`)?.value || '';
+    let blocks = [];
+    try { blocks = JSON.parse(document.getElementById(`ife-${idx}`)?.value || '[]'); } catch (e) { blocks = []; }
+    elifs.push({ condition: condition.trim(), blocks });
+  });
+  return elifs;
+}
+
+function rebuildElifList(elifs) {
+  const list = document.getElementById('elif-list');
+  if (!list) return;
+  list.innerHTML = (elifs || []).map((eb, i) => buildConditionElifHtml(eb, i)).join('');
+  renderAllElifBlocks();
+}
+
+function addElifBlock() {
+  const current = readCurrentConditionState();
+  current.elifBlocks = current.elifBlocks || [];
+  current.elifBlocks.push({ condition: '', blocks: [] });
+  rebuildElifList(current.elifBlocks);
+}
+
+function removeElifBlock(idx) {
+  const current = readCurrentConditionState();
+  current.elifBlocks = (current.elifBlocks || []).filter((_, i) => i !== idx);
+  rebuildElifList(current.elifBlocks);
 }
 
 let conditionDragSrc = null;
@@ -2345,11 +2484,13 @@ function readCurrentConditionState() {
   let elseBlocks = [];
   try { condBlocks = JSON.parse(document.getElementById('ifb')?.value || '[]'); } catch (e) {}
   try { elseBlocks = JSON.parse(document.getElementById('ifeb')?.value || '[]'); } catch (e) {}
+  const hasElse = document.getElementById('f-cond-has-else')?.classList.contains('active');
   return {
     type: 'condition',
     condition: (document.getElementById('f-cond')?.value || '').trim(),
     blocks: condBlocks,
-    hasElse: !!document.getElementById('f-cond-has-else')?.checked,
+    elifBlocks: readConditionElifs(),
+    hasElse: !!hasElse,
     elseBlocks
   };
 }
@@ -2371,7 +2512,7 @@ function addConditionBlock(branch, type) {
 
 function editConditionBlock(branch, blockIdx) {
   const savedConditionBlock = readCurrentConditionState();
-  const source = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
+  const source = getConditionBranchBlocks(savedConditionBlock, branch);
   const block = source?.[blockIdx];
   if (!block) return;
   conditionBlockContext = {
@@ -2453,8 +2594,20 @@ async function saveBlock() {
   if (conditionBlockContext) {
     const ctx = conditionBlockContext;
     const { branch, blockIdx, savedConditionBlock } = ctx;
-    const targetArr = branch === 'else' ? savedConditionBlock.elseBlocks : savedConditionBlock.blocks;
-    if (branch === 'else') savedConditionBlock.hasElse = true;
+    const info = parseConditionBranch(branch);
+    let targetArr = [];
+    if (info.type === 'else') {
+      savedConditionBlock.hasElse = true;
+      targetArr = savedConditionBlock.elseBlocks;
+    } else if (info.type === 'elif') {
+      if (!savedConditionBlock.elifBlocks) savedConditionBlock.elifBlocks = [];
+      if (!savedConditionBlock.elifBlocks[info.index]) {
+        savedConditionBlock.elifBlocks[info.index] = { condition: '', blocks: [] };
+      }
+      targetArr = savedConditionBlock.elifBlocks[info.index].blocks;
+    } else {
+      targetArr = savedConditionBlock.blocks;
+    }
     if (blockIdx >= 0) {
       targetArr[blockIdx] = b;
     } else {
@@ -2590,7 +2743,11 @@ function readModalValues() {
       } catch (e) {
         b.blocks = [];
       }
-      b.hasElse = gb('f-cond-has-else');
+      b.elifBlocks = readConditionElifs();
+      for (const eb of b.elifBlocks) {
+        if (!eb.condition) { notify(t('write_elif_condition'), 'err'); return null; }
+      }
+      b.hasElse = !!document.getElementById('f-cond-has-else')?.classList.contains('active');
       try {
         b.elseBlocks = JSON.parse(document.getElementById('ifeb')?.value || '[]');
       } catch (e) {
