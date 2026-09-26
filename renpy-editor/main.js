@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const url = require('url');
 const { spawn } = require('child_process');
 
@@ -13,6 +14,7 @@ let settings = {
   lastProjectPath: '',
   lastGamePath: '',
   renpyExecutablePath: '',
+  renpyInstallDir: '',
   projectsDirectory: '',
   windowMaximized: false,
   panelSizes: { panelCode: 560, panelAssets: 220 }
@@ -303,6 +305,12 @@ async function ensureRenpyExecutablePath() {
   const savedPath = settings.renpyExecutablePath;
   if (savedPath && fs.existsSync(savedPath) && fs.statSync(savedPath).isFile()) {
     return savedPath;
+  }
+  const detected = findInstalledRenpy();
+  if (detected) {
+    settings.renpyExecutablePath = detected;
+    saveSettings();
+    return detected;
   }
 
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -902,4 +910,232 @@ ipcMain.handle('create-renpy-project', async (_, opts) => {
   startFileWatcher(currentGamePath);
 
   return { ok: true, gamePath, projectDir };
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// REN'PY SDK: DETECTION AND AUTOMATIC INSTALLATION
+// ═════════════════════════════════════════════════════════════════════
+const RENPY_WEBSITE = 'https://www.renpy.org/latest.html';
+const RENPY_DL_BASE = 'https://www.renpy.org/dl';
+const RENPY_FALLBACK_VERSION = '8.5.3';
+const RENPY_EXE_NAME = process.platform === 'win32' ? 'renpy.exe' : 'renpy.sh';
+let renpyInstallAbort = null;
+
+// Node's fetch (streams + AbortSignal); Electron's net.fetch as fallback
+function httpFetch(url, opts) {
+  return typeof fetch === 'function' ? fetch(url, opts) : net.fetch(url, opts);
+}
+
+function isValidRenpyExecutable(p) {
+  try { return !!p && fs.existsSync(p) && fs.statSync(p).isFile(); } catch (e) { return false; }
+}
+
+function compareVersions(a, b) {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+// Look for "renpy-<version>-sdk" folders in the usual places; returns the newest executable
+function findInstalledRenpy() {
+  const home = app.getPath('home');
+  const roots = [
+    settings.renpyInstallDir,
+    home,
+    path.join(home, 'Documents'),
+    path.join(home, 'Downloads'),
+    path.join(home, 'Desktop'),
+    path.join(home, 'RenPy'),
+    process.env.ProgramFiles,
+    process.env['ProgramFiles(x86)'],
+    process.env.LOCALAPPDATA
+  ];
+  if (process.platform === 'win32') {
+    for (const letter of 'CDEFGHIJ') roots.push(letter + ':\\');
+  }
+  const found = [];
+  for (const root of [...new Set(roots.filter(Boolean))]) {
+    let entries = [];
+    try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch (e) { continue; }
+    for (const entry of entries) {
+      const m = /^renpy-(\d+(?:\.\d+)*)-sdk$/i.exec(entry.name);
+      if (!m || !entry.isDirectory()) continue;
+      const exe = path.join(root, entry.name, RENPY_EXE_NAME);
+      if (isValidRenpyExecutable(exe)) found.push({ version: m[1], exe });
+    }
+  }
+  found.sort((a, b) => compareVersions(b.version, a.version));
+  return found[0]?.exe || null;
+}
+
+// ── Is Ren'Py available? Uses the saved path or searches the usual folders ──
+ipcMain.handle('check-renpy', () => {
+  if (isValidRenpyExecutable(settings.renpyExecutablePath)) {
+    return { installed: true, path: settings.renpyExecutablePath };
+  }
+  const exe = findInstalledRenpy();
+  if (exe) {
+    settings.renpyExecutablePath = exe;
+    saveSettings();
+    return { installed: true, path: exe, detected: true };
+  }
+  return { installed: false };
+});
+
+ipcMain.handle('open-renpy-website', () => shell.openExternal(RENPY_WEBSITE));
+
+// ── Let the user pick renpy.exe manually ──
+ipcMain.handle('select-renpy-executable', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: mt('renpy_select_exe_title'),
+    properties: ['openFile'],
+    filters: process.platform === 'win32'
+      ? [{ name: 'renpy.exe', extensions: ['exe'] }, { name: '*', extensions: ['*'] }]
+      : [{ name: '*', extensions: ['*'] }]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  settings.renpyExecutablePath = result.filePaths[0];
+  saveSettings();
+  return settings.renpyExecutablePath;
+});
+
+function sendRenpyProgress(data) {
+  if (mainWindow) mainWindow.webContents.send('renpy-install-progress', data);
+}
+
+// Latest version from the Ren'Py website (falls back to a known version)
+async function resolveLatestRenpyVersion(signal) {
+  try {
+    const res = await httpFetch(RENPY_WEBSITE, { signal });
+    const html = await res.text();
+    const m = /\/dl\/(\d+(?:\.\d+)+)\/renpy-\1-sdk\.zip/.exec(html);
+    if (m) return m[1];
+  } catch (e) {
+    if (signal.aborted) throw e;
+  }
+  return RENPY_FALLBACK_VERSION;
+}
+
+// Expected hash of the zip from checksums.txt (sha256 preferred), or null
+async function fetchRenpyChecksum(version, fileName, signal) {
+  try {
+    const res = await httpFetch(`${RENPY_DL_BASE}/${version}/checksums.txt`, { signal });
+    if (!res.ok) return null;
+    const text = await res.text();
+    const hashes = {};
+    let section = '';
+    for (const line of text.split('\n')) {
+      const sec = /^#\s*(\w+)/.exec(line);
+      if (sec) { section = sec[1].toLowerCase(); continue; }
+      const m = /^([0-9a-f]+)\s+(\S+)$/i.exec(line.trim());
+      if (m && m[2] === fileName) hashes[section] = m[1].toLowerCase();
+    }
+    for (const algo of ['sha256', 'sha1', 'md5']) if (hashes[algo]) return { algo, hash: hashes[algo] };
+  } catch (e) {
+    if (signal.aborted) throw e;
+  }
+  return null;
+}
+
+// Download url to dest reporting progress; returns the hex digest with algo (if given)
+async function downloadFile(url, dest, algo, signal) {
+  const res = await httpFetch(url, { signal });
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+  const total = parseInt(res.headers.get('content-length') || '0', 10);
+  const hash = algo ? crypto.createHash(algo) : null;
+  const out = fs.createWriteStream(dest);
+  let received = 0, lastSent = 0;
+  try {
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      if (hash) hash.update(value);
+      if (!out.write(value)) await new Promise(r => out.once('drain', r));
+      const now = Date.now();
+      if (now - lastSent > 150) { lastSent = now; sendRenpyProgress({ phase: 'download', received, total }); }
+    }
+  } finally {
+    await new Promise(r => out.end(r));
+  }
+  sendRenpyProgress({ phase: 'download', received, total: total || received });
+  return hash ? hash.digest('hex') : null;
+}
+
+async function extractZip(zipPath, destDir) {
+  if (process.platform === 'win32') {
+    // bsdtar shipped with Windows 10+ extracts zip files; PowerShell as fallback
+    const tarExe = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+    if (fs.existsSync(tarExe)) {
+      const r = await runProcess(tarExe, ['-xf', zipPath, '-C', destDir], { timeout: 30 * 60 * 1000 });
+      if (r.code === 0) return;
+    }
+    const ps = await runProcess('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`
+    ], { timeout: 30 * 60 * 1000 });
+    if (ps.code !== 0) throw new Error(ps.error || 'Expand-Archive failed');
+  } else {
+    const r = await runProcess('unzip', ['-q', '-o', zipPath, '-d', destDir], { timeout: 30 * 60 * 1000 });
+    if (r.code !== 0) throw new Error(r.error || 'unzip failed');
+  }
+}
+
+// ── Download the latest Ren'Py SDK and install it in a folder chosen by the user ──
+ipcMain.handle('install-renpy', async () => {
+  const pick = await dialog.showOpenDialog(mainWindow, {
+    title: mt('renpy_install_folder_title'),
+    buttonLabel: mt('renpy_install_folder_button'),
+    properties: ['openDirectory', 'createDirectory', 'promptToCreate'],
+    defaultPath: settings.renpyInstallDir || app.getPath('home')
+  });
+  if (pick.canceled || !pick.filePaths.length) return { ok: false, error: 'cancelled' };
+  const installDir = pick.filePaths[0];
+
+  const controller = new AbortController();
+  renpyInstallAbort = controller;
+  const { signal } = controller;
+  let zipPath = '';
+  try {
+    fs.mkdirSync(installDir, { recursive: true });
+    sendRenpyProgress({ phase: 'resolve' });
+    const version = await resolveLatestRenpyVersion(signal);
+    const sdkName = `renpy-${version}-sdk`;
+    const exe = path.join(installDir, sdkName, RENPY_EXE_NAME);
+
+    if (!isValidRenpyExecutable(exe)) {
+      const fileName = `${sdkName}.zip`;
+      const checksum = await fetchRenpyChecksum(version, fileName, signal);
+      zipPath = path.join(app.getPath('temp'), `renpy-editor-${Date.now()}-${fileName}`);
+      sendRenpyProgress({ phase: 'download', received: 0, total: 0, version });
+      const digest = await downloadFile(`${RENPY_DL_BASE}/${version}/${fileName}`, zipPath, checksum?.algo, signal);
+      if (checksum && digest !== checksum.hash) throw new Error(mt('renpy_checksum_error'));
+
+      sendRenpyProgress({ phase: 'extract' });
+      await extractZip(zipPath, installDir);
+      if (process.platform !== 'win32') { try { fs.chmodSync(exe, 0o755); } catch (e) { /* ignore */ } }
+      if (!isValidRenpyExecutable(exe)) throw new Error(mt('renpy_exe_not_found', exe));
+    }
+
+    settings.renpyExecutablePath = exe;
+    settings.renpyInstallDir = installDir;
+    saveSettings();
+    sendRenpyProgress({ phase: 'done' });
+    return { ok: true, path: exe, version };
+  } catch (e) {
+    if (signal.aborted) return { ok: false, error: 'aborted' };
+    return { ok: false, error: 'failed', message: e.message };
+  } finally {
+    renpyInstallAbort = null;
+    if (zipPath) { try { fs.unlinkSync(zipPath); } catch (e) { /* ignore */ } }
+  }
+});
+
+ipcMain.handle('cancel-renpy-install', () => {
+  if (renpyInstallAbort) renpyInstallAbort.abort();
+  return true;
 });

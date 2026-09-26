@@ -36,6 +36,11 @@
       </select>
     </div>
     <div class="form-group">
+      <label class="form-label">Ren'Py</label>
+      <div class="settings-path" id="setting-renpy-path"></div>
+      <button class="btn btn-secondary btn-sm" onclick="openRenpyDialog()" data-i18n="renpy_change_or_install">⚙️ Cambiar o instalar</button>
+    </div>
+    <div class="form-group">
       <label class="form-label" data-i18n="projects_dir">Carpeta de proyectos</label>
       <div class="settings-path" id="setting-projects-dir"></div>
       <button class="btn btn-secondary btn-sm" onclick="changeProjectsDirectory()" data-i18n="change_folder">📂 Cambiar carpeta</button>
@@ -124,6 +129,17 @@
       <div id="project-footer">
         <button class="btn btn-secondary" onclick="closeProjectDialog()" data-i18n="cancel">Cancelar</button>
         <button class="btn btn-primary" onclick="createProject()" data-i18n="create_project">Crear proyecto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ren'Py not installed dialog -->
+  <div id="renpy-overlay">
+    <div id="renpy-box">
+      <div id="renpy-header"><span data-i18n="renpy_required_title">Ren'Py es necesario</span></div>
+      <div id="renpy-body"></div>
+      <div id="renpy-footer">
+        <button class="btn btn-secondary" id="renpy-later-btn" onclick="closeRenpyDialog()" data-i18n="renpy_later">Ahora no</button>
       </div>
     </div>
   </div>

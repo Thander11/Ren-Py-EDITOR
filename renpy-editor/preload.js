@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('api', {
   loadLastProject: () => ipcRenderer.invoke('load-last-project'),
   reloadCurrentProject: () => ipcRenderer.invoke('reload-current-project'),
   launchRenpyProject: () => ipcRenderer.invoke('launch-renpy-project'),
+  checkRenpy: () => ipcRenderer.invoke('check-renpy'),
+  openRenpyWebsite: () => ipcRenderer.invoke('open-renpy-website'),
+  selectRenpyExecutable: () => ipcRenderer.invoke('select-renpy-executable'),
+  installRenpy: () => ipcRenderer.invoke('install-renpy'),
+  cancelRenpyInstall: () => ipcRenderer.invoke('cancel-renpy-install'),
   selectProjectsDirectory: () => ipcRenderer.invoke('select-projects-directory'),
   ensureProjectsDirectory: () => ipcRenderer.invoke('ensure-projects-directory'),
   createRenpyProject: (opts) => ipcRenderer.invoke('create-renpy-project', opts),
@@ -34,4 +39,5 @@ contextBridge.exposeInMainWorld('api', {
   onSettingsChanged: (cb) => ipcRenderer.on('settings-changed', (_, s) => cb(s)),
   onFileChanged: (cb) => ipcRenderer.on('file-changed', (_, filename) => cb(filename)),
   onProjectCreationProgress: (cb) => ipcRenderer.on('project-creation-progress', (_, step) => cb(step)),
+  onRenpyInstallProgress: (cb) => ipcRenderer.on('renpy-install-progress', (_, data) => cb(data)),
 });

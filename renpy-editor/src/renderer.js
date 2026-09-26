@@ -106,6 +106,7 @@ async function changeLanguage(lang) {
   await loadI18n(lang);
   applyI18n();
   updateProjectsDirLabel();
+  updateRenpyPathLabel();
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();
@@ -3685,6 +3686,122 @@ async function launchProjectFromEditor() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// REN'PY SDK — warning when it isn't installed and automatic install
+// ═══════════════════════════════════════════════════════════════════
+let renpyInstalling = false;
+let renpyExecutablePath = '';
+
+function updateRenpyPathLabel() {
+  const el = document.getElementById('setting-renpy-path');
+  if (!el) return;
+  el.textContent = renpyExecutablePath || t('renpy_not_installed_short');
+  el.title = renpyExecutablePath || '';
+}
+
+// On startup: if Ren'Py isn't found, explain that it's needed and offer to install it
+async function checkRenpyInstallation() {
+  const st = await window.api.checkRenpy();
+  renpyExecutablePath = st.installed ? st.path : '';
+  updateRenpyPathLabel();
+  if (st.installed) {
+    if (st.detected) notify(t('renpy_detected', st.path), 'ok');
+    return true;
+  }
+  openRenpyDialog();
+  return false;
+}
+
+function openRenpyDialog() {
+  document.getElementById('renpy-body').innerHTML = `
+    <p class="renpy-msg">${t('renpy_missing_message')}</p>
+    <div class="renpy-actions">
+      <button class="btn btn-primary" onclick="installRenpyAutomatically()">⬇️ ${t('renpy_install_auto')}</button>
+      <button class="btn btn-secondary" onclick="window.api.openRenpyWebsite()">🌐 ${t('renpy_go_website')}</button>
+      <button class="btn btn-secondary" onclick="selectRenpyExecutableManually()">📂 ${t('renpy_select_existing')}</button>
+    </div>
+    <div class="np-hint">${t('renpy_install_hint')}</div>
+    <div id="renpy-progress" class="renpy-progress" style="display:none;">
+      <div class="renpy-progress-text" id="renpy-progress-text"></div>
+      <div class="renpy-bar"><div id="renpy-bar-fill"></div></div>
+      <button class="btn btn-secondary btn-sm" id="renpy-cancel-btn" onclick="window.api.cancelRenpyInstall()">${t('cancel')}</button>
+    </div>`;
+  document.getElementById('renpy-later-btn').disabled = false;
+  document.getElementById('renpy-overlay').classList.add('open');
+}
+
+function closeRenpyDialog() {
+  if (renpyInstalling) return;
+  document.getElementById('renpy-overlay').classList.remove('open');
+}
+
+function setRenpyDialogBusy(busy) {
+  renpyInstalling = busy;
+  document.querySelectorAll('#renpy-box .renpy-actions button, #renpy-later-btn').forEach(el => { el.disabled = busy; });
+}
+
+function formatMB(bytes) { return (bytes / 1048576).toFixed(1); }
+
+function onRenpyInstallProgress(p) {
+  const box = document.getElementById('renpy-progress');
+  const text = document.getElementById('renpy-progress-text');
+  const fill = document.getElementById('renpy-bar-fill');
+  const cancel = document.getElementById('renpy-cancel-btn');
+  if (!box || !text || !fill) return;
+  box.style.display = '';
+  fill.classList.remove('indeterminate');
+  if (cancel) cancel.style.display = p.phase === 'resolve' || p.phase === 'download' ? '' : 'none';
+  if (p.phase === 'resolve') {
+    text.textContent = t('renpy_step_resolve');
+    fill.classList.add('indeterminate');
+  } else if (p.phase === 'download') {
+    const pct = p.total ? Math.round(p.received / p.total * 100) : 0;
+    text.textContent = p.total
+      ? t('renpy_step_download', formatMB(p.received), formatMB(p.total), pct)
+      : t('renpy_step_download_unknown', formatMB(p.received));
+    fill.style.width = pct + '%';
+    if (!p.total) fill.classList.add('indeterminate');
+  } else if (p.phase === 'extract') {
+    text.textContent = t('renpy_step_extract');
+    fill.classList.add('indeterminate');
+  } else if (p.phase === 'done') {
+    text.textContent = t('renpy_step_done');
+    fill.style.width = '100%';
+  }
+}
+
+async function installRenpyAutomatically() {
+  if (renpyInstalling) return;
+  setRenpyDialogBusy(true);
+  const res = await window.api.installRenpy();
+  setRenpyDialogBusy(false);
+  if (res?.ok) {
+    renpyExecutablePath = res.path;
+    updateRenpyPathLabel();
+    notify(t('renpy_installed', res.version || ''), 'ok');
+    document.getElementById('renpy-overlay').classList.remove('open');
+    return;
+  }
+  if (res?.error === 'cancelled') return;
+  const msg = res?.error === 'aborted' ? t('renpy_install_aborted') : t('renpy_install_failed', res?.message || '');
+  const text = document.getElementById('renpy-progress-text');
+  if (text) { text.textContent = msg; document.getElementById('renpy-progress').style.display = ''; }
+  const fill = document.getElementById('renpy-bar-fill');
+  if (fill) { fill.classList.remove('indeterminate'); fill.style.width = '0%'; }
+  const cancel = document.getElementById('renpy-cancel-btn');
+  if (cancel) cancel.style.display = 'none';
+  notify(msg, 'err');
+}
+
+async function selectRenpyExecutableManually() {
+  const exe = await window.api.selectRenpyExecutable();
+  if (!exe) return;
+  renpyExecutablePath = exe;
+  updateRenpyPathLabel();
+  notify(t('renpy_path_saved'), 'ok');
+  document.getElementById('renpy-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // NEW REN'PY PROJECT
 // Same options as the Ren'Py launcher: name, resolution and GUI colors
 // ═══════════════════════════════════════════════════════════════════
@@ -3947,8 +4064,11 @@ function notify(msg, type = 'ok') {
 
   applyI18n();
   updateProjectsDirLabel();
+  updateRenpyPathLabel();
   renderBlocks();
   updateCodePreview();
+
+  window.api.onRenpyInstallProgress(onRenpyInstallProgress);
 
   window.api.onProjectCreationProgress((step) => {
     if (creatingProject) showProjectProgress(t('project_step_' + step.replace(/-/g, '_')));
@@ -4017,6 +4137,9 @@ function notify(msg, type = 'ok') {
     setStatus(gamePath, 'ok');
     notify(t('active_file', activeRpyFile), 'ok');
   }
+
+  // Warn if Ren'Py isn't installed (offers to download and install it)
+  await checkRenpyInstallation();
 
   // Listen for reload events from declaration window
   window.api.onReloadData(async () => {
