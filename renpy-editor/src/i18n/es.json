@@ -268,5 +268,13 @@
   "stop_preview": "Detener reproducción",
   "no_audio_files": "No hay archivos de audio en la carpeta audio/ del proyecto.",
   "no_results": "Sin resultados.",
-  "audio_play_error": "No se pudo reproducir \"{0}\""
+  "audio_play_error": "No se pudo reproducir \"{0}\"",
+  "block_solid": "Solid",
+  "solid_color": "Color",
+  "solid_pick_color": "Abrir paleta de colores",
+  "solid_opacity": "Opacidad",
+  "solid_name": "Nombre de la expresión (as)",
+  "solid_code_preview": "Código generado",
+  "solid_invalid_color": "El color debe ser un código hexadecimal válido (#RGB, #RGBA, #RRGGBB o #RRGGBBAA)",
+  "solid_invalid_name": "Escribe un nombre válido (letras, números y _, sin empezar por número)"
 }

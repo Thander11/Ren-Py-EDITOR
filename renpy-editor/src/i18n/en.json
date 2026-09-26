@@ -266,5 +266,13 @@
   "stop_preview": "Stop playback",
   "no_audio_files": "There are no audio files in the project's audio/ folder.",
   "no_results": "No results.",
-  "audio_play_error": "Could not play \"{0}\""
+  "audio_play_error": "Could not play \"{0}\"",
+  "block_solid": "Solid",
+  "solid_color": "Color",
+  "solid_pick_color": "Open color palette",
+  "solid_opacity": "Opacity",
+  "solid_name": "Expression name (as)",
+  "solid_code_preview": "Generated code",
+  "solid_invalid_color": "The color must be a valid hex code (#RGB, #RGBA, #RRGGBB or #RRGGBBAA)",
+  "solid_invalid_name": "Enter a valid name (letters, numbers and _, not starting with a number)"
 }

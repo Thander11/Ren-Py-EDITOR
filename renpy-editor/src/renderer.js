@@ -341,6 +341,7 @@ const BLOCK_META = {
   hide:       { icon: '🫥', labelKey: 'block_hide',           color: '#f5a623' },
   hide_multi: { icon: '🫧', labelKey: 'block_hide_multi',     color: '#e67e22' },
   scene:      { icon: '🌄', labelKey: 'block_scene',          color: '#9c59d1' },
+  solid:      { icon: '🎨', labelKey: 'block_solid',          color: '#5d6d7e' },
   label:      { icon: '📌', labelKey: 'block_label',         color: '#e94560' },
   menu:       { icon: '❓', labelKey: 'block_menu',            color: '#e67e22' },
   condition:  { icon: '🔀', labelKey: 'block_condition',       color: '#8e7cc3' },
@@ -361,6 +362,7 @@ function blockDesc(b) {
     case 'hide':       return `hide ${b.image}${b.transition?' with '+b.transition:''}`;
     case 'hide_multi': return `ocultar: ${(b.sprites||[]).map(s=>s.image).join(', ')}${b.transition?' with '+b.transition:''}`;
     case 'scene':     return `scene ${b.background}${b.transition?' with '+b.transition:''}`;
+    case 'solid':     return `Solid("${b.color}") as ${b.name}${b.transition?' with '+b.transition:''}`;
     case 'label':     return `label ${b.name}:`;
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
     case 'condition': {
@@ -501,6 +503,12 @@ function blockToCode(b, indent = '    ') {
 
     case 'scene': {
       let s = `${indent}scene ${b.background}`;
+      if (b.transition) s += ` with ${b.transition}`;
+      return s;
+    }
+
+    case 'solid': {
+      let s = `${indent}show expression Solid("${b.color}") as ${b.name}`;
       if (b.transition) s += ` with ${b.transition}`;
       return s;
     }
@@ -1001,6 +1009,18 @@ function parseLabelContentToBlocks(labelText) {
     const sceneM = trimmed.match(/^scene\s+(.+?)(?:\s+with\s+(\w+))?$/);
     if (sceneM) { result.push({ type: 'scene', background: sceneM[1], transition: sceneM[2] || '' }); i++; continue; }
 
+    // Solid: show expression Solid("#000B") as name
+    const solidM = trimmed.match(/^show\s+expression\s+Solid\(\s*"(#[0-9A-Fa-f]{3,8})"\s*\)\s+as\s+(\w+)(?:\s+with\s+(\w+))?$/);
+    if (solidM) {
+      let transition = solidM[3] || '';
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      const withM = !transition && j < lines.length ? lines[j].trim().match(/^with\s+(\w+)$/) : null;
+      if (withM) { transition = withM[1]; i = j; }
+      result.push({ type: 'solid', color: solidM[1], name: solidM[2], transition });
+      i++; continue;
+    }
+
     // Show
     const showM = trimmed.match(/^show\s+(.+?)(?:\s+at\s+(.+?))?(?:\s+behind\s+(\w+))?(?:\s+with\s+(\w+))?$/);
     if (showM) {
@@ -1399,6 +1419,7 @@ function getShownSprites(blockList, limit) {
     const b = blockList[i];
     if (!b) continue;
     if (b.type === 'show' && b.image) shown.set(b.image, b.image);
+    else if (b.type === 'solid' && b.name) shown.set(b.name, b.name);
     else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
     else if (b.type === 'hide' && b.image) shown.delete(b.image);
     else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
@@ -1442,6 +1463,7 @@ function getShownSprites(blockList, limit) {
         const b = currentChoice.blocks[i];
         if (!b) continue;
         if (b.type === 'show' && b.image) shown.set(b.image, b.image);
+        else if (b.type === 'solid' && b.name) shown.set(b.name, b.name);
         else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
         else if (b.type === 'hide' && b.image) shown.delete(b.image);
         else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
@@ -1463,6 +1485,7 @@ function getShownSprites(blockList, limit) {
       const b = branchBlocks[i];
       if (!b) continue;
       if (b.type === 'show' && b.image) shown.set(b.image, b.image);
+      else if (b.type === 'solid' && b.name) shown.set(b.name, b.name);
       else if (b.type === 'show_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.set(sp.image, sp.image); });
       else if (b.type === 'hide' && b.image) shown.delete(b.image);
       else if (b.type === 'hide_multi' && b.sprites) b.sprites.forEach(sp => { if (sp.image) shown.delete(sp.image); });
@@ -1531,6 +1554,7 @@ function openModal(type, existing) {
     renderAudioList();
     refreshAudioFiles();
   }
+  if (type === 'solid') updateSolidPreview();
   if (type === 'menu') {
     setTimeout(() => {
       const sprite = pendingBlock.choiceCharacter || '';
@@ -1969,6 +1993,8 @@ function buildModalBody(type, b) {
       </div>`;
     }
 
+    case 'solid': return buildSolidBody(b);
+
     case 'label': return `
       <div class="form-group">
         <label class="form-label">${t('label_name')}</label>
@@ -2081,6 +2107,112 @@ function handleCustomCodeKeydown(e, el) {
       }
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SOLID MODAL — show expression Solid("#RRGGBBAA") as name
+// ═══════════════════════════════════════════════════════════════════
+const SOLID_PALETTE = [
+  '#000000', '#ffffff', '#808080', '#1a1a2e', '#e94560', '#c0392b', '#e67e22', '#f1c40f',
+  '#2ecc71', '#16a085', '#3498db', '#2c3e50', '#9b59b6', '#ff9ff3', '#f5deb3', '#8b4513'
+];
+
+// "#RGB", "#RGBA", "#RRGGBB" or "#RRGGBBAA" -> { r, g, b, a } (0-255), or null
+function parseHexColor(hex) {
+  const m = /^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec((hex || '').trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length <= 4) h = h.split('').map(c => c + c).join('');
+  const n = i => parseInt(h.slice(i, i + 2), 16);
+  return { r: n(0), g: n(2), b: n(4), a: h.length === 8 ? n(6) : 255 };
+}
+
+function toHex2(v) { return Math.round(v).toString(16).padStart(2, '0'); }
+
+function formatHexColor({ r, g, b, a }) {
+  return '#' + toHex2(r) + toHex2(g) + toHex2(b) + (a < 255 ? toHex2(a) : '');
+}
+
+function buildSolidBody(b) {
+  const color = parseHexColor(b.color) || { r: 0, g: 0, b: 0, a: 187 };
+  const hex = b.color || formatHexColor(color);
+  const alphaPct = Math.round(color.a / 255 * 100);
+  return `
+    <div class="form-group">
+      <label class="form-label">${t('solid_color')}</label>
+      <div class="solid-color-row">
+        <input type="color" id="f-solid-picker" class="solid-picker" value="${formatHexColor({ ...color, a: 255 })}" oninput="onSolidPickerInput()" title="${t('solid_pick_color')}">
+        <input class="form-input" id="f-solid-hex" value="${escHtml(hex)}" maxlength="9" placeholder="#000000B0" oninput="onSolidHexInput()" style="max-width:140px;font-family:monospace;">
+        <div class="solid-preview"><div id="f-solid-preview"></div></div>
+      </div>
+      <div class="solid-palette">
+        ${SOLID_PALETTE.map(c => `<button type="button" class="solid-swatch" style="background:${c}" title="${c}" onclick="onSolidSwatch('${c}')"></button>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('solid_opacity')}: <span id="f-solid-alpha-val">${alphaPct}%</span></label>
+      <input type="range" id="f-solid-alpha" min="0" max="100" value="${alphaPct}" oninput="onSolidAlphaInput()" style="width:100%;">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">${t('solid_name')}</label>
+        <input class="form-input" id="f-solid-name" value="${escHtml(b.name || '')}" placeholder="Ej: oscurecer" oninput="updateSolidPreview()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('transition_with')}</label>
+        ${buildTransitionSelect('f-trans', b.transition)}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('solid_code_preview')}</label>
+      <code id="f-solid-code" class="solid-code"></code>
+    </div>`;
+}
+
+function updateSolidPreview() {
+  const hex = (document.getElementById('f-solid-hex')?.value || '').trim();
+  const color = parseHexColor(hex);
+  const prev = document.getElementById('f-solid-preview');
+  if (prev) prev.style.background = color ? formatHexColor(color) : 'transparent';
+  document.getElementById('f-solid-hex')?.classList.toggle('invalid', !color);
+  const name = (document.getElementById('f-solid-name')?.value || '').trim() || '...';
+  const code = document.getElementById('f-solid-code');
+  if (code) code.textContent = `show expression Solid("${hex}") as ${name}`;
+}
+
+// Picker, swatches and slider rewrite the hex field; typing a hex updates them
+function setSolidFromParts(rgbHex, alphaPct) {
+  const c = parseHexColor(rgbHex);
+  if (!c) return;
+  c.a = Math.round(alphaPct / 100 * 255);
+  document.getElementById('f-solid-hex').value = formatHexColor(c);
+  updateSolidPreview();
+}
+
+function onSolidPickerInput() {
+  setSolidFromParts(document.getElementById('f-solid-picker').value, +document.getElementById('f-solid-alpha').value);
+}
+
+function onSolidSwatch(c) {
+  document.getElementById('f-solid-picker').value = c;
+  onSolidPickerInput();
+}
+
+function onSolidAlphaInput() {
+  const pct = +document.getElementById('f-solid-alpha').value;
+  document.getElementById('f-solid-alpha-val').textContent = pct + '%';
+  setSolidFromParts(document.getElementById('f-solid-picker').value, pct);
+}
+
+function onSolidHexInput() {
+  const c = parseHexColor(document.getElementById('f-solid-hex').value);
+  if (c) {
+    const pct = Math.round(c.a / 255 * 100);
+    document.getElementById('f-solid-picker').value = formatHexColor({ ...c, a: 255 });
+    document.getElementById('f-solid-alpha').value = pct;
+    document.getElementById('f-solid-alpha-val').textContent = pct + '%';
+  }
+  updateSolidPreview();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2220,7 +2352,7 @@ function buildConditionBody(b) {
       <label class="form-label">${t('condition_blocks')}</label>
       <input type="hidden" id="ifb" value="${blocksJson}">
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
           const m = BLOCK_META[t2];
           return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('then','${t2}')">${m.icon}</button>`;
         }).join('')}
@@ -2244,7 +2376,7 @@ function buildConditionBody(b) {
         <label class="form-label">${t('condition_else_blocks')}</label>
         <input type="hidden" id="ifeb" value="${elseBlocksJson}">
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-          ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+          ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
             const m = BLOCK_META[t2];
             return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('else','${t2}')">${m.icon}</button>`;
           }).join('')}
@@ -2269,7 +2401,7 @@ function buildConditionElifHtml(eb, i) {
       <label class="form-label">${t('condition_elif_blocks')}</label>
       <input type="hidden" id="ife-${i}" value="${blocksJson}">
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+        ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
           const m = BLOCK_META[t2];
           return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('elif-${i}','${t2}')">${m.icon}</button>`;
         }).join('')}
@@ -2346,7 +2478,7 @@ function buildChoiceHtml(ch, i) {
     </div>
     <input type="hidden" id="cb-${i}" value="${blocksJson}">
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-      ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+      ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','condition','pause','music','jump','call','comment','custom'].map(t2 => {
         const m = BLOCK_META[t2];
         return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addChoiceBlock(${i},'${t2}')">${m.icon}</button>`;
       }).join('')}
@@ -3029,6 +3161,16 @@ function readModalValues() {
       if (!b.background) { notify(t('select_background'), 'err'); return null; }
       b.transition = g('f-trans') || '';
       break;
+    case 'solid': {
+      let color = (g('f-solid-hex') || '').trim();
+      if (color && !color.startsWith('#')) color = '#' + color;
+      if (!parseHexColor(color)) { notify(t('solid_invalid_color'), 'err'); return null; }
+      b.color = color;
+      b.name = (g('f-solid-name') || '').trim().replace(/\s+/g, '_');
+      if (!/^[A-Za-z_]\w*$/.test(b.name)) { notify(t('solid_invalid_name'), 'err'); return null; }
+      b.transition = g('f-trans') || '';
+      break;
+    }
     case 'label':
       b.name = (g('f-name') || '').trim().replace(/\s+/g, '_');
       if (!b.name) { notify(t('label_empty'), 'err'); return null; }
