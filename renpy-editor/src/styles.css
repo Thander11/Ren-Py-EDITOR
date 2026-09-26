@@ -454,6 +454,8 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   display: block;
   background: var(--surface2);
 }
+.img-picker.fitted { justify-content: start; }
+.img-picker.fitted .img-option img { aspect-ratio: var(--img-ratio); object-fit: cover; }
 .img-option .lbl {
   font-size: 9px;
   color: var(--text2);

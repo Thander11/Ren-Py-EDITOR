@@ -3475,6 +3475,8 @@ function populateExpressionPicker(charId, selectedKey, preferredType) {
   const picker = document.getElementById('expr-picker');
   const exprSel = document.getElementById('f-expr');
   if (!picker) return;
+  picker.classList.remove('fitted');
+  picker.style.gridTemplateColumns = '';
   const chr = data.characters.find(c => c.id === charId) || null;
   const exprs = getCharExpressions(data.characters, chr, data.expressions);
   const types = [...new Set(exprs.map(e => getExpressionType(chr, e.key)))];
@@ -3505,6 +3507,24 @@ function populateExpressionPicker(charId, selectedKey, preferredType) {
       <img src="${getImageURL(e.path)}" onerror="this.style.display='none'" />
       <div class="lbl">${escHtml(expressionLabel(chr, e.key))}</div>
     </div>`).join('');
+  fitPickerToImages(picker);
+}
+
+// Size the tiles of a picker to its images (they are assumed to share one size):
+// same proportions as the image, and a width that follows the image width.
+function fitPickerToImages(picker) {
+  const img = picker.querySelector('img');
+  if (!img) return;
+  const apply = () => {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) return;
+    const tileW = Math.round(Math.max(90, Math.min(w / 2, 220)));
+    picker.style.setProperty('--img-ratio', `${w} / ${h}`);
+    picker.style.gridTemplateColumns = `repeat(auto-fill, ${tileW}px)`;
+    picker.classList.add('fitted');
+  };
+  if (img.complete) apply();
+  else img.addEventListener('load', apply, { once: true });
 }
 
 function selectExpression(key) {
