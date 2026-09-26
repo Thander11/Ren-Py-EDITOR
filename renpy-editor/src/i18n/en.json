@@ -304,5 +304,17 @@
   "project_step_generating": "⏳ Creating the project with Ren'Py (this may take a few seconds)...",
   "project_step_images": "⏳ Generating the interface images...",
   "project_step_editor_files": "⏳ Adding the editor files...",
-  "project_created": "Project \"{0}\" created and opened"
+  "project_created": "Project \"{0}\" created and opened",
+  "migration_title": "Image folders in Spanish",
+  "migration_message": "This project still uses the image folders with Spanish names. The editor now uses the English folders. Do you want to move the files and update the paths in the .rpy files?",
+  "migration_folder_line": "• {0} → {1} ({2} files)",
+  "migration_refs_line": "• {0} paths in the .rpy files point to Spanish folders",
+  "migration_detail_note": "Files that already exist in the English folder are not overwritten. Only paths whose file exists in the English folder are changed.",
+  "migration_accept": "Move and update paths",
+  "migration_later": "Not now",
+  "migration_done": "Migration completed: {0} files moved and {1} paths updated.",
+  "migration_duplicates": "{0} files were already copied in the English folder and have been removed from the Spanish folder.",
+  "migration_conflicts": "{0} files were not moved because a different file with the same name already exists in the English folder.",
+  "migration_remaining": "{0} paths still point to Spanish folders because their file doesn't exist in the English folder.",
+  "migration_error": "Error during the migration: {0}"
 }

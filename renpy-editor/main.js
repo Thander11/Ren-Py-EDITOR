@@ -322,6 +322,164 @@ async function ensureRenpyExecutablePath() {
   return selected;
 }
 
+// ── i18n for dialogs shown by the main process ──
+function mt(key, ...args) {
+  let dict = {};
+  try {
+    dict = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'i18n', (settings.language || 'es') + '.json'), 'utf-8'));
+  } catch (e) { /* use key */ }
+  let str = dict[key] || key;
+  args.forEach((a, i) => { str = str.replace(`{${i}}`, a); });
+  return str;
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// LEGACY (SPANISH) IMAGE FOLDERS → ENGLISH FOLDERS
+// ═════════════════════════════════════════════════════════════════════
+const LEGACY_IMAGE_DIRS = {
+  personajes: 'characters',
+  fondos: 'backgrounds',
+  escenas: 'scenes',
+  expresiones: 'expressions'
+};
+// "personajes/..." or "images/personajes/..." inside a quoted string
+const LEGACY_PATH_RE = /(["'])((?:images\/)?)(personajes|fondos|escenas|expresiones)\/([^"'\n]*)\1/g;
+const declinedMigrations = new Set();
+
+function countFiles(dir) {
+  return listDirRecursive(dir, dir).filter(f => !f.isDir).length;
+}
+
+function filesAreEqual(a, b) {
+  try {
+    const sa = fs.statSync(a), sb = fs.statSync(b);
+    if (sa.size !== sb.size) return false;
+    return fs.readFileSync(a).equals(fs.readFileSync(b));
+  } catch (e) { return false; }
+}
+
+// Remove empty folders (bottom-up), including dir itself if it ends up empty
+function removeEmptyDirs(dir) {
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return;
+  for (const entry of fs.readdirSync(dir)) removeEmptyDirs(path.join(dir, entry));
+  if (!fs.readdirSync(dir).length) fs.rmdirSync(dir);
+}
+
+// Move every file from src to dst keeping subfolders. Files already present in dst
+// are deleted from src when identical, and left in place when different.
+function moveDirContents(src, dst, stats) {
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name), to = path.join(dst, entry.name);
+    if (entry.isDirectory()) {
+      moveDirContents(from, to, stats);
+    } else if (!fs.existsSync(to)) {
+      fs.mkdirSync(dst, { recursive: true });
+      try { fs.renameSync(from, to); } catch (e) { fs.copyFileSync(from, to); fs.unlinkSync(from); }
+      stats.moved++;
+    } else if (filesAreEqual(from, to)) {
+      fs.unlinkSync(from);
+      stats.duplicates++;
+    } else {
+      stats.conflicts++;
+    }
+  }
+}
+
+function listProjectRpyFiles(gamePath) {
+  return listDirRecursive(gamePath, gamePath)
+    .filter(f => !f.isDir && f.name.endsWith('.rpy'))
+    .map(f => path.join(gamePath, f.path));
+}
+
+// Rewrite legacy paths in the .rpy files when the file exists in the English folder
+function rewriteLegacyImagePaths(gamePath, apply) {
+  let count = 0;
+  for (const fp of listProjectRpyFiles(gamePath)) {
+    let text;
+    try { text = fs.readFileSync(fp, 'utf-8'); } catch (e) { continue; }
+    let changed = false;
+    const newText = text.replace(LEGACY_PATH_RE, (match, q, prefix, legacy, rest) => {
+      const target = path.join(gamePath, 'images', LEGACY_IMAGE_DIRS[legacy], rest);
+      if (!fs.existsSync(target)) return match;
+      // A different file with the same name was left in the legacy folder: keep pointing to it
+      const legacyFile = path.join(gamePath, 'images', legacy, rest);
+      if (fs.existsSync(legacyFile) && !filesAreEqual(legacyFile, target)) return match;
+      count++;
+      changed = true;
+      return `${q}${prefix}${LEGACY_IMAGE_DIRS[legacy]}/${rest}${q}`;
+    });
+    if (apply && changed) fs.writeFileSync(fp, newText, 'utf-8');
+  }
+  return count;
+}
+
+// Count legacy path references in the .rpy files (whether or not the target exists)
+function countLegacyReferences(gamePath) {
+  let count = 0;
+  for (const fp of listProjectRpyFiles(gamePath)) {
+    try { count += (fs.readFileSync(fp, 'utf-8').match(LEGACY_PATH_RE) || []).length; } catch (e) { /* skip */ }
+  }
+  return count;
+}
+
+// If the project still uses the Spanish image folders, ask to move their files to the
+// English ones and update the paths in the .rpy files.
+async function offerLegacyFolderMigration(gamePath) {
+  if (!gamePath || declinedMigrations.has(gamePath)) return;
+  const imagesDir = path.join(gamePath, 'images');
+  const legacyDirs = Object.keys(LEGACY_IMAGE_DIRS)
+    .map(name => ({ name, dir: path.join(imagesDir, name) }))
+    .filter(d => fs.existsSync(d.dir) && fs.statSync(d.dir).isDirectory());
+  const withFiles = legacyDirs.map(d => ({ ...d, files: countFiles(d.dir) })).filter(d => d.files > 0);
+  const refs = countLegacyReferences(gamePath);
+
+  if (!withFiles.length && !refs) {
+    // Only empty legacy folders left: remove them
+    legacyDirs.forEach(d => { try { removeEmptyDirs(d.dir); } catch (e) { /* ignore */ } });
+    return;
+  }
+
+  const detail = [
+    ...withFiles.map(d => mt('migration_folder_line', `images/${d.name}`, `images/${LEGACY_IMAGE_DIRS[d.name]}`, d.files)),
+    refs ? mt('migration_refs_line', refs) : ''
+  ].filter(Boolean).join('\n');
+
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: [mt('migration_accept'), mt('migration_later')],
+    defaultId: 0,
+    cancelId: 1,
+    title: mt('migration_title'),
+    message: mt('migration_message'),
+    detail: detail + '\n\n' + mt('migration_detail_note')
+  });
+  if (response !== 0) { declinedMigrations.add(gamePath); return; }
+
+  const stats = { moved: 0, duplicates: 0, conflicts: 0 };
+  let rewritten = 0;
+  try {
+    for (const d of legacyDirs) {
+      moveDirContents(d.dir, path.join(imagesDir, LEGACY_IMAGE_DIRS[d.name]), stats);
+      removeEmptyDirs(d.dir);
+    }
+    rewritten = rewriteLegacyImagePaths(gamePath, true);
+  } catch (e) {
+    dialog.showMessageBox(mainWindow, { type: 'error', title: mt('migration_title'), message: mt('migration_error', e.message) });
+    return;
+  }
+  const remaining = countLegacyReferences(gamePath);
+  dialog.showMessageBox(mainWindow, {
+    type: stats.conflicts || remaining ? 'warning' : 'info',
+    title: mt('migration_title'),
+    message: mt('migration_done', stats.moved, rewritten),
+    detail: [
+      stats.duplicates ? mt('migration_duplicates', stats.duplicates) : '',
+      stats.conflicts ? mt('migration_conflicts', stats.conflicts) : '',
+      remaining ? mt('migration_remaining', remaining) : ''
+    ].filter(Boolean).join('\n')
+  });
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // IPC HANDLERS
 // ═════════════════════════════════════════════════════════════════════
@@ -347,7 +505,8 @@ ipcMain.handle('select-project-folder', async () => {
   settings.lastGamePath = selectedPath;
   saveSettings();
 
-  // Auto-create missing folders and .rpy files
+  // Move legacy Spanish image folders (asks first), then create missing folders and .rpy files
+  await offerLegacyFolderMigration(currentGamePath);
   ensureProjectStructure(currentGamePath);
 
   // Start watching for file changes
@@ -471,7 +630,7 @@ ipcMain.handle('save-settings', (_, newSettings) => {
 ipcMain.handle('get-game-path', () => currentGamePath);
 
 // ── Load last project (auto-load on startup) ──
-ipcMain.handle('load-last-project', () => {
+ipcMain.handle('load-last-project', async () => {
   if (!settings.lastGamePath) return null;
   if (!fs.existsSync(settings.lastGamePath)) {
     settings.lastGamePath = '';
@@ -479,6 +638,7 @@ ipcMain.handle('load-last-project', () => {
     return null;
   }
   currentGamePath = settings.lastGamePath;
+  await offerLegacyFolderMigration(currentGamePath);
   ensureProjectStructure(currentGamePath);
   startFileWatcher(currentGamePath);
   return currentGamePath;
