@@ -138,6 +138,31 @@ function createDeclarationWindow() {
   declWindow.on('closed', () => { declWindow = null; });
 }
 
+// Folders (relative to game/) that the editor reads from and writes to
+const PROJECT_FOLDERS = [
+  'audio',
+  path.join('images', 'characters'),
+  path.join('images', 'backgrounds'),
+  path.join('images', 'scenes'),
+  path.join('images', 'expressions')
+];
+
+// ── Auto-create the folders used by the editor if missing ──
+function autoCreateFolders(gamePath) {
+  for (const rel of PROJECT_FOLDERS) {
+    const dir = path.join(gamePath, rel);
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    } catch (e) { /* ignore: folder can't be created */ }
+  }
+}
+
+// ── Prepare a project so it has every file and folder the editor needs ──
+function ensureProjectStructure(gamePath) {
+  autoCreateFolders(gamePath);
+  autoCreateRpyFiles(gamePath);
+}
+
 // ── Auto-create default .rpy files if missing ──
 function autoCreateRpyFiles(gamePath) {
   const defaults = {
@@ -296,8 +321,8 @@ ipcMain.handle('select-project-folder', async () => {
   settings.lastGamePath = selectedPath;
   saveSettings();
 
-  // Auto-create missing .rpy files
-  autoCreateRpyFiles(currentGamePath);
+  // Auto-create missing folders and .rpy files
+  ensureProjectStructure(currentGamePath);
 
   // Start watching for file changes
   startFileWatcher(currentGamePath);
@@ -321,7 +346,7 @@ ipcMain.handle('reselect-project-folder', async () => {
   settings.lastGamePath = selectedPath;
   saveSettings();
 
-  autoCreateRpyFiles(currentGamePath);
+  ensureProjectStructure(currentGamePath);
   startFileWatcher(currentGamePath);
 
   // Mimic native dialog focus reset that seems to unblock input state.
@@ -431,7 +456,7 @@ ipcMain.handle('load-last-project', () => {
     return null;
   }
   currentGamePath = settings.lastGamePath;
-  autoCreateRpyFiles(currentGamePath);
+  ensureProjectStructure(currentGamePath);
   startFileWatcher(currentGamePath);
   return currentGamePath;
 });
@@ -447,7 +472,7 @@ ipcMain.handle('reload-current-project', () => {
   settings.lastGamePath = basePath;
   saveSettings();
 
-  autoCreateRpyFiles(currentGamePath);
+  ensureProjectStructure(currentGamePath);
   startFileWatcher(currentGamePath);
   if (mainWindow) mainWindow.focus();
 
