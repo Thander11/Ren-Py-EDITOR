@@ -51,7 +51,7 @@
   "character": "Personaje",
   "expression_side": "Expresión (side)",
   "expression_preview": "Vista previa de expresiones",
-  "no_expressions_found": "No se encontraron expresiones side en expresiones.rpy",
+  "no_expressions_found": "No se encontraron expresiones side en expressions.rpy",
   "no_expressions_char": "Este personaje no tiene expresiones declaradas.",
   "dialogue_text": "Texto del diálogo",
   "write_dialogue": "Escribe el diálogo aquí...",

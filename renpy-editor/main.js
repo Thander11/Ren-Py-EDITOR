@@ -546,10 +546,10 @@ ipcMain.handle('read-i18n', (_, lang) => {
   try { return fs.readFileSync(fp, 'utf-8'); } catch (e) { return '{}'; }
 });
 
-// ── List subdirectories in images/personajes/ ──
+// ── List subdirectories in images/characters/ ──
 ipcMain.handle('list-character-dirs', () => {
   if (!currentGamePath) return [];
-  const baseDir = path.join(currentGamePath, 'images', 'personajes');
+  const baseDir = path.join(currentGamePath, 'images', 'characters');
   try {
     return fs.readdirSync(baseDir, { withFileTypes: true })
       .filter(d => d.isDirectory())

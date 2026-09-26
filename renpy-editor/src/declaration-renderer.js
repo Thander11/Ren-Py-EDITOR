@@ -4,6 +4,14 @@
 
 let gamePath = '';
 let translations = {};
+
+// Image subfolders (relative to game/images/) used by the editor
+const IMAGE_DIRS = {
+  characters: 'characters',
+  backgrounds: 'backgrounds',
+  scenes: 'scenes',
+  expressions: 'expressions'
+};
 let currentLang = 'es';
 
 function getImageURL(relativePath) {
@@ -432,7 +440,7 @@ async function addSpriteIndividual() {
 
   const newImages = [];
   for (const filePath of files) {
-    const destDir = `personajes/${chr.displayName}/${variant}`;
+    const destDir = `${IMAGE_DIRS.characters}/${chr.displayName}/${variant}`;
     const fileName = filePath.split(/[/\\]/).pop();
     const destRelative = `${destDir}/${fileName}`;
     await window.declApi.copyImageToProject(filePath, `images/${destRelative}`);
@@ -471,7 +479,7 @@ async function addSpriteBatch() {
   const newImages = [];
   for (const fileName of files) {
     const srcPath = folderPath + '/' + fileName;
-    const destDir = `personajes/${chr.displayName}/${variant}`;
+    const destDir = `${IMAGE_DIRS.characters}/${chr.displayName}/${variant}`;
     const destRelative = `${destDir}/${fileName}`;
     await window.declApi.copyImageToProject(srcPath, `images/${destRelative}`);
 
@@ -588,7 +596,7 @@ async function saveExprEdit() {
   let newPath = expr.path;
   if (newExprImagePath) {
     const fileName = newExprImagePath.split(/[/\\]/).pop();
-    newPath = `expresiones/${fileName}`;
+    newPath = `${IMAGE_DIRS.expressions}/${fileName}`;
     await window.declApi.copyImageToProject(newExprImagePath, `images/${newPath}`);
   }
 
@@ -649,7 +657,7 @@ async function addExprIndividual() {
   const newExprs = [];
   for (const filePath of files) {
     const fileName = filePath.split(/[/\\]/).pop();
-    const destRelative = `expresiones/${fileName}`;
+    const destRelative = `${IMAGE_DIRS.expressions}/${fileName}`;
     await window.declApi.copyImageToProject(filePath, `images/${destRelative}`);
 
     const key = `expresion_${counter}`;
@@ -683,7 +691,7 @@ async function addExprBatch() {
   const newExprs = [];
   for (const fileName of files) {
     const srcPath = folderPath + '/' + fileName;
-    const destRelative = `expresiones/${fileName}`;
+    const destRelative = `${IMAGE_DIRS.expressions}/${fileName}`;
     await window.declApi.copyImageToProject(srcPath, `images/${destRelative}`);
 
     const key = `expresion_${counter}`;
@@ -775,7 +783,7 @@ async function saveNewBg() {
   if (!newBgImagePath) { notify(t('bg_needs_image'), 'warn'); return; }
 
   const fileName = newBgImagePath.split(/[/\\]/).pop();
-  const destRelative = `fondos/${fileName}`;
+  const destRelative = `${IMAGE_DIRS.backgrounds}/${fileName}`;
   await window.declApi.copyImageToProject(newBgImagePath, `images/${destRelative}`);
 
   const ftxt = await window.declApi.readFile('backgrounds.rpy') || '';
@@ -831,7 +839,7 @@ async function saveBgEdit() {
   let newPath = bg.path;
   if (editBgImagePath) {
     const fileName = editBgImagePath.split(/[/\\]/).pop();
-    newPath = `fondos/${fileName}`;
+    newPath = `${IMAGE_DIRS.backgrounds}/${fileName}`;
     await window.declApi.copyImageToProject(editBgImagePath, `images/${newPath}`);
   }
 
@@ -923,7 +931,7 @@ async function saveNewScene() {
   if (!newSceneImagePath) { notify(t('scene_needs_image'), 'warn'); return; }
 
   const fileName = newSceneImagePath.split(/[/\\]/).pop();
-  const destRelative = `scenes/${fileName}`;
+  const destRelative = `${IMAGE_DIRS.scenes}/${fileName}`;
   await window.declApi.copyImageToProject(newSceneImagePath, `images/${destRelative}`);
 
   const stxt = await window.declApi.readFile('scenes.rpy') || '';
@@ -978,7 +986,7 @@ async function saveSceneEdit() {
   let newPath = sc.path;
   if (editSceneImagePath) {
     const fileName = editSceneImagePath.split(/[/\\]/).pop();
-    newPath = `scenes/${fileName}`;
+    newPath = `${IMAGE_DIRS.scenes}/${fileName}`;
     await window.declApi.copyImageToProject(editSceneImagePath, `images/${newPath}`);
   }
 
