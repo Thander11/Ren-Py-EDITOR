@@ -345,5 +345,6 @@
   "renpy_install_folder_title": "Choose where to install Ren'Py",
   "renpy_install_folder_button": "Install here",
   "renpy_checksum_error": "The downloaded file is corrupted (checksum mismatch).",
-  "renpy_exe_not_found": "The executable wasn't found after extracting: {0}"
+  "renpy_exe_not_found": "The executable wasn't found after extracting: {0}",
+  "files_reloaded": "Project files updated"
 }

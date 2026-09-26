@@ -347,5 +347,6 @@
   "renpy_install_folder_title": "Elige dónde instalar Ren'Py",
   "renpy_install_folder_button": "Instalar aquí",
   "renpy_checksum_error": "El archivo descargado está dañado (no coincide la suma de comprobación).",
-  "renpy_exe_not_found": "No se encontró el ejecutable tras descomprimir: {0}"
+  "renpy_exe_not_found": "No se encontró el ejecutable tras descomprimir: {0}",
+  "files_reloaded": "Archivos del proyecto actualizados"
 }
