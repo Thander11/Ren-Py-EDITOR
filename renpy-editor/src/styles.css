@@ -242,18 +242,28 @@ body {
 .block-content { flex: 1; min-width: 0; }
 .block-title { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; }
 .block-desc { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-.block-actions { display: flex; gap: 2px; flex-shrink: 0; flex-wrap: wrap; }
+.block-actions { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
 .block-btn {
-  height: 24px;
-  display: flex; align-items: center; justify-content: center; gap: 3px;
-  border: none; background: none; cursor: pointer;
-  border-radius: 4px; font-size: 11px; color: var(--text3);
-  transition: background .15s, color .15s;
-  padding: 0 5px;
+  height: 26px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  box-shadow: 0 1px 2px var(--shadow);
+  transition: background .15s, color .15s, border-color .15s, transform .05s;
+  padding: 0 10px;
   white-space: nowrap;
 }
-.block-btn:hover { background: var(--surface2); color: var(--text); }
-.block-btn.danger:hover { background: rgba(233,69,96,0.15); color: var(--red); }
+.block-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.block-btn:active { transform: translateY(1px); box-shadow: none; }
+.block-btn.danger { color: var(--red); border-color: rgba(233,69,96,0.45); }
+.block-btn.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
+.block-btn-sm { height: 22px; padding: 0 6px; font-size: 10px; }
 
 /* Block type colors */
 .type-narration  { border-left-color: #9aa5b8; }

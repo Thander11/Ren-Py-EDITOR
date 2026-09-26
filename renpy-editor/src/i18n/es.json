@@ -36,8 +36,6 @@
   "block_call": "Call",
   "block_comment": "Comentario",
   "block_custom": "Código libre",
-  "btn_up": "Subir",
-  "btn_down": "Bajar",
   "btn_duplicate": "Duplicar debajo",
   "btn_duplicate_end": "Duplicar al final",
   "btn_edit": "Editar",

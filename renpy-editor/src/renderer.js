@@ -319,13 +319,6 @@ function duplicateBlockToEnd(idx) {
   document.getElementById('block-list').scrollTop = document.getElementById('block-list').scrollHeight;
 }
 
-function moveBlock(idx, dir) {
-  const newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= blocks.length) return;
-  [blocks[idx], blocks[newIdx]] = [blocks[newIdx], blocks[idx]];
-  renderBlocks(); updateCodePreview();
-}
-
 function clearAllBlocks() {
   if (!blocks.length) return;
   if (confirm(t('clear_confirm'))) { blocks = []; renderBlocks(); updateCodePreview(); }
@@ -399,8 +392,6 @@ function renderBlocks() {
         <div class="block-desc">${escHtml(blockDesc(b))}</div>
       </div>
       <div class="block-actions">
-        <button class="block-btn" onclick="moveBlock(${i},-1)" title="${t('btn_up')}">▲ ${t('btn_up')}</button>
-        <button class="block-btn" onclick="moveBlock(${i},1)" title="${t('btn_down')}">▼ ${t('btn_down')}</button>
         <button class="block-btn" onclick="duplicateBlock(${i})" title="${t('btn_duplicate')}">📋 ${t('btn_duplicate')}</button>
         <button class="block-btn" onclick="duplicateBlockToEnd(${i})" title="${t('btn_duplicate_end')}">⬇️ ${t('btn_duplicate_end')}</button>
         <button class="block-btn" onclick="editBlock(${i})" title="${t('btn_edit')}">✏️ ${t('btn_edit')}</button>
@@ -2208,12 +2199,10 @@ function renderChoiceBlocks(i) {
       ondragover="onChoiceDragOver(event,${i},${j})" ondrop="onChoiceDrop(event,${i},${j})">
       <span style="font-size:12px;">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="editChoiceBlock(${i},${j})" title="${t('btn_edit')}">✏️</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateChoiceBlock(${i},${j})" title="${t('btn_duplicate')}">📋</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateChoiceBlockToEnd(${i},${j})" title="${t('btn_duplicate_end')}">⬇️</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveChoiceBlock(${i},${j},-1)" title="${t('btn_up')}">▲</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveChoiceBlock(${i},${j},1)" title="${t('btn_down')}">▼</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--red);padding:2px;" onclick="removeChoiceBlock(${i},${j})" title="${t('btn_delete')}">🗑</button>
+      <button class="block-btn block-btn-sm" onclick="editChoiceBlock(${i},${j})" title="${t('btn_edit')}">✏️</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlock(${i},${j})" title="${t('btn_duplicate')}">📋</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlockToEnd(${i},${j})" title="${t('btn_duplicate_end')}">⬇️</button>
+      <button class="block-btn block-btn-sm danger" onclick="removeChoiceBlock(${i},${j})" title="${t('btn_delete')}">🗑</button>
     </div>`;
   }).join('');
 }
@@ -2315,14 +2304,6 @@ function editChoiceBlock(choiceIdx, blockIdx) {
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(block.type, { ...block });
-}
-
-function moveChoiceBlock(choiceIdx, blockIdx, dir) {
-  const bArr = getChoiceBlocks(choiceIdx);
-  const newIdx = blockIdx + dir;
-  if (newIdx < 0 || newIdx >= bArr.length) return;
-  [bArr[blockIdx], bArr[newIdx]] = [bArr[newIdx], bArr[blockIdx]];
-  setChoiceBlocks(choiceIdx, bArr);
 }
 
 function duplicateChoiceBlock(choiceIdx, blockIdx) {
@@ -2460,12 +2441,10 @@ function renderConditionBlocks(branch = 'then') {
       ondragover="onConditionDragOver(event,'${branch}',${j})" ondrop="onConditionDrop(event,'${branch}',${j})">
       <span style="font-size:12px;">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}">✏️</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateConditionBlock('${branch}',${j})" title="${t('btn_duplicate')}">📋</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="duplicateConditionBlockToEnd('${branch}',${j})" title="${t('btn_duplicate_end')}">⬇️</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveConditionBlock('${branch}',${j},-1)" title="${t('btn_up')}">▲</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:2px;" onclick="moveConditionBlock('${branch}',${j},1)" title="${t('btn_down')}">▼</button>
-      <button style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--red);padding:2px;" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}">🗑</button>
+      <button class="block-btn block-btn-sm" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}">✏️</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlock('${branch}',${j})" title="${t('btn_duplicate')}">📋</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlockToEnd('${branch}',${j})" title="${t('btn_duplicate_end')}">⬇️</button>
+      <button class="block-btn block-btn-sm danger" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}">🗑</button>
     </div>`;
   }).join('');
 }
@@ -2612,14 +2591,6 @@ function editConditionBlock(branch, blockIdx) {
   document.getElementById('modal-overlay').classList.remove('open');
   editingIndex = -1;
   openModal(block.type, { ...block });
-}
-
-function moveConditionBlock(branch, blockIdx, dir) {
-  const bArr = getConditionBlocks(branch);
-  const newIdx = blockIdx + dir;
-  if (newIdx < 0 || newIdx >= bArr.length) return;
-  [bArr[blockIdx], bArr[newIdx]] = [bArr[newIdx], bArr[blockIdx]];
-  setConditionBlocks(branch, bArr);
 }
 
 function duplicateConditionBlock(branch, blockIdx) {
