@@ -111,12 +111,13 @@ function parsePersonajes(text) {
     if (!chars[id]) { chars[id] = { id, displayName: name, imageAttr: img, images: [] }; order.push(id); }
   }
   const imageRe = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
+  const charList = order.map(id => chars[id]);
   while ((m = imageRe.exec(text)) !== null) {
     const key = m[1], path = m[2];
-    const charId = order.find(id => key.startsWith(id + '_') || key.startsWith(id.toLowerCase() + '_'));
-    if (charId) chars[charId].images.push({ key, path });
+    const chr = findCharForSpriteKey(charList, key);
+    if (chr) chr.images.push({ key, path });
   }
-  characters = order.map(id => chars[id]);
+  characters = charList;
 }
 
 function parseFondos(text) {
@@ -307,24 +308,68 @@ function renderCharList() {
 
 // ═══════════════════════════════════════════════════════════
 // SPRITES TAB
+// Sprite keys: <charId>_<type>_<id>. Listed grouped by character and type.
 // ═══════════════════════════════════════════════════════════
-function loadCharSprites() {
-  const charId = document.getElementById('sp-char')?.value;
-  const chr = characters.find(c => c.id === charId);
-  const preview = document.getElementById('sprite-preview');
-  const list = document.getElementById('sprite-list');
-  if (!chr) { preview.innerHTML = ''; list.innerHTML = ''; return; }
+function onSpriteCharChange() {
+  loadCharSprites();
+}
 
-  preview.innerHTML = chr.images.map((img, i) =>
-    `<div class="preview-item">
-      <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${img.key}</div>
-      <div class="item-actions" style="margin-top:4px;">
-        <button onclick="showSpriteEditForm('${charId}', ${i})" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteSprite('${charId}', ${i})" title="${t('delete_item')}">🗑️</button>
-      </div>
-    </div>`).join('');
-  list.innerHTML = '';
+function refreshSpriteTypeSuggestions() {
+  const dl = document.getElementById('sp-variant-list');
+  if (!dl) return;
+  const chr = characters.find(c => c.id === document.getElementById('sp-char')?.value);
+  dl.innerHTML = getSpriteTypes(chr).filter(Boolean).map(tp => `<option value="${tp}">`).join('');
+}
+
+function loadCharSprites() {
+  refreshSpriteTypeSuggestions();
+  const list = document.getElementById('sprite-list');
+  if (!list) return;
+  if (!characters.length) {
+    list.innerHTML = `<div class="empty-msg">${t('no_chars')}</div>`;
+    return;
+  }
+  const selectedId = document.getElementById('sp-char')?.value;
+  list.innerHTML = characters.map(chr => {
+    const groups = groupSpritesByType(chr);
+    const body = groups.length
+      ? groups.map(g => `
+        <div class="sprite-type-group">
+          <div class="sprite-type-title">${g.type || t('no_type')} <span class="group-meta">(${g.images.length})</span></div>
+          <div class="preview-grid">
+            ${g.images.map(img => {
+              const idx = chr.images.indexOf(img);
+              const { id } = parseSpriteKey(chr.id, img.key);
+              return `<div class="preview-item" title="${img.key}">
+                <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
+                <div class="lbl">${id}</div>
+                <div class="item-actions" style="margin-top:4px;">
+                  <button onclick="showSpriteEditForm('${chr.id}', ${idx})" title="${t('edit_item')}">✏️</button>
+                  <button onclick="deleteSprite('${chr.id}', ${idx})" title="${t('delete_item')}">🗑️</button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('')
+      : `<div class="empty-msg">${t('no_sprites_char')}</div>`;
+    return `<details class="sprite-char-group" data-char="${chr.id}" ${chr.id === selectedId ? 'open' : ''} ontoggle="onSpriteGroupToggle(this)">
+      <summary>
+        <span class="group-title">${chr.displayName}</span>
+        <span class="group-meta">${chr.id} — ${t('sprites_count', chr.images.length)} · ${t('types_count', groups.length)}</span>
+      </summary>
+      ${body}
+    </details>`;
+  }).join('');
+}
+
+// Opening a character group selects it as the target for new sprites
+function onSpriteGroupToggle(el) {
+  if (!el.open) return;
+  const sel = document.getElementById('sp-char');
+  if (sel && sel.value !== el.dataset.char) {
+    sel.value = el.dataset.char;
+    refreshSpriteTypeSuggestions();
+  }
 }
 
 // ── Sprite edit ──
@@ -339,7 +384,10 @@ function showSpriteEditForm(charId, imgIdx) {
   const chr = characters.find(c => c.id === charId);
   if (!chr) return;
   const img = chr.images[imgIdx];
-  document.getElementById('se-key').value = img.key;
+  const { type, id } = parseSpriteKey(charId, img.key);
+  document.getElementById('se-char').textContent = `${chr.displayName} (${chr.id})`;
+  document.getElementById('se-type').value = type;
+  document.getElementById('se-id').value = id;
   document.getElementById('se-file').textContent = t('no_file_selected');
   document.getElementById('se-preview').innerHTML =
     `<img src="${getImageURL(img.path)}" style="max-height:80px;border-radius:4px;" onerror="this.style.display='none'" />`;
@@ -366,8 +414,14 @@ async function saveSpriteEdit() {
   const chr = characters.find(c => c.id === editingSpriteCharId);
   if (!chr || editingSpriteIdx < 0) return;
   const img = chr.images[editingSpriteIdx];
-  const newKey = document.getElementById('se-key').value.trim();
-  if (!newKey) return;
+  const newType = sanitizeSpriteType(document.getElementById('se-type').value);
+  const newId = sanitizeSpriteId(document.getElementById('se-id').value);
+  if (!newType || !newId) { notify(t('fill_all_fields'), 'err'); return; }
+  const newKey = buildSpriteKey(chr.id, newType, newId);
+  if (chr.images.some((im, i) => i !== editingSpriteIdx && im.key === newKey)) {
+    notify(t('sprite_key_exists', newKey), 'err');
+    return;
+  }
 
   // Handle image replacement
   let newPath = img.path;
@@ -378,18 +432,18 @@ async function saveSpriteEdit() {
     await window.declApi.copyImageToProject(newSpriteImagePath, `images/${newPath}`);
   }
 
+  // Remove the old line and insert the new one inside its character/type group
   const ptxt = await window.declApi.readFile('characters.rpy') || '';
-  const lines = ptxt.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^image\s+(\S+)\s*=/);
-    if (m && m[1] === img.key) {
-      lines[i] = `image ${newKey} = "${newPath}"`;
-      break;
-    }
-  }
+  const lines = ptxt.split('\n').filter(line => {
+    const m = line.match(/^image\s+(\S+)\s*=/);
+    return !(m && m[1] === img.key);
+  });
+  insertSpriteLines(lines, chr.id, newType, [`image ${newKey} = "${newPath}"`]);
   await window.declApi.writeFile('characters.rpy', lines.join('\n'));
-  img.key = newKey;
-  img.path = newPath;
+
+  // Keep the in-memory list ordered like the file
+  chr.images.splice(editingSpriteIdx, 1);
+  insertSpriteInMemory(chr, newType, { key: newKey, path: newPath });
   loadCharSprites();
   hideSpriteEditForm();
   notifyMainReload();
@@ -422,108 +476,89 @@ async function deleteSprite(charId, imgIdx) {
   notify(t('sprite_deleted'), 'ok');
 }
 
-async function addSpriteIndividual() {
+// Validates the form and returns { chr, type } or null
+function readSpriteAddForm() {
   const charId = document.getElementById('sp-char')?.value;
-  const variant = document.getElementById('sp-variant')?.value.trim();
-  if (!charId) { notify(t('select_character'), 'err'); return; }
-  if (!variant) { notify(t('write_variant'), 'err'); return; }
+  const variantInput = document.getElementById('sp-variant');
+  if (!charId) { notify(t('select_character'), 'err'); return null; }
+  const type = sanitizeSpriteType(variantInput?.value);
+  if (!type) { notify(t('write_variant'), 'err'); return null; }
+  if (variantInput) variantInput.value = type;
+  const chr = characters.find(c => c.id === charId);
+  if (!chr) return null;
+  return { chr, type };
+}
 
+async function addSpriteIndividual() {
+  const form = readSpriteAddForm();
+  if (!form) return;
   const files = await window.declApi.selectImageFiles();
   if (!files || !files.length) return;
-
-  const chr = characters.find(c => c.id === charId);
-  if (!chr) return;
-
-  // Count existing sprites of this variant for incremental naming
-  const existingCount = chr.images.filter(img => img.key.startsWith(`${charId}_${variant}_`)).length;
-  let counter = existingCount + 1;
-
-  const newImages = [];
-  for (const filePath of files) {
-    const destDir = `${IMAGE_DIRS.characters}/${chr.displayName}/${variant}`;
-    const fileName = filePath.split(/[/\\]/).pop();
-    const destRelative = `${destDir}/${fileName}`;
-    await window.declApi.copyImageToProject(filePath, `images/${destRelative}`);
-
-    const key = `${charId}_${variant}_${counter}`;
-    newImages.push({ key, path: destRelative });
-    counter++;
-  }
-
-  // Append to characters.rpy
-  await appendSpritesToFile(charId, newImages);
-  chr.images.push(...newImages);
-  loadCharSprites();
-  notifyMainReload();
-  notify(t('sprites_added', newImages.length), 'ok');
+  await importSprites(form.chr, form.type, files.map(fp => ({ src: fp, name: fp.split(/[/\\]/).pop() })));
 }
 
 async function addSpriteBatch() {
-  const charId = document.getElementById('sp-char')?.value;
-  const variant = document.getElementById('sp-variant')?.value.trim();
-  if (!charId) { notify(t('select_character'), 'err'); return; }
-  if (!variant) { notify(t('write_variant'), 'err'); return; }
-
+  const form = readSpriteAddForm();
+  if (!form) return;
   const folderPath = await window.declApi.selectImageFolder();
   if (!folderPath) return;
-
-  const chr = characters.find(c => c.id === charId);
-  if (!chr) return;
-
   const files = await window.declApi.listImagesInDir(folderPath);
   if (!files || !files.length) { notify(t('no_images_in_folder'), 'err'); return; }
+  await importSprites(form.chr, form.type, files.map(name => ({ src: folderPath + '/' + name, name })));
+}
 
-  const existingCount = chr.images.filter(img => img.key.startsWith(`${charId}_${variant}_`)).length;
-  let counter = existingCount + 1;
-
+async function importSprites(chr, type, files) {
+  let counter = nextSpriteNumber(chr, type);
+  const destDir = `${IMAGE_DIRS.characters}/${chr.displayName}/${type}`;
   const newImages = [];
-  for (const fileName of files) {
-    const srcPath = folderPath + '/' + fileName;
-    const destDir = `${IMAGE_DIRS.characters}/${chr.displayName}/${variant}`;
-    const destRelative = `${destDir}/${fileName}`;
-    await window.declApi.copyImageToProject(srcPath, `images/${destRelative}`);
-
-    const key = `${charId}_${variant}_${counter}`;
-    newImages.push({ key, path: destRelative });
+  for (const f of files) {
+    const destRelative = `${destDir}/${f.name}`;
+    await window.declApi.copyImageToProject(f.src, `images/${destRelative}`);
+    newImages.push({ key: buildSpriteKey(chr.id, type, counter), path: destRelative });
     counter++;
   }
 
-  await appendSpritesToFile(charId, newImages);
-  chr.images.push(...newImages);
+  const ptxt = await window.declApi.readFile('characters.rpy') || '';
+  const lines = ptxt.split('\n');
+  insertSpriteLines(lines, chr.id, type, newImages.map(img => `image ${img.key} = "${img.path}"`));
+  await window.declApi.writeFile('characters.rpy', lines.join('\n'));
+
+  newImages.forEach(img => insertSpriteInMemory(chr, type, img));
   loadCharSprites();
   notifyMainReload();
   notify(t('sprites_added', newImages.length), 'ok');
 }
 
-async function appendSpritesToFile(charId, newImages) {
-  const ptxt = await window.declApi.readFile('characters.rpy') || '';
-  const imageLines = newImages.map(img => `image ${img.key} = "${img.path}"`).join('\n');
-
-  // Try to find the last image line for this character
-  const lines = ptxt.split('\n');
-  let lastIdx = -1;
+// Insert image lines (in place) so the file stays grouped by character and type:
+// after the last sprite of the same type, else after the character's last sprite,
+// else after its define line, else at the end of the file.
+function insertSpriteLines(lines, charId, type, newLines) {
+  const imgRe = /^image\s+(\w+)\s*=/;
+  const chr = characters.find(c => c.id === charId);
+  let lastSameType = -1, lastOfChar = -1, defineIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(new RegExp(`^image\\s+${charId}_`))) lastIdx = i;
+    const m = lines[i].match(imgRe);
+    if (m && findCharForSpriteKey(characters, m[1]) === chr) {
+      lastOfChar = i;
+      if (parseSpriteKey(charId, m[1]).type === type) lastSameType = i;
+    } else if (new RegExp(`^define\\s+${charId}\\s*=`).test(lines[i])) {
+      defineIdx = i;
+    }
   }
-
-  let newText;
-  if (lastIdx >= 0) {
-    lines.splice(lastIdx + 1, 0, imageLines);
-    newText = lines.join('\n');
+  let at = lastSameType >= 0 ? lastSameType : lastOfChar >= 0 ? lastOfChar : defineIdx;
+  if (at >= 0) {
+    lines.splice(at + 1, 0, ...newLines);
   } else {
-    // Find the define line for this character and add after it
-    let defineIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].match(new RegExp(`^define\\s+${charId}\\s*=`))) defineIdx = i;
-    }
-    if (defineIdx >= 0) {
-      lines.splice(defineIdx + 1, 0, imageLines);
-      newText = lines.join('\n');
-    } else {
-      newText = ptxt.trimEnd() + '\n\n' + imageLines + '\n';
-    }
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    lines.push('', ...newLines, '');
   }
-  await window.declApi.writeFile('characters.rpy', newText);
+}
+
+function insertSpriteInMemory(chr, type, img) {
+  let at = -1;
+  chr.images.forEach((im, i) => { if (parseSpriteKey(chr.id, im.key).type === type) at = i; });
+  if (at >= 0) chr.images.splice(at + 1, 0, img);
+  else chr.images.push(img);
 }
 
 // ═══════════════════════════════════════════════════════════

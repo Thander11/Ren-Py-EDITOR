@@ -170,12 +170,13 @@ function parsePersonajes(text) {
   }
 
   const imageRe = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
+  const charList = charOrder.map(id => chars[id]);
   while ((m = imageRe.exec(text)) !== null) {
     const key = m[1], path = m[2];
-    const charId = charOrder.find(id => key.startsWith(id + '_') || key.startsWith(id.toLowerCase() + '_'));
-    if (charId) chars[charId].images.push({ key, path });
+    const chr = findCharForSpriteKey(charList, key);
+    if (chr) chr.images.push({ key, path });
   }
-  data.characters = charOrder.map(id => chars[id]);
+  data.characters = charList;
 }
 
 function parseFondos(text) {

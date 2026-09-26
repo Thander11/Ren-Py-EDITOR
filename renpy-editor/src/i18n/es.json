@@ -246,5 +246,13 @@
   "scene_needs_image": "Selecciona una imagen para la escena",
   "scene_needs_name": "Escribe un nombre para la escena",
   "confirm_delete_block": "¿Seguro que quieres eliminar este bloque?\n\n{0}: {1}",
-  "drag_to_reorder": "Arrastra para reordenar"
+  "drag_to_reorder": "Arrastra para reordenar",
+  "no_type": "Sin tipo",
+  "no_sprites_char": "Este personaje no tiene sprites declarados.",
+  "sprites_count": "{0} sprites",
+  "types_count": "{0} tipos",
+  "sprite_key_exists": "Ya existe un sprite con la clave \"{0}\"",
+  "sprite_naming_hint": "Los sprites se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1). El tipo solo admite letras y números.",
+  "editing_sprite": "Editando sprite",
+  "sprite_identifier": "Identificación"
 }

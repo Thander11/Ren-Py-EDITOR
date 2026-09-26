@@ -137,6 +137,30 @@ main { padding: 16px 20px; }
 .notification.ok { background: #22c55e; color: #fff; }
 .notification.err { background: var(--red); color: #fff; }
 
+.form-hint { font-size: 11px; color: var(--text3); margin-top: 8px; }
+.empty-msg { color: var(--text3); font-size: 12px; text-align: center; padding: 14px; }
+
+/* Sprites grouped by character and type */
+.sprite-char-group {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 10px;
+}
+.sprite-char-group > summary {
+  cursor: pointer; padding: 10px 14px; display: flex; align-items: baseline; gap: 10px;
+  list-style: none; user-select: none;
+}
+.sprite-char-group > summary::-webkit-details-marker { display: none; }
+.sprite-char-group > summary::before { content: '▸'; color: var(--text3); font-size: 12px; }
+.sprite-char-group[open] > summary::before { content: '▾'; }
+.sprite-char-group[open] > summary { border-bottom: 1px solid var(--border); }
+.group-title { font-weight: 600; font-size: 14px; }
+.group-meta { color: var(--text2); font-size: 12px; font-weight: normal; }
+.sprite-type-group { padding: 10px 14px 0; }
+.sprite-type-title {
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
