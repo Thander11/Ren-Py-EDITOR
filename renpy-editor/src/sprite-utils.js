@@ -79,3 +79,39 @@ function findCharForSpriteKey(chars, key) {
   }
   return best;
 }
+
+// ── Side expressions ──
+// Declared as: image side <imageTag> <charId>_<type>_<id> = "path"
+// Keys without a character prefix (legacy) are shared by every character
+// using that image tag, and have no type ('').
+
+function isOwnExpressionKey(chr, key) {
+  return key.startsWith(chr.id + '_') || key.startsWith(chr.id.toLowerCase() + '_');
+}
+
+function getCharExpressions(chars, chr, expressions) {
+  if (!chr || !chr.imageAttr) return [];
+  return (expressions || []).filter(e => {
+    if (e.charId !== chr.imageAttr) return false;
+    const owner = findCharForSpriteKey(chars, e.key);
+    return owner ? owner.id === chr.id : true;
+  });
+}
+
+function getExpressionType(chr, key) {
+  return chr && isOwnExpressionKey(chr, key) ? parseSpriteKey(chr.id, key).type : '';
+}
+
+function expressionLabel(chr, key) {
+  return chr && isOwnExpressionKey(chr, key) ? parseSpriteKey(chr.id, key).id : key;
+}
+
+function nextExpressionNumber(chr, charExprs, type) {
+  let max = 0;
+  for (const e of charExprs) {
+    if (!isOwnExpressionKey(chr, e.key)) continue;
+    const p = parseSpriteKey(chr.id, e.key);
+    if (p.type === type && /^\d+$/.test(p.id)) max = Math.max(max, parseInt(p.id, 10));
+  }
+  return max + 1;
+}

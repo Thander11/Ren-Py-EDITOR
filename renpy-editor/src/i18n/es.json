@@ -257,5 +257,9 @@
   "sprite_identifier": "Identificación",
   "sprite_type": "Tipo",
   "select_type": "— Seleccionar tipo —",
-  "select_type_first": "Selecciona un tipo para ver sus sprites."
+  "select_type_first": "Selecciona un tipo para ver sus sprites.",
+  "select_character_for_expr": "Selecciona un personaje para ver sus expresiones.",
+  "select_type_for_expr": "Selecciona un tipo para ver sus expresiones.",
+  "char_needs_image_attr": "Este personaje no tiene etiqueta de expresiones (image). Edítalo en la pestaña Personajes para indicarla.",
+  "expr_naming_hint": "Las expresiones se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1), usando los mismos tipos que los sprites."
 }

@@ -31,7 +31,7 @@
         <div class="form-row">
           <div class="form-group"><label data-i18n="char_id">Nombre no visible (solo letras)</label><input class="form-input" id="nc-id" placeholder="Ej: Ryu"></div>
           <div class="form-group"><label data-i18n="char_name">Nombre visible en la historia</label><input class="form-input" id="nc-name" placeholder="Ej: Ryusaki"></div>
-          <div class="form-group"><label data-i18n="char_image">Expresiones asociadas</label><select class="form-select" id="nc-image"></select></div>
+          <div class="form-group"><label data-i18n="char_image">Expresiones asociadas</label><input class="form-input" id="nc-image" list="nc-image-list" placeholder="Ej: Paul"><datalist id="nc-image-list"></datalist></div>
         </div>
         <div class="form-group" style="margin-top: 8px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);font-weight:normal;">
@@ -103,17 +103,23 @@
             <label data-i18n="select_character">Personaje</label>
             <select class="form-select" id="ex-char" onchange="loadCharExpressions()"></select>
           </div>
+          <div class="form-group">
+            <label data-i18n="sprite_variant">Variante/Tipo</label>
+            <input class="form-input" id="ex-variant" list="ex-variant-list" placeholder="Ej: hunter, casual">
+            <datalist id="ex-variant-list"></datalist>
+          </div>
         </div>
+        <div class="form-hint" data-i18n="expr_naming_hint">Las expresiones se nombran como personaje_tipo_identificación, con el mismo tipo que los sprites.</div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addExprIndividual()" data-i18n="add_individual">+ Añadir imagen</button>
           <button class="btn btn-primary" onclick="addExprBatch()" data-i18n="add_batch">📁 Importar carpeta</button>
         </div>
       </div>
-      <div id="expr-preview" class="preview-grid"></div>
       <div id="expr-edit-form" class="form-card" style="display:none;">
         <div style="margin-bottom:8px;font-size:12px;color:var(--accent);font-weight:600;" data-i18n="expr_edited">Editando expresión</div>
         <div class="form-row">
-          <div class="form-group"><label data-i18n="new_key">Nueva clave</label><input class="form-input" id="ee-key"></div>
+          <div class="form-group"><label data-i18n="sprite_variant">Variante/Tipo</label><input class="form-input" id="ee-type"></div>
+          <div class="form-group"><label data-i18n="sprite_identifier">Identificación</label><input class="form-input" id="ee-id"></div>
           <div class="form-group">
             <label data-i18n="change_image">Cambiar imagen (opcional)</label>
             <div style="display:flex;gap:8px;align-items:center;">

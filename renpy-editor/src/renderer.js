@@ -162,11 +162,11 @@ function parsePersonajes(text) {
   const chars = {};
   const charOrder = [];
 
-  const defineRe = /define\s+(\w+)\s*=\s*Character\s*\(\s*"([^"]+)"/g;
+  const defineRe = /define\s+(\w+)\s*=\s*Character\s*\(\s*"([^"]+)"(?:.*?image\s*=\s*"([^"]+)")?/g;
   let m;
   while ((m = defineRe.exec(text)) !== null) {
-    const id = m[1], name = m[2];
-    if (!chars[id]) { chars[id] = { id, displayName: name, images: [] }; charOrder.push(id); }
+    const id = m[1], name = m[2], imageAttr = m[3] || '';
+    if (!chars[id]) { chars[id] = { id, displayName: name, imageAttr, images: [] }; charOrder.push(id); }
   }
 
   const imageRe = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
@@ -451,7 +451,7 @@ function blockToCode(b, indent = '    ') {
     case 'dialogue': {
       const charId = b.character || '';
       // FIX: character-specific expression — use charId instead of hardcoded "Paul"
-      const exprCharId = getExpressionCharId(charId);
+      const exprCharId = b.exprTag || getExpressionCharId(charId);
       const expStr = b.expression ? ` ${exprCharId} ${b.expression}` : '';
       const txt = b.thought ? `{i}<<${escRpy(b.text)}>>{/i}` : escRpy(b.text);
       return `${indent}${charId}${expStr} "${txt}"`;
@@ -613,13 +613,10 @@ function escRpy(s) {
   return (s || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/%/g, '%%');
 }
 
-// Get the character ID used for side expressions (image = "X" in define)
+// Get the image tag used for side expressions (image = "X" in the Character define)
 function getExpressionCharId(charId) {
-  // For now, all characters use image = "Paul" in their define
-  // This could be made dynamic by reading the Character definition
   const chr = data.characters.find(c => c.id === charId);
-  // In the current project, all characters use image = "Paul"
-  return 'Paul';
+  return chr?.imageAttr || charId;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1285,7 +1282,9 @@ function parseLabelContentToBlocks(labelText) {
       let thought = false, cleanText = text;
       const thoughtM = text.match(/^\{i\}<<(.+)>>\{\/i\}$/);
       if (thoughtM) { thought = true; cleanText = thoughtM[1]; }
-      result.push({ type: 'dialogue', character: dlgM[1], expression: dlgM[3] || '', text: cleanText, thought });
+      const dlg = { type: 'dialogue', character: dlgM[1], expression: dlgM[3] || '', text: cleanText, thought };
+      if (dlgM[3]) dlg.exprTag = dlgM[2];
+      result.push(dlg);
       i++; continue;
     }
 
@@ -1855,8 +1854,12 @@ function buildModalBody(type, b) {
           <select class="form-select" id="f-char" onchange="onDialogueCharChange()">${buildCharOptions(b.character)}</select>
         </div>
         <div class="form-group">
+          <label class="form-label">${t('sprite_type')}</label>
+          ${spriteTypeSelectHtml('f-expr-type', 'onDialogueExprTypeChange()')}
+        </div>
+        <div class="form-group">
           <label class="form-label">${t('expression_side')}</label>
-          <select class="form-select" id="f-expr">${buildExprOptions(b.character, b.expression)}</select>
+          <select class="form-select" id="f-expr" onchange="onExpressionSelectChange()"><option value="">${t('no_transition')}</option></select>
         </div>
       </div>
       <div class="form-group">
@@ -3009,18 +3012,6 @@ function buildCharOptions(selected) {
   return `<option value="">${t('select_opt')}</option>${chars}<optgroup label="${t('extras')}">${extraOpts}</optgroup>`;
 }
 
-// FIX: character-specific expressions
-function buildExprOptions(charId, selected) {
-  // Filter expressions for the selected character
-  const charExprs = data.expressions.filter(e => e.charId === 'Paul' || e.charId === charId);
-  if (!charExprs.length) {
-    return `<option value="">${t('no_transition')}</option>`;
-  }
-  const opts = charExprs.map(e =>
-    `<option value="${e.key}" ${e.key === selected ? 'selected' : ''}>${e.key}</option>`).join('');
-  return `<option value="">${t('no_transition')}</option>${opts}`;
-}
-
 function buildTransitionSelect(id, selected) {
   const transitions = ['', 'fade', 'dissolve', 'Dissolve(0.3)', 'Dissolve(0.5)', 'moveinleft', 'moveinright', 'moveoutleft', 'moveoutright', 'pixellate', 'wipeleft', 'wiperight'];
   return `<select class="form-select" id="${id}">
@@ -3032,12 +3023,21 @@ function getAllImageKeys() {
   return data.characters.flatMap(c => c.images.map(i => i.key));
 }
 
-// FIX: update expression picker when character changes in dialogue
+// Changing the character resets type and expression: nothing is shown until a type is chosen
 function onDialogueCharChange() {
   const charId = document.getElementById('f-char')?.value || '';
-  const exprSel = document.getElementById('f-expr');
-  if (exprSel) exprSel.innerHTML = buildExprOptions(charId, '');
-  populateExpressionPicker(charId, '');
+  populateExpressionPicker(charId, '', null);
+}
+
+function onDialogueExprTypeChange() {
+  const charId = document.getElementById('f-char')?.value || '';
+  populateExpressionPicker(charId, '', readSpriteTypeSelect('f-expr-type'));
+}
+
+function onExpressionSelectChange() {
+  const key = document.getElementById('f-expr')?.value || '';
+  document.querySelectorAll('#expr-picker .img-option').forEach(el =>
+    el.classList.toggle('selected', el.dataset.key === key));
 }
 
 // ── Visual background picker ──
@@ -3196,28 +3196,48 @@ function addHMSpriteFromShown(key) {
   }
 }
 
-// FIX: expression picker filters by character
-function populateExpressionPicker(charId, selectedKey) {
+// Expressions are only listed once a character and one of its types are selected.
+// preferredType: undefined = deduce from selectedKey, null = none chosen.
+function populateExpressionPicker(charId, selectedKey, preferredType) {
   const picker = document.getElementById('expr-picker');
+  const exprSel = document.getElementById('f-expr');
   if (!picker) return;
-  // Show expressions for Paul (current) + for the specific character
-  const charExprs = data.expressions.filter(e => e.charId === 'Paul' || e.charId === charId);
-  if (!charExprs.length) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('no_expressions_found')}</div>`;
-    return;
+  const chr = data.characters.find(c => c.id === charId) || null;
+  const exprs = getCharExpressions(data.characters, chr, data.expressions);
+  const types = [...new Set(exprs.map(e => getExpressionType(chr, e.key)))];
+
+  let type = preferredType;
+  if (type === undefined) {
+    type = selectedKey && exprs.some(e => e.key === selectedKey) ? getExpressionType(chr, selectedKey) : null;
   }
-  picker.innerHTML = charExprs.map(e =>
-    `<div class="img-option ${e.key === selectedKey ? 'selected' : ''}" onclick="selectExpression('${e.key}')" title="${e.key}" id="ep-${e.key}">
+  if (type !== null && !types.includes(type)) type = null;
+  fillSpriteTypeSelect(document.getElementById('f-expr-type'), types, type);
+
+  const shown = type === null ? [] : exprs.filter(e => getExpressionType(chr, e.key) === type);
+  if (exprSel) {
+    let opts = `<option value="">${t('no_transition')}</option>` +
+      shown.map(e => `<option value="${e.key}" ${e.key === selectedKey ? 'selected' : ''}>${escHtml(expressionLabel(chr, e.key))}</option>`).join('');
+    // Keep an expression that can't be listed (e.g. loaded from the script) so it isn't lost
+    if (selectedKey && !shown.some(e => e.key === selectedKey)) {
+      opts += `<option value="${escHtml(selectedKey)}" selected>${escHtml(selectedKey)}</option>`;
+    }
+    exprSel.innerHTML = opts;
+  }
+
+  if (!chr) { picker.innerHTML = pickerMessage(t('select_character_for_expr')); return; }
+  if (!exprs.length) { picker.innerHTML = pickerMessage(t('no_expressions_char')); return; }
+  if (type === null) { picker.innerHTML = pickerMessage(t('select_type_for_expr')); return; }
+  picker.innerHTML = shown.map(e =>
+    `<div class="img-option ${e.key === selectedKey ? 'selected' : ''}" onclick="selectExpression('${e.key}')" title="${e.key}" data-key="${e.key}">
       <img src="${getImageURL(e.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${e.key}</div>
+      <div class="lbl">${escHtml(expressionLabel(chr, e.key))}</div>
     </div>`).join('');
 }
 
 function selectExpression(key) {
-  document.querySelectorAll('#expr-picker .img-option').forEach(el => el.classList.remove('selected'));
-  document.getElementById('ep-' + key)?.classList.add('selected');
   const sel = document.getElementById('f-expr');
   if (sel) sel.value = key;
+  onExpressionSelectChange();
 }
 
 function onShowCharChange() {

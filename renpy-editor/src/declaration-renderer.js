@@ -144,12 +144,11 @@ function parseExpresiones(text) {
 let editingCharIdx = -1; // -1 = adding, >= 0 = editing index
 
 function populateExpressionDropdown() {
-  const sel = document.getElementById('nc-image');
-  if (!sel) return;
-  // Get unique expression charIds (image attributes)
-  const attrs = [...new Set(expressions.map(e => e.charId))];
-  sel.innerHTML = `<option value="">${t('no_expressions_option')}</option>` +
-    attrs.map(a => `<option value="${a}">${a}</option>`).join('');
+  const dl = document.getElementById('nc-image-list');
+  if (!dl) return;
+  // Suggest the image tags already in use (expressions and characters)
+  const attrs = [...new Set([...expressions.map(e => e.charId), ...characters.map(c => c.imageAttr)].filter(Boolean))];
+  dl.innerHTML = attrs.map(a => `<option value="${a}">`).join('');
 }
 
 function showAddCharForm(editIdx) {
@@ -182,7 +181,7 @@ function hideAddCharForm() {
 async function saveCharacter() {
   const id = document.getElementById('nc-id').value.trim();
   const name = document.getElementById('nc-name').value.trim();
-  const imageAttr = document.getElementById('nc-image').value.trim();
+  const imageAttr = document.getElementById('nc-image').value.trim().replace(/[^A-Za-z0-9_]/g, '');
   if (!id || !name) { notify(t('fill_all_fields'), 'err'); return; }
 
   if (editingCharIdx >= 0) {
@@ -563,30 +562,59 @@ function insertSpriteInMemory(chr, type, img) {
 
 // ═══════════════════════════════════════════════════════════
 // EXPRESSIONS TAB
+// Side expressions: image side <imageTag> <charId>_<type>_<id> = "path"
+// Listed grouped by type for the selected character.
 // ═══════════════════════════════════════════════════════════
-function loadCharExpressions() {
+function getSelectedExprChar() {
   const charId = document.getElementById('ex-char')?.value;
-  const preview = document.getElementById('expr-preview');
+  return characters.find(c => c.id === charId) || null;
+}
+
+function loadCharExpressions() {
   const list = document.getElementById('expr-list');
-  if (!charId) { preview.innerHTML = ''; list.innerHTML = ''; return; }
+  const dl = document.getElementById('ex-variant-list');
+  const chr = getSelectedExprChar();
+  if (!list) return;
+  if (!chr) { list.innerHTML = ''; if (dl) dl.innerHTML = ''; return; }
+  if (!chr.imageAttr) {
+    list.innerHTML = `<div class="empty-msg">${t('char_needs_image_attr')}</div>`;
+    if (dl) dl.innerHTML = '';
+    return;
+  }
 
-  // Find expressions for this character's image attribute
-  const chr = characters.find(c => c.id === charId);
-  const imgAttr = chr?.imageAttr || '';
-  const charExprs = imgAttr ? expressions.filter(e => e.charId === imgAttr) : [];
+  const charExprs = getCharExpressions(characters, chr, expressions);
+  const groups = [];
+  for (const e of charExprs) {
+    const type = getExpressionType(chr, e.key);
+    let g = groups.find(x => x.type === type);
+    if (!g) { g = { type, items: [] }; groups.push(g); }
+    g.items.push(e);
+  }
+  if (dl) dl.innerHTML = groups.map(g => g.type).filter(Boolean).map(tp => `<option value="${tp}">`).join('');
 
-  preview.innerHTML = charExprs.map((e, i) => {
-    const exprIdx = expressions.indexOf(e);
-    return `<div class="preview-item">
-      <img src="${getImageURL(e.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${e.key}</div>
-      <div class="item-actions" style="margin-top:4px;">
-        <button onclick="showExprEditForm(${exprIdx})" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteExpression(${exprIdx})" title="${t('delete_item')}">🗑️</button>
+  if (!groups.length) {
+    list.innerHTML = `<div class="empty-msg">${t('no_expressions_char')}</div>`;
+    return;
+  }
+  list.innerHTML = groups.map(g => `
+    <div class="sprite-char-group" style="padding-bottom:4px;">
+      <div class="sprite-type-group">
+        <div class="sprite-type-title">${g.type || t('no_type')} <span class="group-meta">(${g.items.length})</span></div>
+        <div class="preview-grid">
+          ${g.items.map(e => {
+            const exprIdx = expressions.indexOf(e);
+            return `<div class="preview-item" title="side ${e.charId} ${e.key}">
+              <img src="${getImageURL(e.path)}" onerror="this.style.display='none'" />
+              <div class="lbl">${expressionLabel(chr, e.key)}</div>
+              <div class="item-actions" style="margin-top:4px;">
+                <button onclick="showExprEditForm(${exprIdx})" title="${t('edit_item')}">✏️</button>
+                <button onclick="deleteExpression(${exprIdx})" title="${t('delete_item')}">🗑️</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
       </div>
-    </div>`;
-  }).join('');
-  list.innerHTML = '';
+    </div>`).join('');
 }
 
 // ── Expression edit ──
@@ -597,8 +625,10 @@ function showExprEditForm(exprIdx) {
   editingExprIdx = exprIdx;
   newExprImagePath = '';
   const expr = expressions[exprIdx];
-  if (!expr) return;
-  document.getElementById('ee-key').value = expr.key;
+  const chr = getSelectedExprChar();
+  if (!expr || !chr) return;
+  document.getElementById('ee-type').value = getExpressionType(chr, expr.key);
+  document.getElementById('ee-id').value = expressionLabel(chr, expr.key);
   document.getElementById('ee-file').textContent = t('no_file_selected');
   document.getElementById('ee-preview').innerHTML =
     `<img src="${getImageURL(expr.path)}" style="max-height:80px;border-radius:4px;" onerror="this.style.display='none'" />`;
@@ -624,26 +654,30 @@ async function selectExprImage() {
 async function saveExprEdit() {
   if (editingExprIdx < 0) return;
   const expr = expressions[editingExprIdx];
-  const newKey = document.getElementById('ee-key').value.trim();
-  if (!newKey) return;
+  const chr = getSelectedExprChar();
+  if (!expr || !chr) return;
+  const newType = sanitizeSpriteType(document.getElementById('ee-type').value);
+  const newId = sanitizeSpriteId(document.getElementById('ee-id').value);
+  if (!newType || !newId) { notify(t('fill_all_fields'), 'err'); return; }
+  const newKey = buildSpriteKey(chr.id, newType, newId);
+  if (expressions.some((e, i) => i !== editingExprIdx && e.charId === expr.charId && e.key === newKey)) {
+    notify(t('sprite_key_exists', newKey), 'err');
+    return;
+  }
 
   // Handle image replacement
   let newPath = expr.path;
   if (newExprImagePath) {
     const fileName = newExprImagePath.split(/[/\\]/).pop();
-    newPath = `${IMAGE_DIRS.expressions}/${fileName}`;
+    newPath = `${IMAGE_DIRS.expressions}/${chr.displayName}/${newType}/${fileName}`;
     await window.declApi.copyImageToProject(newExprImagePath, `images/${newPath}`);
   }
 
+  // Remove the old line and insert the new one inside its character/type group
   const etxt = await window.declApi.readFile('expressions.rpy') || '';
-  const lines = etxt.split('\n');
-  const oldPattern = `image side ${expr.charId} ${expr.key}`;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trimStart().startsWith(oldPattern)) {
-      lines[i] = `image side ${expr.charId} ${newKey} = "${newPath}"`;
-      break;
-    }
-  }
+  const oldPattern = `image side ${expr.charId} ${expr.key} `;
+  const lines = etxt.split('\n').filter(line => !(line.trimStart() + ' ').replace(/\s*=/, ' =').startsWith(oldPattern));
+  insertExpressionLines(lines, chr, newType, [`image side ${expr.charId} ${newKey} = "${newPath}"`]);
   await window.declApi.writeFile('expressions.rpy', lines.join('\n'));
   expr.key = newKey;
   expr.path = newPath;
@@ -659,8 +693,8 @@ async function deleteExpression(exprIdx) {
 
   const etxt = await window.declApi.readFile('expressions.rpy') || '';
   const lines = etxt.split('\n');
-  const pattern = `image side ${expr.charId} ${expr.key}`;
-  const filtered = lines.filter(line => !line.trimStart().startsWith(pattern));
+  const pattern = `image side ${expr.charId} ${expr.key} `;
+  const filtered = lines.filter(line => !(line.trimStart() + ' ').replace(/\s*=/, ' =').startsWith(pattern));
   await window.declApi.writeFile('expressions.rpy', filtered.join('\n'));
 
   // Delete image file
@@ -675,100 +709,86 @@ async function deleteExpression(exprIdx) {
   notify(t('expr_deleted'), 'ok');
 }
 
-async function addExprIndividual() {
-  const charId = document.getElementById('ex-char')?.value;
-  if (!charId) { notify(t('select_character'), 'err'); return; }
-  const chr = characters.find(c => c.id === charId);
-  if (!chr) return;
-  const imgAttr = chr.imageAttr;
-  if (!imgAttr) { notify(t('select_character'), 'err'); return; }
+// Validates the form and returns { chr, type } or null
+function readExprAddForm() {
+  const chr = getSelectedExprChar();
+  if (!chr) { notify(t('select_character'), 'err'); return null; }
+  if (!chr.imageAttr) { notify(t('char_needs_image_attr'), 'err'); return null; }
+  const variantInput = document.getElementById('ex-variant');
+  const type = sanitizeSpriteType(variantInput?.value);
+  if (!type) { notify(t('write_variant'), 'err'); return null; }
+  if (variantInput) variantInput.value = type;
+  return { chr, type };
+}
 
+async function addExprIndividual() {
+  const form = readExprAddForm();
+  if (!form) return;
   const files = await window.declApi.selectImageFiles();
   if (!files || !files.length) return;
-
-  const existingCount = expressions.filter(e => e.charId === imgAttr).length;
-  let counter = existingCount + 1;
-
-  const newExprs = [];
-  for (const filePath of files) {
-    const fileName = filePath.split(/[/\\]/).pop();
-    const destRelative = `${IMAGE_DIRS.expressions}/${fileName}`;
-    await window.declApi.copyImageToProject(filePath, `images/${destRelative}`);
-
-    const key = `expresion_${counter}`;
-    newExprs.push({ charId: imgAttr, key, path: destRelative });
-    counter++;
-  }
-
-  await appendExpressionsToFile(imgAttr, newExprs);
-  expressions.push(...newExprs);
-  loadCharExpressions();
-  notifyMainReload();
-  notify(t('expressions_added', newExprs.length), 'ok');
+  await importExpressions(form.chr, form.type, files.map(fp => ({ src: fp, name: fp.split(/[/\\]/).pop() })));
 }
 
 async function addExprBatch() {
-  const charId = document.getElementById('ex-char')?.value;
-  if (!charId) { notify(t('select_character'), 'err'); return; }
-  const chr = characters.find(c => c.id === charId);
-  if (!chr) return;
-  const imgAttr = chr.imageAttr;
-  if (!imgAttr) { notify(t('select_character'), 'err'); return; }
-
+  const form = readExprAddForm();
+  if (!form) return;
   const folderPath = await window.declApi.selectImageFolder();
   if (!folderPath) return;
   const files = await window.declApi.listImagesInDir(folderPath);
   if (!files || !files.length) { notify(t('no_images_in_folder'), 'err'); return; }
+  await importExpressions(form.chr, form.type, files.map(name => ({ src: folderPath + '/' + name, name })));
+}
 
-  const existingCount = expressions.filter(e => e.charId === imgAttr).length;
-  let counter = existingCount + 1;
-
+async function importExpressions(chr, type, files) {
+  const imgAttr = chr.imageAttr;
+  let counter = nextExpressionNumber(chr, getCharExpressions(characters, chr, expressions), type);
+  const destDir = `${IMAGE_DIRS.expressions}/${chr.displayName}/${type}`;
   const newExprs = [];
-  for (const fileName of files) {
-    const srcPath = folderPath + '/' + fileName;
-    const destRelative = `${IMAGE_DIRS.expressions}/${fileName}`;
-    await window.declApi.copyImageToProject(srcPath, `images/${destRelative}`);
-
-    const key = `expresion_${counter}`;
-    newExprs.push({ charId: imgAttr, key, path: destRelative });
+  for (const f of files) {
+    const destRelative = `${destDir}/${f.name}`;
+    await window.declApi.copyImageToProject(f.src, `images/${destRelative}`);
+    newExprs.push({ charId: imgAttr, key: buildSpriteKey(chr.id, type, counter), path: destRelative });
     counter++;
   }
 
-  await appendExpressionsToFile(imgAttr, newExprs);
+  const etxt = await window.declApi.readFile('expressions.rpy') || '';
+  const lines = etxt.split('\n');
+  insertExpressionLines(lines, chr, type, newExprs.map(e => `image side ${e.charId} ${e.key} = "${e.path}"`));
+  await window.declApi.writeFile('expressions.rpy', lines.join('\n'));
+
   expressions.push(...newExprs);
   loadCharExpressions();
   notifyMainReload();
   notify(t('expressions_added', newExprs.length), 'ok');
 }
 
-async function appendExpressionsToFile(imgAttr, newExprs) {
-  const etxt = await window.declApi.readFile('expressions.rpy') || '';
-  const newLines = newExprs.map(e => `image side ${e.charId} ${e.key} = "${e.path}"`).join('\n');
-
-  // Find section header for this character
-  const lines = etxt.split('\n');
-  let sectionIdx = -1;
+// Insert lines (in place) grouped by character and type: after the last
+// expression of the same character and type, else after the character's last
+// expression, else after the last one of its image tag, else after the
+// "# <tag>" header, else at the end of the file.
+function insertExpressionLines(lines, chr, type, newLines) {
+  const imgAttr = chr.imageAttr;
+  const re = /^image\s+side\s+(\w+)\s+(\w+)\s*=/;
+  let lastSameType = -1, lastOfChar = -1, lastOfTag = -1, headerIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(new RegExp(`^#\\s*${imgAttr}`, 'i'))) sectionIdx = i;
+    const m = lines[i].match(re);
+    if (m && m[1] === imgAttr) {
+      lastOfTag = i;
+      if (isOwnExpressionKey(chr, m[2]) && findCharForSpriteKey(characters, m[2]) === chr) {
+        lastOfChar = i;
+        if (getExpressionType(chr, m[2]) === type) lastSameType = i;
+      }
+    } else if (new RegExp(`^#\\s*${imgAttr}\\s*$`, 'i').test(lines[i])) {
+      headerIdx = i;
+    }
   }
-
-  // Find last expression line for this character
-  let lastExprIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(new RegExp(`^image\\s+side\\s+${imgAttr}\\s+`))) lastExprIdx = i;
-  }
-
-  let newText;
-  if (lastExprIdx >= 0) {
-    lines.splice(lastExprIdx + 1, 0, newLines);
-    newText = lines.join('\n');
-  } else if (sectionIdx >= 0) {
-    lines.splice(sectionIdx + 1, 0, newLines);
-    newText = lines.join('\n');
+  const at = [lastSameType, lastOfChar, lastOfTag, headerIdx].find(i => i >= 0);
+  if (at !== undefined) {
+    lines.splice(at + 1, 0, ...newLines);
   } else {
-    newText = etxt.trimEnd() + `\n\n# ${imgAttr}\n` + newLines + '\n';
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    lines.push('', `# ${imgAttr}`, ...newLines, '');
   }
-  await window.declApi.writeFile('expressions.rpy', newText);
 }
 
 // ═══════════════════════════════════════════════════════════
