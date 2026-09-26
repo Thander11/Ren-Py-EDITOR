@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
   writeFile: (relativePath, content) => ipcRenderer.invoke('write-file', relativePath, content),
   fileExists: (relativePath) => ipcRenderer.invoke('file-exists', relativePath),
   listRpyFiles: () => ipcRenderer.invoke('list-rpy-files'),
+  createRpyFile: (name) => ipcRenderer.invoke('create-rpy-file', name),
   listAudioFiles: () => ipcRenderer.invoke('list-audio-files'),
   listImagesInDir: (relDir) => ipcRenderer.invoke('list-images-in-dir', relDir),
   getGamePath: () => ipcRenderer.invoke('get-game-path'),

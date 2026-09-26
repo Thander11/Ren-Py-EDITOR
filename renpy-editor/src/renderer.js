@@ -257,14 +257,71 @@ function renderAssetBrowser() {
     c.innerHTML = `<div style="color:var(--text3);font-style:italic;text-align:center;margin-top:30px;font-size:11px;">${t('open_folder_hint')}</div>`;
     return;
   }
-  if (!rpyFiles.length) {
-    c.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;margin-top:20px;">${t('no_rpy_files')}</div>`;
+  const filesHtml = rpyFiles.length
+    ? rpyFiles.map(f => {
+      const isActive = f === activeRpyFile;
+      return `<div class="rpy-file ${isActive ? 'active' : ''}" onclick="selectRpyFile('${f.replace(/'/g, "\\'")}')" title="${escHtml(f)}">📄 ${escHtml(f)}</div>`;
+    }).join('')
+    : `<div style="color:var(--text3);font-size:11px;text-align:center;margin:20px 0 10px;">${t('no_rpy_files')}</div>`;
+  const newHtml = newRpyEditing
+    ? `<div class="rpy-new-row">
+        <input class="form-input" id="new-rpy-name" placeholder="${t('new_rpy_placeholder')}"
+          onkeydown="onNewRpyKeydown(event)" onblur="onNewRpyBlur()">
+        <span class="rpy-new-ext">.rpy</span>
+      </div>`
+    : `<button class="rpy-add-btn" onclick="startNewRpy()" title="${t('new_rpy')}">+</button>`;
+  c.innerHTML = filesHtml + newHtml;
+}
+
+// ── New .rpy file (inline name input at the end of the list) ──
+let newRpyEditing = false;
+let newRpyCreating = false;
+
+function startNewRpy() {
+  newRpyEditing = true;
+  renderAssetBrowser();
+  const input = document.getElementById('new-rpy-name');
+  if (input) { input.focus(); input.scrollIntoView({ block: 'nearest' }); }
+}
+
+function cancelNewRpy() {
+  newRpyEditing = false;
+  renderAssetBrowser();
+}
+
+function onNewRpyKeydown(e) {
+  if (e.key === 'Enter') { e.preventDefault(); createNewRpy(); }
+  else if (e.key === 'Escape') { e.preventDefault(); cancelNewRpy(); }
+}
+
+function onNewRpyBlur() {
+  // Leaving the field empty cancels; with a name it stays open until Enter/Escape
+  setTimeout(() => {
+    const input = document.getElementById('new-rpy-name');
+    if (newRpyEditing && !newRpyCreating && input && !input.value.trim()) cancelNewRpy();
+  }, 150);
+}
+
+async function createNewRpy() {
+  const input = document.getElementById('new-rpy-name');
+  const name = (input?.value || '').trim();
+  if (!name) { cancelNewRpy(); return; }
+  newRpyCreating = true;
+  const res = await window.api.createRpyFile(name);
+  newRpyCreating = false;
+  if (!res?.ok) {
+    const msg = res?.error === 'exists' ? t('new_rpy_exists', res.file)
+      : res?.error === 'invalid-name' ? t('new_rpy_invalid') : t('save_error', res?.message || res?.error || '');
+    notify(msg, 'err');
+    input?.focus();
     return;
   }
-  c.innerHTML = rpyFiles.map(f => {
-    const isActive = f === activeRpyFile;
-    return `<div style="padding:7px 10px;background:${isActive?'var(--accent)':'var(--surface)'};color:${isActive?'#fff':'var(--text)'};margin-bottom:4px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;border-left:3px solid ${isActive?'var(--accent)':'var(--border)'};" onclick="selectRpyFile('${f}')" title="${f}">📄 ${f}</div>`;
-  }).join('');
+  newRpyEditing = false;
+  rpyFiles = await window.api.listRpyFiles();
+  renderAssetBrowser();
+  notify(t('new_rpy_created', res.file), 'ok');
+  await selectRpyFile(res.file);
+  document.querySelector('#asset-content .rpy-file.active')?.scrollIntoView({ block: 'nearest' });
 }
 
 async function selectRpyFile(filename) {

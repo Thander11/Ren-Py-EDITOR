@@ -54,6 +54,8 @@ body {
   color: var(--text);
   overflow: hidden;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Header ── */
@@ -79,7 +81,8 @@ body {
 /* ── Main Layout ── */
 #main {
   display: flex;
-  height: calc(100vh - 44px);
+  flex: 1;
+  min-height: 0;
 }
 
 /* ── Left Panel (Assets) ── */
@@ -102,9 +105,44 @@ body {
 }
 #asset-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px;
 }
+.rpy-file {
+  padding: 7px 10px;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+  border-left: 3px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rpy-file:hover { background: var(--surface2); }
+.rpy-file.active { background: var(--accent); color: #fff; border-left-color: var(--accent); }
+.rpy-add-btn {
+  width: 100%;
+  padding: 4px 0;
+  margin-top: 2px;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text2);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.rpy-add-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--surface2); }
+.rpy-new-row { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.rpy-new-row .form-input { padding: 5px 7px; font-family: monospace; font-size: 12px; }
+.rpy-new-ext { font-family: monospace; font-size: 12px; color: var(--text2); }
 
 /* ── Center Panel (Builder) ── */
 #panel-builder {

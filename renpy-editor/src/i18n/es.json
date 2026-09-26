@@ -318,5 +318,10 @@
   "migration_duplicates": "{0} archivos ya estaban copiados en la carpeta en inglés y se han eliminado de la carpeta en español.",
   "migration_conflicts": "{0} archivos no se han movido porque ya existe otro distinto con el mismo nombre en la carpeta en inglés.",
   "migration_remaining": "{0} rutas siguen apuntando a carpetas en español porque su archivo no existe en la carpeta en inglés.",
-  "migration_error": "Error durante la migración: {0}"
+  "migration_error": "Error durante la migración: {0}",
+  "new_rpy": "Crear nuevo archivo .rpy",
+  "new_rpy_placeholder": "nombre",
+  "new_rpy_exists": "Ya existe el archivo \"{0}\"",
+  "new_rpy_invalid": "El nombre solo puede tener letras, números, espacios, _ y -",
+  "new_rpy_created": "Archivo \"{0}\" creado"
 }

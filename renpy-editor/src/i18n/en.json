@@ -316,5 +316,10 @@
   "migration_duplicates": "{0} files were already copied in the English folder and have been removed from the Spanish folder.",
   "migration_conflicts": "{0} files were not moved because a different file with the same name already exists in the English folder.",
   "migration_remaining": "{0} paths still point to Spanish folders because their file doesn't exist in the English folder.",
-  "migration_error": "Error during the migration: {0}"
+  "migration_error": "Error during the migration: {0}",
+  "new_rpy": "Create new .rpy file",
+  "new_rpy_placeholder": "name",
+  "new_rpy_exists": "The file \"{0}\" already exists",
+  "new_rpy_invalid": "The name can only contain letters, numbers, spaces, _ and -",
+  "new_rpy_created": "File \"{0}\" created"
 }

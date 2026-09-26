@@ -583,6 +583,20 @@ ipcMain.handle('list-rpy-files', () => {
   } catch (e) { return []; }
 });
 
+// ── Create a new empty .rpy file in the game directory ──
+ipcMain.handle('create-rpy-file', (_, name) => {
+  if (!currentGamePath) return { ok: false, error: 'no-project' };
+  const base = (name || '').trim().replace(/\.rpy$/i, '');
+  if (!base || !/^[A-Za-z0-9_\- ]+$/.test(base)) return { ok: false, error: 'invalid-name' };
+  const file = base + '.rpy';
+  const fp = path.join(currentGamePath, file);
+  if (fs.existsSync(fp)) return { ok: false, error: 'exists', file };
+  try {
+    fs.writeFileSync(fp, `# ${file}\n`, 'utf-8');
+    return { ok: true, file };
+  } catch (e) { return { ok: false, error: 'write-failed', message: e.message }; }
+});
+
 // ── List audio files in game/audio/ (recursive, paths relative to game/) ──
 ipcMain.handle('list-audio-files', () => {
   if (!currentGamePath) return [];
