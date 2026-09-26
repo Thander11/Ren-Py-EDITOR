@@ -13,6 +13,7 @@ let settings = {
   lastProjectPath: '',
   lastGamePath: '',
   renpyExecutablePath: '',
+  projectsDirectory: '',
   windowMaximized: false,
   panelSizes: { panelCode: 560, panelAssets: 220 }
 };
@@ -607,4 +608,124 @@ ipcMain.handle('list-character-dirs', () => {
         return { name: d.name, subDirs };
       });
   } catch (e) { return []; }
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// NEW REN'PY PROJECT
+// ═════════════════════════════════════════════════════════════════════
+
+// Ask where the projects folder is (or where to create it) and save it in settings
+async function chooseProjectsDirectory() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Seleccionar la carpeta de proyectos de Ren\'Py',
+    properties: ['openDirectory', 'createDirectory', 'promptToCreate'],
+    defaultPath: settings.projectsDirectory || undefined
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  const dir = result.filePaths[0];
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch (e) { return null; }
+  settings.projectsDirectory = dir;
+  saveSettings();
+  return dir;
+}
+
+// ── Always asks for the projects folder (settings panel) ──
+ipcMain.handle('select-projects-directory', () => chooseProjectsDirectory());
+
+// ── Returns the projects folder, asking for it only if it isn't set or doesn't exist ──
+ipcMain.handle('ensure-projects-directory', async () => {
+  const dir = settings.projectsDirectory;
+  if (dir && fs.existsSync(dir) && fs.statSync(dir).isDirectory()) return dir;
+  return chooseProjectsDirectory();
+});
+
+// Run a process and resolve with its exit code and error output
+function runProcess(cmd, args, opts = {}) {
+  return new Promise((resolve) => {
+    let child;
+    let stderr = '';
+    try {
+      child = spawn(cmd, args, { windowsHide: true, ...opts });
+    } catch (e) {
+      resolve({ code: -1, error: e.message });
+      return;
+    }
+    const timer = setTimeout(() => child.kill(), opts.timeout || 5 * 60 * 1000);
+    if (child.stdout) child.stdout.on('data', () => {});
+    if (child.stderr) child.stderr.on('data', d => { stderr += d; });
+    child.on('error', e => { clearTimeout(timer); resolve({ code: -1, error: e.message }); });
+    child.on('close', code => { clearTimeout(timer); resolve({ code, error: stderr.trim() }); });
+  });
+}
+
+function sendProjectProgress(step) {
+  if (mainWindow) mainWindow.webContents.send('project-creation-progress', step);
+}
+
+// ── Create a new project the same way the Ren'Py launcher does, then add the editor files ──
+// opts: { name, width, height, accent, boring, light }
+ipcMain.handle('create-renpy-project', async (_, opts) => {
+  const name = (opts?.name || '').trim();
+  // Same characters the launcher accepts for project names
+  if (!name || !/^[A-Za-z0-9 _]+$/.test(name)) return { ok: false, error: 'invalid-name' };
+
+  const projectsDir = settings.projectsDirectory;
+  if (!projectsDir || !fs.existsSync(projectsDir)) return { ok: false, error: 'no-projects-dir' };
+
+  const projectDir = path.join(projectsDir, name);
+  if (fs.existsSync(projectDir)) return { ok: false, error: 'project-exists', path: projectDir };
+
+  const width = parseInt(opts.width, 10), height = parseInt(opts.height, 10);
+  if (!(width > 0 && height > 0)) return { ok: false, error: 'invalid-size' };
+  const colorRe = /^#[0-9a-fA-F]{6}$/;
+  const accent = colorRe.test(opts.accent) ? opts.accent : '#0099cc';
+  const boring = colorRe.test(opts.boring) ? opts.boring : '#000000';
+
+  const renpyExecutable = await ensureRenpyExecutablePath();
+  if (!renpyExecutable) return { ok: false, error: 'cancelled' };
+  const sdkDir = path.dirname(renpyExecutable);
+  const launcherDir = path.join(sdkDir, 'launcher');
+  const templateDir = path.join(sdkDir, 'gui');
+  if (!fs.existsSync(launcherDir) || !fs.existsSync(path.join(templateDir, 'game'))) {
+    return { ok: false, error: 'invalid-sdk', path: sdkDir };
+  }
+
+  // 1. Generate the project with the launcher's generate_gui command
+  sendProjectProgress('generating');
+  const genArgs = [
+    launcherDir, 'generate_gui', projectDir,
+    '--start',
+    '--width', String(width),
+    '--height', String(height),
+    '--accent', accent,
+    '--boring', boring,
+    '--template', templateDir
+  ];
+  if (opts.light) genArgs.push('--light');
+  const gen = await runProcess(renpyExecutable, genArgs, { cwd: sdkDir });
+  const gamePath = path.join(projectDir, 'game');
+  if (gen.code !== 0 || !fs.existsSync(path.join(gamePath, 'options.rpy'))) {
+    return { ok: false, error: 'generate-failed', message: gen.error || `exit code ${gen.code}` };
+  }
+
+  // 2. Generate the gui images, as the launcher does after creating a project
+  sendProjectProgress('images');
+  await runProcess(renpyExecutable, [projectDir, 'gui_images'], {
+    cwd: sdkDir, env: { ...process.env, RENPY_VARIANT: 'small phone' }
+  });
+  await runProcess(renpyExecutable, [projectDir, 'gui_images'], { cwd: sdkDir });
+
+  // 3. Add the files and folders used by this editor and open the project
+  sendProjectProgress('editor-files');
+  ensureProjectStructure(gamePath);
+
+  currentGamePath = gamePath;
+  settings.lastProjectPath = projectDir;
+  settings.lastGamePath = gamePath;
+  saveSettings();
+  startFileWatcher(currentGamePath);
+
+  return { ok: true, gamePath, projectDir };
 });

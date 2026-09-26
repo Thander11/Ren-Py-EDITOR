@@ -10,6 +10,7 @@
   <!-- Header -->
   <div id="header">
     <h1 data-i18n="title">Ren'Py EDITOR</h1>
+    <button class="btn btn-primary" onclick="newProject()" data-i18n="new_project">➕ Nuevo proyecto</button>
     <button class="btn btn-primary" onclick="openProjectFolder()" data-i18n="open_project">Abrir carpeta del proyecto</button>
     <button class="btn btn-primary" onclick="launchProjectFromEditor()" data-i18n="launch_project">Iniciar juego</button>
     <button class="btn btn-secondary" onclick="openDeclarations()" data-i18n="declarations">Declaraciones</button>
@@ -33,6 +34,11 @@
         <option value="es">🇪🇸 Español</option>
         <option value="en">🇬🇧 English</option>
       </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="projects_dir">Carpeta de proyectos</label>
+      <div class="settings-path" id="setting-projects-dir"></div>
+      <button class="btn btn-secondary btn-sm" onclick="changeProjectsDirectory()" data-i18n="change_folder">📂 Cambiar carpeta</button>
     </div>
   </div>
 
@@ -103,6 +109,21 @@
       <div id="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal()" data-i18n="cancel">Cancelar</button>
         <button class="btn btn-primary" onclick="saveBlock()" data-i18n="save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New project dialog -->
+  <div id="project-overlay">
+    <div id="project-box">
+      <div id="project-header">
+        <span data-i18n="new_project_title">Nuevo proyecto de Ren'Py</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeProjectDialog()" title="Cerrar" aria-label="Cerrar">X</button>
+      </div>
+      <div id="project-body"></div>
+      <div id="project-footer">
+        <button class="btn btn-secondary" onclick="closeProjectDialog()" data-i18n="cancel">Cancelar</button>
+        <button class="btn btn-primary" onclick="createProject()" data-i18n="create_project">Crear proyecto</button>
       </div>
     </div>
   </div>

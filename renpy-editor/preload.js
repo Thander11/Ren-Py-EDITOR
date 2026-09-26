@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('api', {
   loadLastProject: () => ipcRenderer.invoke('load-last-project'),
   reloadCurrentProject: () => ipcRenderer.invoke('reload-current-project'),
   launchRenpyProject: () => ipcRenderer.invoke('launch-renpy-project'),
+  selectProjectsDirectory: () => ipcRenderer.invoke('select-projects-directory'),
+  ensureProjectsDirectory: () => ipcRenderer.invoke('ensure-projects-directory'),
+  createRenpyProject: (opts) => ipcRenderer.invoke('create-renpy-project', opts),
   readFile: (relativePath) => ipcRenderer.invoke('read-file', relativePath),
   writeFile: (relativePath, content) => ipcRenderer.invoke('write-file', relativePath, content),
   fileExists: (relativePath) => ipcRenderer.invoke('file-exists', relativePath),
@@ -29,4 +32,5 @@ contextBridge.exposeInMainWorld('api', {
   onReloadData: (cb) => ipcRenderer.on('reload-data', cb),
   onSettingsChanged: (cb) => ipcRenderer.on('settings-changed', (_, s) => cb(s)),
   onFileChanged: (cb) => ipcRenderer.on('file-changed', (_, filename) => cb(filename)),
+  onProjectCreationProgress: (cb) => ipcRenderer.on('project-creation-progress', (_, step) => cb(step)),
 });

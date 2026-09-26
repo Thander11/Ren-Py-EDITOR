@@ -105,6 +105,7 @@ async function changeTheme(theme) {
 async function changeLanguage(lang) {
   await loadI18n(lang);
   applyI18n();
+  updateProjectsDirLabel();
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();
@@ -3607,6 +3608,182 @@ async function launchProjectFromEditor() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// NEW REN'PY PROJECT
+// Same options as the Ren'Py launcher: name, resolution and GUI colors
+// ═══════════════════════════════════════════════════════════════════
+const PROJECT_RESOLUTIONS = [[1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]];
+// Launcher color themes: [accent, background, light]
+const PROJECT_THEMES = [
+  ...['#0099cc', '#99ccff', '#66cc00', '#cccc00', '#cc6600', '#0066cc', '#9933ff', '#00cc99', '#cc0066', '#cc0000']
+    .map(c => [c, '#000000', false]),
+  ...['#003366', '#0099ff', '#336600', '#000000', '#cc6600', '#000066', '#660066', '#006666', '#cc0066', '#990000']
+    .map(c => [c, '#ffffff', true])
+];
+let projectsDirectory = '';
+let selectedProjectTheme = 0;
+let creatingProject = false;
+
+function updateProjectsDirLabel() {
+  const el = document.getElementById('setting-projects-dir');
+  if (!el) return;
+  el.textContent = projectsDirectory || t('projects_dir_not_set');
+  el.title = projectsDirectory || '';
+}
+
+async function changeProjectsDirectory() {
+  const dir = await window.api.selectProjectsDirectory();
+  if (!dir) return;
+  projectsDirectory = dir;
+  updateProjectsDirLabel();
+  notify(t('projects_dir_saved'), 'ok');
+}
+
+async function newProject() {
+  // If the projects folder isn't set (or no longer exists) the folder dialog opens first
+  const dir = await window.api.ensureProjectsDirectory();
+  if (!dir) return;
+  projectsDirectory = dir;
+  updateProjectsDirLabel();
+  openProjectDialog();
+}
+
+function openProjectDialog() {
+  selectedProjectTheme = 0;
+  document.getElementById('project-body').innerHTML = `
+    <div class="form-group">
+      <label class="form-label">${t('project_name')}</label>
+      <input class="form-input" id="np-name" maxlength="60" placeholder="${t('project_name_placeholder')}" oninput="updateProjectLocation()">
+      <div class="np-hint" id="np-location"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('project_resolution')}</label>
+      <select class="form-select" id="np-size" onchange="onProjectSizeChange()">
+        ${PROJECT_RESOLUTIONS.map(([w, h]) => `<option value="${w}x${h}" ${w === 1920 ? 'selected' : ''}>${w}x${h}</option>`).join('')}
+        <option value="custom">${t('project_resolution_custom')}</option>
+      </select>
+      <div class="np-hint">${t('project_resolution_hint')}</div>
+    </div>
+    <div class="form-row" id="np-custom-size" style="display:none;">
+      <div class="form-group"><label class="form-label">${t('project_width')}</label><input class="form-input" id="np-width" type="number" min="1" value="1920"></div>
+      <div class="form-group"><label class="form-label">${t('project_height')}</label><input class="form-input" id="np-height" type="number" min="1" value="1080"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('project_theme')}</label>
+      <div class="np-theme-label">${t('project_theme_dark')}</div>
+      <div class="np-themes">${PROJECT_THEMES.map((th, i) => th[2] ? '' : projectThemeSwatch(th, i)).join('')}</div>
+      <div class="np-theme-label">${t('project_theme_light')}</div>
+      <div class="np-themes">${PROJECT_THEMES.map((th, i) => th[2] ? projectThemeSwatch(th, i) : '').join('')}</div>
+    </div>
+    <div id="np-progress" class="np-progress" style="display:none;"></div>`;
+  setProjectDialogBusy(false);
+  document.getElementById('project-overlay').classList.add('open');
+  updateProjectLocation();
+  setTimeout(() => document.getElementById('np-name')?.focus(), 30);
+}
+
+function projectThemeSwatch([accent, boring], i) {
+  return `<button type="button" class="np-theme ${i === selectedProjectTheme ? 'selected' : ''}" id="np-theme-${i}"
+    style="background:${boring};" onclick="selectProjectTheme(${i})" title="${accent}">
+    <span style="background:${accent};"></span>
+  </button>`;
+}
+
+function selectProjectTheme(i) {
+  selectedProjectTheme = i;
+  document.querySelectorAll('.np-theme').forEach(el => el.classList.remove('selected'));
+  document.getElementById('np-theme-' + i)?.classList.add('selected');
+}
+
+function onProjectSizeChange() {
+  const custom = document.getElementById('np-size').value === 'custom';
+  document.getElementById('np-custom-size').style.display = custom ? '' : 'none';
+}
+
+function updateProjectLocation() {
+  const name = (document.getElementById('np-name')?.value || '').trim();
+  const el = document.getElementById('np-location');
+  if (el) el.textContent = t('project_location', projectsDirectory.replace(/[\\/]+$/, '') + (name ? '\\' + name : ''));
+}
+
+function closeProjectDialog() {
+  if (creatingProject) return;
+  document.getElementById('project-overlay').classList.remove('open');
+}
+
+function setProjectDialogBusy(busy) {
+  creatingProject = busy;
+  document.querySelectorAll('#project-box button, #project-box input, #project-box select')
+    .forEach(el => { el.disabled = busy; });
+}
+
+function showProjectProgress(msg, type = '') {
+  const el = document.getElementById('np-progress');
+  if (!el) return;
+  el.style.display = '';
+  el.className = 'np-progress ' + type;
+  el.textContent = msg;
+}
+
+async function createProject() {
+  if (creatingProject) return;
+  const name = (document.getElementById('np-name')?.value || '').trim();
+  if (!name) { notify(t('project_name_empty'), 'err'); return; }
+  if (!/^[A-Za-z0-9 _]+$/.test(name)) { notify(t('project_name_invalid'), 'err'); return; }
+
+  let width, height;
+  const size = document.getElementById('np-size').value;
+  if (size === 'custom') {
+    width = parseInt(document.getElementById('np-width').value, 10);
+    height = parseInt(document.getElementById('np-height').value, 10);
+    if (!(width > 0 && height > 0)) { notify(t('project_size_invalid'), 'err'); return; }
+  } else {
+    [width, height] = size.split('x').map(Number);
+  }
+  const [accent, boring, light] = PROJECT_THEMES[selectedProjectTheme];
+
+  if (blocks.length > 0 && !confirm(t('project_discard_blocks', blocks.length))) return;
+
+  setProjectDialogBusy(true);
+  showProjectProgress(t('project_step_generating'));
+  let result;
+  try {
+    result = await window.api.createRenpyProject({ name, width, height, accent, boring, light });
+  } catch (e) {
+    result = { ok: false, error: 'generate-failed', message: e.message };
+  }
+  setProjectDialogBusy(false);
+
+  if (!result?.ok) {
+    const errors = {
+      'invalid-name': t('project_name_invalid'),
+      'invalid-size': t('project_size_invalid'),
+      'no-projects-dir': t('projects_dir_not_set'),
+      'project-exists': t('project_exists', result?.path || name),
+      'cancelled': t('launch_cancelled'),
+      'invalid-sdk': t('project_invalid_sdk', result?.path || ''),
+      'generate-failed': t('project_generate_failed', result?.message || '')
+    };
+    const msg = errors[result?.error] || t('project_generate_failed', result?.message || '');
+    showProjectProgress(msg, 'err');
+    notify(msg, 'err');
+    return;
+  }
+
+  // Open the new project in the editor
+  document.getElementById('project-overlay').classList.remove('open');
+  resetManualCodePreview();
+  blocks = [];
+  activeRpyFile = 'script.rpy';
+  gamePath = result.gamePath;
+  await loadProjectData();
+  renderAssetBrowser();
+  renderBlocks();
+  updateCodePreview();
+  setStatus(gamePath, 'ok');
+  notify(t('project_created', name), 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════
 function setStatus(msg, type = '') {
@@ -3689,9 +3866,16 @@ function notify(msg, type = 'ok') {
     }
   }
   
+  projectsDirectory = s.projectsDirectory || '';
+
   applyI18n();
+  updateProjectsDirLabel();
   renderBlocks();
   updateCodePreview();
+
+  window.api.onProjectCreationProgress((step) => {
+    if (creatingProject) showProjectProgress(t('project_step_' + step.replace(/-/g, '_')));
+  });
 
   const codePreview = document.getElementById('code-preview');
   if (codePreview) {
