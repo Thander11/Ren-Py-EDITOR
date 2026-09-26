@@ -1813,7 +1813,7 @@ function buildModalBody(type, b) {
       return `
       <div class="form-group">
         <label class="form-label">${t('character')}</label>
-        <select class="form-select" id="f-char" onchange="onShowCharChange()">${buildCharOptions(b.character)}</select>
+        <select class="form-select" id="f-char" onchange="onShowCharChange()">${buildCharOptions(getShowBlockCharId(b))}</select>
       </div>
       <div class="form-group">
         <label class="form-label">${t('select_sprite')}</label>
@@ -3167,9 +3167,19 @@ function selectSpriteImage(key) {
   document.getElementById('f-image').value = key;
 }
 
+// Character of a show block: stored one, else the owner of its image
+function getShowBlockCharId(b) {
+  if (b.character) return b.character;
+  if (b.image) {
+    const chr = findCharForSpriteKey(data.characters, b.image.split(/\s+/)[0]);
+    if (chr) return chr.id;
+  }
+  return '';
+}
+
 function populateCharSelect(type, b) {
   if (type === 'show') {
-    const charId = b.character || (data.characters[0]?.id);
+    const charId = getShowBlockCharId(b) || (data.characters[0]?.id);
     const sel = document.getElementById('f-char');
     if (sel && charId) { sel.value = charId; populateSpritePicker(charId, b.image); }
     else if (sel) populateSpritePicker(sel.value, b.image);
