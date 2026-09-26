@@ -342,21 +342,21 @@ function mt(key, ...args) {
 }
 
 // ═════════════════════════════════════════════════════════════════════
-// LEGACY (SPANISH) IMAGE FOLDERS → ENGLISH FOLDERS
+// IMAGE FOLDERS NOT IN ENGLISH → ENGLISH FOLDERS
+// Works for folders in any language: each declaration file says which
+// English folder its images belong to, so any declared image that isn't
+// inside that folder is moved there and every path to it is updated.
 // ═════════════════════════════════════════════════════════════════════
-const LEGACY_IMAGE_DIRS = {
-  personajes: 'characters',
-  fondos: 'backgrounds',
-  escenas: 'scenes',
-  expresiones: 'expressions'
-};
-// "personajes/..." or "images/personajes/..." inside a quoted string
-const LEGACY_PATH_RE = /(["'])((?:images\/)?)(personajes|fondos|escenas|expresiones)\/([^"'\n]*)\1/g;
+const IMAGE_CATEGORY_FILES = [
+  { file: 'characters.rpy', dir: 'characters' },
+  { file: 'backgrounds.rpy', dir: 'backgrounds' },
+  { file: 'scenes.rpy', dir: 'scenes' },
+  { file: 'expressions.rpy', dir: 'expressions' }
+];
+const ENGLISH_IMAGE_DIRS = IMAGE_CATEGORY_FILES.map(c => c.dir);
+const IMAGE_DECL_RE = /^[ \t]*image\s+[^=\n]+?=\s*"([^"\n]+)"/gm;
+const IMAGE_FILE_RE = /\.(png|jpe?g|webp|gif|bmp|avif|svg)$/i;
 const declinedMigrations = new Set();
-
-function countFiles(dir) {
-  return listDirRecursive(dir, dir).filter(f => !f.isDir).length;
-}
 
 function filesAreEqual(a, b) {
   try {
@@ -373,85 +373,130 @@ function removeEmptyDirs(dir) {
   if (!fs.readdirSync(dir).length) fs.rmdirSync(dir);
 }
 
-// Move every file from src to dst keeping subfolders. Files already present in dst
-// are deleted from src when identical, and left in place when different.
-function moveDirContents(src, dst, stats) {
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const from = path.join(src, entry.name), to = path.join(dst, entry.name);
-    if (entry.isDirectory()) {
-      moveDirContents(from, to, stats);
-    } else if (!fs.existsSync(to)) {
-      fs.mkdirSync(dst, { recursive: true });
-      try { fs.renameSync(from, to); } catch (e) { fs.copyFileSync(from, to); fs.unlinkSync(from); }
-      stats.moved++;
-    } else if (filesAreEqual(from, to)) {
-      fs.unlinkSync(from);
-      stats.duplicates++;
-    } else {
-      stats.conflicts++;
-    }
-  }
-}
-
 function listProjectRpyFiles(gamePath) {
   return listDirRecursive(gamePath, gamePath)
     .filter(f => !f.isDir && f.name.endsWith('.rpy'))
     .map(f => path.join(gamePath, f.path));
 }
 
-// Rewrite legacy paths in the .rpy files when the file exists in the English folder
-function rewriteLegacyImagePaths(gamePath, apply) {
+const sameDirName = (a, b) => a.toLowerCase() === b.toLowerCase();
+
+// Plan which image files (paths relative to images/) must move to which English folder.
+// Returns { moves: Map(oldRel -> newRel), groups: [{ from, to, count }] }
+function planImageFolderMigration(gamePath) {
+  const imagesDir = path.join(gamePath, 'images');
+  const moves = new Map();
+  const ambiguous = new Set();
+  const folderTargets = new Map(); // non-English top folder -> Set of English folders
+
+  for (const cat of IMAGE_CATEGORY_FILES) {
+    let text = '';
+    try { text = fs.readFileSync(path.join(gamePath, cat.file), 'utf-8'); } catch (e) { continue; }
+    let m;
+    IMAGE_DECL_RE.lastIndex = 0;
+    while ((m = IMAGE_DECL_RE.exec(text)) !== null) {
+      const rel = m[1].replace(/\\/g, '/').replace(/^images\//, '');
+      if (!IMAGE_FILE_RE.test(rel)) continue;
+      const parts = rel.split('/');
+      if (parts.length > 1 && sameDirName(parts[0], cat.dir)) continue; // already in its English folder
+      if (!fs.existsSync(path.join(imagesDir, rel))) continue;
+      const rest = parts.length > 1 ? parts.slice(1).join('/') : parts[0];
+      const newRel = `${cat.dir}/${rest}`;
+      // The same file declared in two categories: can't decide, leave it
+      if (moves.has(rel) && moves.get(rel) !== newRel) { ambiguous.add(rel); continue; }
+      moves.set(rel, newRel);
+      if (parts.length > 1 && !ENGLISH_IMAGE_DIRS.some(d => sameDirName(d, parts[0]))) {
+        if (!folderTargets.has(parts[0])) folderTargets.set(parts[0], new Set());
+        folderTargets.get(parts[0]).add(cat.dir);
+      }
+    }
+  }
+  ambiguous.forEach(rel => moves.delete(rel));
+
+  // A non-English folder used by a single category moves entirely (also its undeclared files)
+  for (const [folder, targets] of folderTargets) {
+    if (targets.size !== 1) continue;
+    const dir = [...targets][0];
+    for (const f of listDirRecursive(path.join(imagesDir, folder), path.join(imagesDir, folder))) {
+      if (f.isDir) continue;
+      const rel = `${folder}/${f.path}`;
+      if (!moves.has(rel) && !ambiguous.has(rel)) moves.set(rel, `${dir}/${f.path}`);
+    }
+  }
+
+  const groups = new Map();
+  for (const [oldRel, newRel] of moves) {
+    const from = oldRel.includes('/') ? oldRel.split('/')[0] : '';
+    const to = newRel.split('/')[0];
+    const key = from + '→' + to;
+    if (!groups.has(key)) groups.set(key, { from, to, count: 0 });
+    groups.get(key).count++;
+  }
+  return { moves, groups: [...groups.values()] };
+}
+
+// Move the planned files. Returns the paths actually changed and some stats.
+function executeImageFolderMigration(gamePath, moves) {
+  const imagesDir = path.join(gamePath, 'images');
+  const done = new Map();
+  const stats = { moved: 0, duplicates: 0, conflicts: 0 };
+  const touchedFolders = new Set();
+  for (const [oldRel, newRel] of moves) {
+    const from = path.join(imagesDir, oldRel), to = path.join(imagesDir, newRel);
+    if (!fs.existsSync(from)) continue;
+    if (!fs.existsSync(to)) {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      try { fs.renameSync(from, to); } catch (e) { fs.copyFileSync(from, to); fs.unlinkSync(from); }
+      stats.moved++;
+    } else if (filesAreEqual(from, to)) {
+      fs.unlinkSync(from); // already copied in the English folder
+      stats.duplicates++;
+    } else {
+      stats.conflicts++; // a different file with that name exists: leave both untouched
+      continue;
+    }
+    done.set(oldRel, newRel);
+    if (oldRel.includes('/')) touchedFolders.add(oldRel.split('/')[0]);
+  }
+  // Clean up the folders that were emptied (never the English ones)
+  for (const folder of touchedFolders) {
+    if (ENGLISH_IMAGE_DIRS.some(d => sameDirName(d, folder))) continue;
+    try { removeEmptyDirs(path.join(imagesDir, folder)); } catch (e) { /* ignore */ }
+  }
+  return { done, stats };
+}
+
+// Update every quoted path ("x/y.png" or "images/x/y.png") to a moved file in all .rpy files
+function rewriteMovedImagePaths(gamePath, done) {
+  if (!done.size) return 0;
   let count = 0;
+  const re = /(["'])(images\/)?([^"'\n]+?)\1/g;
   for (const fp of listProjectRpyFiles(gamePath)) {
     let text;
     try { text = fs.readFileSync(fp, 'utf-8'); } catch (e) { continue; }
     let changed = false;
-    const newText = text.replace(LEGACY_PATH_RE, (match, q, prefix, legacy, rest) => {
-      const target = path.join(gamePath, 'images', LEGACY_IMAGE_DIRS[legacy], rest);
-      if (!fs.existsSync(target)) return match;
-      // A different file with the same name was left in the legacy folder: keep pointing to it
-      const legacyFile = path.join(gamePath, 'images', legacy, rest);
-      if (fs.existsSync(legacyFile) && !filesAreEqual(legacyFile, target)) return match;
+    const newText = text.replace(re, (match, q, prefix, p) => {
+      const newRel = done.get(p.replace(/\\/g, '/'));
+      if (!newRel) return match;
       count++;
       changed = true;
-      return `${q}${prefix}${LEGACY_IMAGE_DIRS[legacy]}/${rest}${q}`;
+      return `${q}${prefix || ''}${newRel}${q}`;
     });
-    if (apply && changed) fs.writeFileSync(fp, newText, 'utf-8');
+    if (changed) fs.writeFileSync(fp, newText, 'utf-8');
   }
   return count;
 }
 
-// Count legacy path references in the .rpy files (whether or not the target exists)
-function countLegacyReferences(gamePath) {
-  let count = 0;
-  for (const fp of listProjectRpyFiles(gamePath)) {
-    try { count += (fs.readFileSync(fp, 'utf-8').match(LEGACY_PATH_RE) || []).length; } catch (e) { /* skip */ }
-  }
-  return count;
-}
-
-// If the project still uses the Spanish image folders, ask to move their files to the
-// English ones and update the paths in the .rpy files.
-async function offerLegacyFolderMigration(gamePath) {
+// If declared images aren't in their English folder (whatever language their folder is in),
+// ask to move them there and update the paths in the .rpy files.
+async function offerImageFolderMigration(gamePath) {
   if (!gamePath || declinedMigrations.has(gamePath)) return;
-  const imagesDir = path.join(gamePath, 'images');
-  const legacyDirs = Object.keys(LEGACY_IMAGE_DIRS)
-    .map(name => ({ name, dir: path.join(imagesDir, name) }))
-    .filter(d => fs.existsSync(d.dir) && fs.statSync(d.dir).isDirectory());
-  const withFiles = legacyDirs.map(d => ({ ...d, files: countFiles(d.dir) })).filter(d => d.files > 0);
-  const refs = countLegacyReferences(gamePath);
+  const { moves, groups } = planImageFolderMigration(gamePath);
+  if (!moves.size) return;
 
-  if (!withFiles.length && !refs) {
-    // Only empty legacy folders left: remove them
-    legacyDirs.forEach(d => { try { removeEmptyDirs(d.dir); } catch (e) { /* ignore */ } });
-    return;
-  }
-
-  const detail = [
-    ...withFiles.map(d => mt('migration_folder_line', `images/${d.name}`, `images/${LEGACY_IMAGE_DIRS[d.name]}`, d.files)),
-    refs ? mt('migration_refs_line', refs) : ''
-  ].filter(Boolean).join('\n');
-
+  const detail = groups
+    .map(g => mt('migration_folder_line', g.from ? `images/${g.from}` : mt('migration_images_root'), `images/${g.to}`, g.count))
+    .join('\n');
   const { response } = await dialog.showMessageBox(mainWindow, {
     type: 'question',
     buttons: [mt('migration_accept'), mt('migration_later')],
@@ -463,27 +508,22 @@ async function offerLegacyFolderMigration(gamePath) {
   });
   if (response !== 0) { declinedMigrations.add(gamePath); return; }
 
-  const stats = { moved: 0, duplicates: 0, conflicts: 0 };
-  let rewritten = 0;
+  let result, rewritten = 0;
   try {
-    for (const d of legacyDirs) {
-      moveDirContents(d.dir, path.join(imagesDir, LEGACY_IMAGE_DIRS[d.name]), stats);
-      removeEmptyDirs(d.dir);
-    }
-    rewritten = rewriteLegacyImagePaths(gamePath, true);
+    result = executeImageFolderMigration(gamePath, moves);
+    rewritten = rewriteMovedImagePaths(gamePath, result.done);
   } catch (e) {
     dialog.showMessageBox(mainWindow, { type: 'error', title: mt('migration_title'), message: mt('migration_error', e.message) });
     return;
   }
-  const remaining = countLegacyReferences(gamePath);
+  const { stats } = result;
   dialog.showMessageBox(mainWindow, {
-    type: stats.conflicts || remaining ? 'warning' : 'info',
+    type: stats.conflicts ? 'warning' : 'info',
     title: mt('migration_title'),
     message: mt('migration_done', stats.moved, rewritten),
     detail: [
       stats.duplicates ? mt('migration_duplicates', stats.duplicates) : '',
-      stats.conflicts ? mt('migration_conflicts', stats.conflicts) : '',
-      remaining ? mt('migration_remaining', remaining) : ''
+      stats.conflicts ? mt('migration_conflicts', stats.conflicts) : ''
     ].filter(Boolean).join('\n')
   });
 }
@@ -513,8 +553,8 @@ ipcMain.handle('select-project-folder', async () => {
   settings.lastGamePath = selectedPath;
   saveSettings();
 
-  // Move legacy Spanish image folders (asks first), then create missing folders and .rpy files
-  await offerLegacyFolderMigration(currentGamePath);
+  // Move images that aren't in their English folder (asks first), then create missing folders and .rpy files
+  await offerImageFolderMigration(currentGamePath);
   ensureProjectStructure(currentGamePath);
 
   // Start watching for file changes
@@ -660,7 +700,7 @@ ipcMain.handle('load-last-project', async () => {
     return null;
   }
   currentGamePath = settings.lastGamePath;
-  await offerLegacyFolderMigration(currentGamePath);
+  await offerImageFolderMigration(currentGamePath);
   ensureProjectStructure(currentGamePath);
   startFileWatcher(currentGamePath);
   return currentGamePath;
