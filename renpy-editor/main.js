@@ -157,10 +157,32 @@ function autoCreateFolders(gamePath) {
   }
 }
 
+// Transforms the generated code relies on (at xflip, at blur)
+const REQUIRED_TRANSFORMS = {
+  xflip: 'transform xflip:\n    xzoom -1\n',
+  blur: 'transform blur:\n    blur 8\n'
+};
+
+// ── Append required transforms missing from existing projects (positions.rpy) ──
+function ensureRequiredTransforms(gamePath) {
+  try {
+    const rpyFiles = listDirRecursive(gamePath, gamePath).filter(f => !f.isDir && f.name.endsWith('.rpy'));
+    const allText = rpyFiles.map(f => fs.readFileSync(path.join(gamePath, f.path), 'utf-8')).join('\n');
+    const missing = Object.entries(REQUIRED_TRANSFORMS)
+      .filter(([name]) => !new RegExp(`^transform\\s+${name}\\s*:`, 'm').test(allText))
+      .map(([, code]) => code);
+    if (!missing.length) return;
+    const fp = path.join(gamePath, 'positions.rpy');
+    const existing = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf-8') : '# Positions\n';
+    fs.writeFileSync(fp, existing.replace(/\s*$/, '') + '\n\n' + missing.join('\n'), 'utf-8');
+  } catch (e) { /* ignore: can't update positions.rpy */ }
+}
+
 // ── Prepare a project so it has every file and folder the editor needs ──
 function ensureProjectStructure(gamePath) {
   autoCreateFolders(gamePath);
   autoCreateRpyFiles(gamePath);
+  ensureRequiredTransforms(gamePath);
 }
 
 // ── Auto-create default .rpy files if missing ──
@@ -215,6 +237,9 @@ define center_right = Position(xalign=0.7, yalign=1.0)
 
 transform xflip:
     xzoom -1
+
+transform blur:
+    blur 8
 `
   };
 

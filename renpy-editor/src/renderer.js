@@ -357,11 +357,11 @@ function blockDesc(b) {
   switch (b.type) {
     case 'narration': return `"${truncate(b.text, 80)}"`;
     case 'dialogue':  return `${b.character} → ${b.thought?'💭 ':''}\"${truncate(b.text, 60)}\"`;
-    case 'show':       return `${b.image}${b.position?' at '+b.position:''}${b.behind?' behind '+b.behind:''}${b.transition?' with '+b.transition:''}${b.flipH?' [volteado]':''}`;
+    case 'show':       return `${b.image}${b.position?' at '+b.position:''}${b.behind?' behind '+b.behind:''}${b.transition?' with '+b.transition:''}${b.flipH?' [volteado]':''}${b.blur?' [blur]':''}`;
     case 'show_multi': return `${(b.sprites||[]).map(s=>s.image).join(', ')}${b.transition?' with '+b.transition:''}`;
     case 'hide':       return `hide ${b.image}${b.transition?' with '+b.transition:''}`;
     case 'hide_multi': return `ocultar: ${(b.sprites||[]).map(s=>s.image).join(', ')}${b.transition?' with '+b.transition:''}`;
-    case 'scene':     return `scene ${b.background}${b.transition?' with '+b.transition:''}`;
+    case 'scene':     return `scene ${b.background}${b.blur?' at blur':''}${b.transition?' with '+b.transition:''}`;
     case 'solid':     return `Solid("${b.color}") as ${b.name}${b.transition?' with '+b.transition:''}`;
     case 'label':     return `label ${b.name}:`;
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
@@ -465,10 +465,7 @@ function blockToCode(b, indent = '    ') {
     }
 
     case 'show': {
-      let s = `${indent}show ${b.image}`;
-      if (b.position && b.flipH) s += ` at ${b.position}, xflip`;
-      else if (b.position) s += ` at ${b.position}`;
-      else if (b.flipH) s += ` at xflip`;
+      let s = `${indent}show ${b.image}${buildAtClause(b)}`;
       if (b.behind) s += ` behind ${b.behind}`;
       if (b.transition) s += ` with ${b.transition}`;
       return s;
@@ -477,10 +474,7 @@ function blockToCode(b, indent = '    ') {
     case 'show_multi': {
       if (!b.sprites || !b.sprites.length) return '';
       const lines = b.sprites.map(sp => {
-        let s = `${indent}show ${sp.image}`;
-        if (sp.position && sp.flipH) s += ` at ${sp.position}, xflip`;
-        else if (sp.position) s += ` at ${sp.position}`;
-        else if (sp.flipH) s += ` at xflip`;
+        let s = `${indent}show ${sp.image}${buildAtClause(sp)}`;
         if (sp.behind) s += ` behind ${sp.behind}`;
         return s;
       });
@@ -502,7 +496,7 @@ function blockToCode(b, indent = '    ') {
     }
 
     case 'scene': {
-      let s = `${indent}scene ${b.background}`;
+      let s = `${indent}scene ${b.background}${buildAtClause(b)}`;
       if (b.transition) s += ` with ${b.transition}`;
       return s;
     }
@@ -619,6 +613,26 @@ function blockToCode(b, indent = '    ') {
 
     default: return '';
   }
+}
+
+// " at <position>, xflip, blur" for the transforms enabled in a show/scene block
+function buildAtClause(b) {
+  const parts = [];
+  if (b.position) parts.push(b.position);
+  if (b.flipH) parts.push('xflip');
+  if (b.blur) parts.push('blur');
+  return parts.length ? ` at ${parts.join(', ')}` : '';
+}
+
+// Split an "at" list into { position, flipH, blur }
+function parseAtClause(atPart) {
+  const res = { position: '', flipH: false, blur: false };
+  for (const p of (atPart || '').split(',').map(s => s.trim()).filter(Boolean)) {
+    if (p === 'xflip') res.flipH = true;
+    else if (p === 'blur') res.blur = true;
+    else res.position = p;
+  }
+  return res;
 }
 
 // FIX: % → %% in dialogue text
@@ -1006,8 +1020,17 @@ function parseLabelContentToBlocks(labelText) {
     if (labelM) { result.push({ type: 'label', name: labelM[1] }); i++; continue; }
 
     // Scene
-    const sceneM = trimmed.match(/^scene\s+(.+?)(?:\s+with\s+(\w+))?$/);
-    if (sceneM) { result.push({ type: 'scene', background: sceneM[1], transition: sceneM[2] || '' }); i++; continue; }
+    const sceneM = trimmed.match(/^scene\s+(.+?)(?:\s+at\s+(.+?))?(?:\s+with\s+(\w+))?$/);
+    if (sceneM) {
+      const at = parseAtClause(sceneM[2]);
+      const scene = { type: 'scene', background: sceneM[1], transition: sceneM[3] || '' };
+      if (at.blur) scene.blur = true;
+      // Keep other transforms in the name so they aren't lost
+      const extra = sceneM[2] ? sceneM[2].split(',').map(s => s.trim()).filter(p => p && p !== 'blur') : [];
+      if (extra.length) scene.background += ' at ' + extra.join(', ');
+      result.push(scene);
+      i++; continue;
+    }
 
     // Solid: show expression Solid("#000B") as name
     const solidM = trimmed.match(/^show\s+expression\s+Solid\(\s*"(#[0-9A-Fa-f]{3,8})"\s*\)\s+as\s+(\w+)(?:\s+with\s+(\w+))?$/);
@@ -1028,23 +1051,17 @@ function parseLabelContentToBlocks(labelText) {
       const atPart = showM[2] || '';
       const behind = showM[3] || '';
       const transition = showM[4] || '';
-      let position = '', flipH = false;
-      if (atPart) {
-        for (const p of atPart.split(',').map(s => s.trim())) {
-          if (p === 'xflip') flipH = true; else position = p;
-        }
-      }
+      const { position, flipH, blur } = parseAtClause(atPart);
       let j = i + 1;
-      const showGroup = [{ image: imgName, position, behind, flipH }];
+      const showGroup = [{ image: imgName, position, behind, flipH, blur }];
       let multiTrans = transition;
       while (j < lines.length) {
         const nextTrimmed = lines[j].trim();
         if (!nextTrimmed) { j++; continue; }
         const nextShow = nextTrimmed.match(/^show\s+(.+?)(?:\s+at\s+(.+?))?(?:\s+behind\s+(\w+))?$/);
         if (nextShow) {
-          let np = '', nf = false;
-          if (nextShow[2]) { for (const p of nextShow[2].split(',').map(s => s.trim())) { if (p === 'xflip') nf = true; else np = p; } }
-          showGroup.push({ image: nextShow[1], position: np, behind: nextShow[3] || '', flipH: nf });
+          const nat = parseAtClause(nextShow[2]);
+          showGroup.push({ image: nextShow[1], position: nat.position, behind: nextShow[3] || '', flipH: nat.flipH, blur: nat.blur });
           j++;
         } else {
           const withM = nextTrimmed.match(/^with\s+(\w+)$/);
@@ -1760,7 +1777,10 @@ function buildSpriteRowHtml(sp, i, prefix) {
         <select class="form-select" id="${prefix}-beh-${i}">${behindOpts}</select>
       </div>
     </div>
-    <label class="radio-option"><input type="checkbox" id="${prefix}-flip-${i}" ${sp.flipH ? 'checked' : ''}> ${t('flip_image')}</label>
+    <div class="radio-group">
+      <label class="radio-option"><input type="checkbox" id="${prefix}-flip-${i}" ${sp.flipH ? 'checked' : ''}> ${t('flip_image')}</label>
+      <label class="radio-option"><input type="checkbox" id="${prefix}-blur-${i}" ${sp.blur ? 'checked' : ''}> ${t('blur_image')}</label>
+    </div>
   </div>`;
 }
 
@@ -1837,7 +1857,7 @@ function addSpriteRow(prefix) {
   if (prefix === 'hm') {
     div.innerHTML = buildHideSpriteRowHtml({ image: '' }, i);
   } else {
-    div.innerHTML = buildSpriteRowHtml({ image: '', position: '', flipH: false, behind: '' }, i, prefix);
+    div.innerHTML = buildSpriteRowHtml({ image: '', position: '', flipH: false, blur: false, behind: '' }, i, prefix);
   }
   list.appendChild(div.firstElementChild);
   if (prefix === 'hm') setTimeout(() => populateHMPicker(i, ''), 30);
@@ -1865,6 +1885,7 @@ function readSpriteRows(prefix, withPos) {
       sp.position = document.getElementById(`${prefix}-pos-${i}`)?.value || '';
       sp.behind = document.getElementById(`${prefix}-beh-${i}`)?.value.trim() || '';
       sp.flipH = document.getElementById(`${prefix}-flip-${i}`)?.checked || false;
+      sp.blur = document.getElementById(`${prefix}-blur-${i}`)?.checked || false;
     }
     sprites.push(sp);
   }
@@ -1955,6 +1976,7 @@ function buildModalBody(type, b) {
         </div>
         <div class="form-group" style="align-self:flex-end;">
           <label class="radio-option" style="margin-top:24px;"><input type="checkbox" id="f-flip" ${b.flipH ? 'checked' : ''}> ${t('flip_image')}</label>
+          <label class="radio-option" style="margin-top:6px;"><input type="checkbox" id="f-blur" ${b.blur ? 'checked' : ''}> ${t('blur_image')}</label>
         </div>
       </div>`;
     }
@@ -1977,9 +1999,14 @@ function buildModalBody(type, b) {
     case 'scene': {
       const selectedSceneAsset = b.background || '';
       return `
-      <div class="form-group">
-        <label class="form-label">${t('transition_with')}</label>
-        ${buildTransitionSelect('f-trans', b.transition)}
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">${t('transition_with')}</label>
+          ${buildTransitionSelect('f-trans', b.transition)}
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+          <label class="radio-option" style="margin-bottom:10px;"><input type="checkbox" id="f-blur" ${b.blur ? 'checked' : ''}> ${t('blur_image')}</label>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">${t('select_scene_asset')}</label>
@@ -3135,6 +3162,7 @@ function readModalValues() {
       b.behind = (g('f-behind') || '').trim();
       b.transition = g('f-trans') || '';
       b.flipH = gb('f-flip');
+      b.blur = gb('f-blur');
       if (!b.image) { notify(t('select_image'), 'err'); return null; }
       break;
     case 'show_multi': {
@@ -3160,6 +3188,7 @@ function readModalValues() {
       b.background = g('f-bg') || '';
       if (!b.background) { notify(t('select_background'), 'err'); return null; }
       b.transition = g('f-trans') || '';
+      b.blur = gb('f-blur');
       break;
     case 'solid': {
       let color = (g('f-solid-hex') || '').trim();
