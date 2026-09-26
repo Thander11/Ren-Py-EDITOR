@@ -1604,6 +1604,56 @@ function closeModal() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// SPRITE TYPE SELECTORS — sprites are searched by character and type
+// ═══════════════════════════════════════════════════════════════════
+const NO_TYPE_SELECTED = '__none__';
+
+// Type to preselect: the preferred one if valid, the only one if there is just one,
+// otherwise null (the user has to choose)
+function resolveSpriteType(types, preferred) {
+  if (preferred !== undefined && preferred !== null && types.includes(preferred)) return preferred;
+  return types.length === 1 ? types[0] : null;
+}
+
+function fillSpriteTypeSelect(sel, types, selected) {
+  if (!sel) return;
+  sel.innerHTML = `<option value="${NO_TYPE_SELECTED}" ${selected === null ? 'selected' : ''}>${t('select_type')}</option>` +
+    types.map(tp => `<option value="${escHtml(tp)}" ${tp === selected ? 'selected' : ''}>${escHtml(tp || t('no_type'))}</option>`).join('');
+  sel.disabled = !types.length;
+}
+
+function readSpriteTypeSelect(id) {
+  const sel = document.getElementById(id);
+  return !sel || sel.value === NO_TYPE_SELECTED ? null : sel.value;
+}
+
+function spriteTypeSelectHtml(id, onchange) {
+  return `<select class="form-select" id="${id}" onchange="${onchange}" disabled><option value="${NO_TYPE_SELECTED}">${t('select_type')}</option></select>`;
+}
+
+function pickerMessage(msg) {
+  return `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${msg}</div>`;
+}
+
+// Sets up the type select of a picker and returns { type, images } to show.
+// images is empty until a type is chosen.
+function prepareTypedSpritePicker(typeSelId, chr, selectedImage, preferredType, filterFn) {
+  const available = (chr?.images || []).filter(img => !filterFn || filterFn(img));
+  const types = [...new Set(available.map(img => getSpriteType(chr, img.key)))];
+  const preferred = preferredType !== undefined
+    ? preferredType
+    : (selectedImage && available.some(im => im.key === selectedImage) ? getSpriteType(chr, selectedImage) : undefined);
+  const type = resolveSpriteType(types, preferred);
+  fillSpriteTypeSelect(document.getElementById(typeSelId), types, type);
+  const images = type === null ? [] : available.filter(img => getSpriteType(chr, img.key) === type);
+  return { type, types, images };
+}
+
+function spriteLabel(chr, key) {
+  return parseSpriteKey(chr.id, key).id;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MODAL BODY BUILDERS
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1651,9 +1701,15 @@ function buildSpriteRowHtml(sp, i, prefix) {
       <span class="choice-number">${t('sprite')} ${i + 1}</span>
       <button class="btn btn-secondary choice-remove" onclick="removeSpriteRow('${prefix}',${i})">✕</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">${t('character')}</label>
-      <select class="form-select" id="${prefix}-char-${i}" onchange="onSMCharChange('${prefix}',${i})">${buildCharOptions(sp._charId || '')}</select>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">${t('character')}</label>
+        <select class="form-select" id="${prefix}-char-${i}" onchange="onSMCharChange('${prefix}',${i})">${buildCharOptions(sp._charId || '')}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('sprite_type')}</label>
+        ${spriteTypeSelectHtml(`${prefix}-type-${i}`, `onSMTypeChange('${prefix}',${i})`)}
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">${t('select_sprite')}</label>
@@ -1679,7 +1735,14 @@ function onSMCharChange(prefix, i) {
   else populateSMPicker(prefix, i, '');
 }
 
-function populateSMPicker(prefix, i, selectedImage) {
+function onSMTypeChange(prefix, i) {
+  const type = readSpriteTypeSelect(`${prefix}-type-${i}`);
+  const selected = document.getElementById(`${prefix}-img-${i}`)?.value || '';
+  if (prefix === 'hm') populateHMPicker(i, selected, type);
+  else populateSMPicker(prefix, i, selected, type);
+}
+
+function populateSMPicker(prefix, i, selectedImage, preferredType) {
   const charSel = document.getElementById(`${prefix}-char-${i}`);
   if (!charSel) return;
   if (!charSel.value && selectedImage) {
@@ -1691,14 +1754,13 @@ function populateSMPicker(prefix, i, selectedImage) {
   const picker = document.getElementById(`${prefix}-sprite-picker-${i}`);
   if (!picker) return;
   const chr = data.characters.find(c => c.id === charId);
-  if (!chr || !chr.images.length) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('no_images')}</div>`;
-    return;
-  }
-  picker.innerHTML = chr.images.map(img =>
+  const { type, images } = prepareTypedSpritePicker(`${prefix}-type-${i}`, chr, selectedImage, preferredType);
+  if (!chr || !chr.images.length) { picker.innerHTML = pickerMessage(t('no_images')); return; }
+  if (type === null) { picker.innerHTML = pickerMessage(t('select_type_first')); return; }
+  picker.innerHTML = images.map(img =>
     `<div class="img-option ${img.key === selectedImage ? 'selected' : ''}" onclick="selectSMSprite('${prefix}',${i},'${img.key}')" title="${img.key}" id="${prefix}-spi-${img.key}-${i}">
       <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${img.key.replace(charId + '_', '')}</div>
+      <div class="lbl">${spriteLabel(chr, img.key)}</div>
     </div>`).join('');
 }
 
@@ -1716,9 +1778,15 @@ function buildHideSpriteRowHtml(sp, i) {
       <span class="choice-number">${t('sprite')} ${i + 1}</span>
       <button class="btn btn-secondary choice-remove" onclick="removeSpriteRow('hm',${i})">✕</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">${t('character')}</label>
-      <select class="form-select" id="hm-char-${i}" onchange="onSMCharChange('hm',${i})">${buildCharOptions(sp._charId || '')}</select>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">${t('character')}</label>
+        <select class="form-select" id="hm-char-${i}" onchange="onSMCharChange('hm',${i})">${buildCharOptions(sp._charId || '')}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('sprite_type')}</label>
+        ${spriteTypeSelectHtml(`hm-type-${i}`, `onSMTypeChange('hm',${i})`)}
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">${t('sprite_to_hide')}</label>
@@ -1811,9 +1879,15 @@ function buildModalBody(type, b) {
       const shownKeys = getShownSprites();
       const behindOpts = ['', ...shownKeys].map(k => `<option value="${k}" ${(b.behind||'')===k?'selected':''}>${k || t('behind_placeholder')}</option>`).join('');
       return `
-      <div class="form-group">
-        <label class="form-label">${t('character')}</label>
-        <select class="form-select" id="f-char" onchange="onShowCharChange()">${buildCharOptions(getShowBlockCharId(b))}</select>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">${t('character')}</label>
+          <select class="form-select" id="f-char" onchange="onShowCharChange()">${buildCharOptions(getShowBlockCharId(b))}</select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">${t('sprite_type')}</label>
+          ${spriteTypeSelectHtml('f-sprite-type', 'onShowTypeChange()')}
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">${t('select_sprite')}</label>
@@ -2000,9 +2074,15 @@ function buildMenuBody(b) {
         </label>
       </div>
       <div id="menu-char-section" ${showChar ? '' : 'style="display:none"'}>
-        <div class="form-group">
-          <label class="form-label">${t('character')}</label>
-          <select class="form-select" id="f-menu-char" onchange="onMenuCharChange()">${buildCharOptions('')}</select>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">${t('character')}</label>
+            <select class="form-select" id="f-menu-char" onchange="onMenuCharChange()">${buildCharOptions('')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">${t('sprite_type')}</label>
+            ${spriteTypeSelectHtml('f-menu-type', 'onMenuTypeChange()')}
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">${t('select_sprite')}</label>
@@ -2123,18 +2203,23 @@ function onMenuCharChange() {
   document.getElementById('f-menu-sprite').value = '';
 }
 
-function populateMenuSpritePicker(charId, selectedImage) {
+function onMenuTypeChange() {
+  const charId = document.getElementById('f-menu-char')?.value;
+  const selected = document.getElementById('f-menu-sprite')?.value || '';
+  populateMenuSpritePicker(charId, selected, readSpriteTypeSelect('f-menu-type'));
+}
+
+function populateMenuSpritePicker(charId, selectedImage, preferredType) {
   const picker = document.getElementById('menu-sprite-picker');
   if (!picker) return;
   const chr = data.characters.find(c => c.id === charId);
-  if (!chr || !chr.images.length) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('no_char_images')}</div>`;
-    return;
-  }
-  picker.innerHTML = chr.images.map(img =>
+  const { type, images } = prepareTypedSpritePicker('f-menu-type', chr, selectedImage, preferredType);
+  if (!chr || !chr.images.length) { picker.innerHTML = pickerMessage(t('no_char_images')); return; }
+  if (type === null) { picker.innerHTML = pickerMessage(t('select_type_first')); return; }
+  picker.innerHTML = images.map(img =>
     `<div class="img-option ${img.key === selectedImage ? 'selected' : ''}" onclick="selectMenuSprite('${img.key}')" title="${img.key}" id="msp-${img.key}">
       <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${img.key.replace(charId + '_', '')}</div>
+      <div class="lbl">${spriteLabel(chr, img.key)}</div>
     </div>`).join('');
 }
 
@@ -3038,7 +3123,7 @@ function selectShownSprite(key) {
 }
 
 // ── Hide multi pickers ──
-function populateHMPicker(i, selectedImage) {
+function populateHMPicker(i, selectedImage, preferredType) {
   const charSel = document.getElementById('hm-char-' + i);
   if (!charSel) return;
   if (!charSel.value && selectedImage) {
@@ -3050,19 +3135,14 @@ function populateHMPicker(i, selectedImage) {
   if (!picker) return;
   const shownKeys = new Set(getShownSprites());
   const chr = data.characters.find(c => c.id === charId);
-  if (!chr) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('select_character')}</div>`;
-    return;
-  }
-  const visibleImages = chr.images.filter(img => shownKeys.has(img.key));
-  if (!visibleImages.length) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('no_char_images')}</div>`;
-    return;
-  }
-  picker.innerHTML = visibleImages.map(img =>
+  const { type, types, images } = prepareTypedSpritePicker(`hm-type-${i}`, chr, selectedImage, preferredType, img => shownKeys.has(img.key));
+  if (!chr) { picker.innerHTML = pickerMessage(t('select_character')); return; }
+  if (!types.length) { picker.innerHTML = pickerMessage(t('no_char_images')); return; }
+  if (type === null) { picker.innerHTML = pickerMessage(t('select_type_first')); return; }
+  picker.innerHTML = images.map(img =>
     `<div class="img-option ${img.key === selectedImage ? 'selected' : ''}" onclick="selectSMSprite('hm',${i},'${img.key}')" title="${img.key}" id="hm-spi-${img.key}-${i}">
       <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${img.key.replace(charId + '_', '')}</div>
+      <div class="lbl">${spriteLabel(chr, img.key)}</div>
     </div>`).join('');
 }
 
@@ -3146,19 +3226,25 @@ function onShowCharChange() {
   populateSpritePicker(charId, currentImage);
 }
 
-function populateSpritePicker(charId, selectedImage) {
+function onShowTypeChange() {
+  const charId = document.getElementById('f-char')?.value;
+  const currentImage = document.getElementById('f-image')?.value;
+  populateSpritePicker(charId, currentImage, readSpriteTypeSelect('f-sprite-type'));
+}
+
+function populateSpritePicker(charId, selectedImage, preferredType) {
   const picker = document.getElementById('sprite-picker');
   if (!picker) return;
   const chr = data.characters.find(c => c.id === charId);
-  if (!chr || !chr.images.length) {
-    picker.innerHTML = `<div style="color:var(--text3);font-size:11px;grid-column:1/-1">${t('no_char_images')}</div>`;
-    return;
-  }
-  picker.innerHTML = chr.images.map(img =>
+  const { type, images } = prepareTypedSpritePicker('f-sprite-type', chr, selectedImage, preferredType);
+  if (!chr || !chr.images.length) { picker.innerHTML = pickerMessage(t('no_char_images')); return; }
+  if (type === null) { picker.innerHTML = pickerMessage(t('select_type_first')); return; }
+  picker.innerHTML = images.map(img =>
     `<div class="img-option ${img.key === selectedImage ? 'selected' : ''}" onclick="selectSpriteImage('${img.key}')" title="${img.key}" id="sp-${img.key}">
       <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
-      <div class="lbl">${img.key.replace(charId + '_', '')}</div>
-    </div>`).join('');
+      <div class="lbl">${spriteLabel(chr, img.key)}</div>
+    </div>`).join('')
+    || pickerMessage(t('no_char_images'));
 }
 
 function selectSpriteImage(key) {

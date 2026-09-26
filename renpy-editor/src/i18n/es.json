@@ -254,5 +254,8 @@
   "sprite_key_exists": "Ya existe un sprite con la clave \"{0}\"",
   "sprite_naming_hint": "Los sprites se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1). El tipo solo admite letras y números.",
   "editing_sprite": "Editando sprite",
-  "sprite_identifier": "Identificación"
+  "sprite_identifier": "Identificación",
+  "sprite_type": "Tipo",
+  "select_type": "— Seleccionar tipo —",
+  "select_type_first": "Selecciona un tipo para ver sus sprites."
 }
