@@ -243,5 +243,6 @@
   "bg_needs_name": "Write a name for the background",
   "scene_needs_image": "Select an image for the scene",
   "scene_needs_name": "Write a name for the scene",
-  "confirm_delete_block": "Are you sure you want to delete this block?\n\n{0}: {1}"
+  "confirm_delete_block": "Are you sure you want to delete this block?\n\n{0}: {1}",
+  "drag_to_reorder": "Drag to reorder"
 }

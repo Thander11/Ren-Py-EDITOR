@@ -2187,6 +2187,7 @@ function setChoiceBlocks(i, bArr) {
 function renderChoiceBlocks(i) {
   const list = document.getElementById('cbl-' + i);
   if (!list) return;
+  attachInnerListDropHandlers(list, 'choice-' + i);
   const bArr = getChoiceBlocks(i);
   if (!bArr.length) {
     list.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:10px;">${t('no_blocks_in_choice')}</div>`;
@@ -2194,9 +2195,11 @@ function renderChoiceBlocks(i) {
   }
   list.innerHTML = bArr.map((b, j) => {
     const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
-    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--surface);border-radius:4px;margin-bottom:3px;border-left:3px solid ${meta.color || 'var(--border)'};" draggable="true"
-      ondragstart="onChoiceDragStart(event,${i},${j})" ondragend="onChoiceDragEnd(event)"
-      ondragover="onChoiceDragOver(event,${i},${j})" ondrop="onChoiceDrop(event,${i},${j})">
+    return `<div class="inner-block" style="border-left-color:${meta.color || 'var(--border)'};" draggable="true"
+      ondragstart="onInnerDragStart(event,'choice-${i}',${j})" ondragend="onInnerDragEnd(event)"
+      ondragover="onInnerDragOver(event,'choice-${i}',${j})" ondragleave="onInnerDragLeave(event)"
+      ondrop="onInnerDrop(event,'choice-${i}',${j})">
+      <span class="inner-block-handle" title="${t('drag_to_reorder')}">⋮⋮</span>
       <span style="font-size:12px;">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
       <button class="block-btn block-btn-sm" onclick="editChoiceBlock(${i},${j})" title="${t('btn_edit')}">✏️</button>
@@ -2207,32 +2210,124 @@ function renderChoiceBlocks(i) {
   }).join('');
 }
 
-// ── Choice block drag & drop ──
-let choiceDragSrc = null;
-function onChoiceDragStart(e, choiceIdx, blockIdx) {
-  choiceDragSrc = { choiceIdx, blockIdx };
+// ── Inner blocks drag & drop (choices of a menu and branches of a condition) ──
+// listKey: 'choice-<idx>' for a menu choice, 'cond-<branch>' for a condition branch
+let innerDragSrc = null;
+
+function getInnerBlocks(listKey) {
+  if (listKey.startsWith('choice-')) return getChoiceBlocks(parseInt(listKey.slice(7), 10));
+  return getConditionBlocks(listKey.slice(5));
+}
+
+function setInnerBlocks(listKey, bArr) {
+  if (listKey.startsWith('choice-')) setChoiceBlocks(parseInt(listKey.slice(7), 10), bArr);
+  else setConditionBlocks(listKey.slice(5), bArr);
+}
+
+function clearInnerDropMarkers() {
+  document.querySelectorAll('.inner-block.drop-before, .inner-block.drop-after')
+    .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+  document.querySelectorAll('.choice-blocks-list.drop-end')
+    .forEach(el => el.classList.remove('drop-end'));
+}
+
+function moveInnerBlock(listKey, fromIdx, toIdx) {
+  if (fromIdx < toIdx) toIdx--;
+  if (fromIdx === toIdx) return;
+  const bArr = getInnerBlocks(listKey);
+  if (fromIdx < 0 || fromIdx >= bArr.length) return;
+  const [moved] = bArr.splice(fromIdx, 1);
+  bArr.splice(Math.max(0, Math.min(toIdx, bArr.length)), 0, moved);
+  setInnerBlocks(listKey, bArr);
+}
+
+function isDropAfter(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  return e.clientY > rect.top + rect.height / 2;
+}
+
+function onInnerDragStart(e, listKey, blockIdx) {
+  innerDragSrc = { listKey, blockIdx };
+  e.stopPropagation();
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', blockIdx);
-  requestAnimationFrame(() => e.target.style.opacity = '0.4');
+  e.dataTransfer.setData('text/plain', String(blockIdx));
+  const row = e.currentTarget;
+  requestAnimationFrame(() => row.classList.add('dragging'));
 }
-function onChoiceDragEnd(e) {
-  e.target.style.opacity = '1';
-  choiceDragSrc = null;
+
+function onInnerDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  clearInnerDropMarkers();
+  innerDragSrc = null;
 }
-function onChoiceDragOver(e, choiceIdx, blockIdx) {
+
+function onInnerDragOver(e, listKey, blockIdx) {
+  if (!innerDragSrc || innerDragSrc.listKey !== listKey) return;
   e.preventDefault();
-  if (choiceDragSrc && choiceDragSrc.choiceIdx === choiceIdx) {
-    e.dataTransfer.dropEffect = 'move';
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'move';
+  autoScrollInnerList(e, e.currentTarget.parentElement);
+  const after = isDropAfter(e);
+  clearInnerDropMarkers();
+  if (blockIdx === innerDragSrc.blockIdx) return;
+  e.currentTarget.classList.add(after ? 'drop-after' : 'drop-before');
+}
+
+function onInnerDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  e.currentTarget.classList.remove('drop-before', 'drop-after');
+}
+
+function onInnerDrop(e, listKey, targetIdx) {
+  if (!innerDragSrc || innerDragSrc.listKey !== listKey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const toIdx = isDropAfter(e) ? targetIdx + 1 : targetIdx;
+  const fromIdx = innerDragSrc.blockIdx;
+  clearInnerDropMarkers();
+  innerDragSrc = null;
+  moveInnerBlock(listKey, fromIdx, toIdx);
+}
+
+// Scroll the list (and the modal) while dragging near their edges
+function autoScrollInnerList(e, listEl) {
+  const EDGE = 28, STEP = 12;
+  if (listEl) {
+    const r = listEl.getBoundingClientRect();
+    if (e.clientY < r.top + EDGE) listEl.scrollTop -= STEP;
+    else if (e.clientY > r.bottom - EDGE) listEl.scrollTop += STEP;
+  }
+  const modalBox = document.getElementById('modal-box');
+  if (modalBox) {
+    const r = modalBox.getBoundingClientRect();
+    if (e.clientY < r.top + EDGE) modalBox.scrollTop -= STEP;
+    else if (e.clientY > r.bottom - EDGE) modalBox.scrollTop += STEP;
   }
 }
-function onChoiceDrop(e, choiceIdx, targetIdx) {
-  e.preventDefault();
-  if (!choiceDragSrc || choiceDragSrc.choiceIdx !== choiceIdx || choiceDragSrc.blockIdx === targetIdx) return;
-  const bArr = getChoiceBlocks(choiceIdx);
-  const [moved] = bArr.splice(choiceDragSrc.blockIdx, 1);
-  bArr.splice(targetIdx, 0, moved);
-  setChoiceBlocks(choiceIdx, bArr);
-  choiceDragSrc = null;
+
+// Dropping on the empty area of a list moves the block to the end
+function attachInnerListDropHandlers(listEl, listKey) {
+  listEl.ondragover = (e) => {
+    if (!innerDragSrc || innerDragSrc.listKey !== listKey) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    autoScrollInnerList(e, listEl);
+    if (e.target === listEl) {
+      clearInnerDropMarkers();
+      listEl.classList.add('drop-end');
+    }
+  };
+  listEl.ondragleave = (e) => {
+    if (!listEl.contains(e.relatedTarget)) listEl.classList.remove('drop-end');
+  };
+  listEl.ondrop = (e) => {
+    if (!innerDragSrc || innerDragSrc.listKey !== listKey) return;
+    e.preventDefault();
+    const fromIdx = innerDragSrc.blockIdx;
+    clearInnerDropMarkers();
+    innerDragSrc = null;
+    moveInnerBlock(listKey, fromIdx, getInnerBlocks(listKey).length);
+  };
 }
 
 function readCurrentMenuState() {
@@ -2424,6 +2519,7 @@ function renderConditionBlocks(branch = 'then') {
       : 'ifbl';
   const list = document.getElementById(listId);
   if (!list) return;
+  attachInnerListDropHandlers(list, 'cond-' + branch);
   const bArr = getConditionBlocks(branch);
   if (!bArr.length) {
     const emptyMsg = info.type === 'else'
@@ -2436,9 +2532,11 @@ function renderConditionBlocks(branch = 'then') {
   }
   list.innerHTML = bArr.map((b, j) => {
     const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
-    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--surface);border-radius:4px;margin-bottom:3px;border-left:3px solid ${meta.color || 'var(--border)'};" draggable="true"
-      ondragstart="onConditionDragStart(event,'${branch}',${j})" ondragend="onConditionDragEnd(event)"
-      ondragover="onConditionDragOver(event,'${branch}',${j})" ondrop="onConditionDrop(event,'${branch}',${j})">
+    return `<div class="inner-block" style="border-left-color:${meta.color || 'var(--border)'};" draggable="true"
+      ondragstart="onInnerDragStart(event,'cond-${branch}',${j})" ondragend="onInnerDragEnd(event)"
+      ondragover="onInnerDragOver(event,'cond-${branch}',${j})" ondragleave="onInnerDragLeave(event)"
+      ondrop="onInnerDrop(event,'cond-${branch}',${j})">
+      <span class="inner-block-handle" title="${t('drag_to_reorder')}">⋮⋮</span>
       <span style="font-size:12px;">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
       <button class="block-btn block-btn-sm" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}">✏️</button>
@@ -2492,34 +2590,6 @@ function removeElifBlock(idx) {
   const current = readCurrentConditionState();
   current.elifBlocks = (current.elifBlocks || []).filter((_, i) => i !== idx);
   rebuildElifList(current.elifBlocks);
-}
-
-let conditionDragSrc = null;
-function onConditionDragStart(e, branch, blockIdx) {
-  conditionDragSrc = { branch, blockIdx };
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', blockIdx);
-  requestAnimationFrame(() => e.target.style.opacity = '0.4');
-}
-
-function onConditionDragEnd(e) {
-  e.target.style.opacity = '1';
-  conditionDragSrc = null;
-}
-
-function onConditionDragOver(e, branch) {
-  e.preventDefault();
-  if (conditionDragSrc && conditionDragSrc.branch === branch) e.dataTransfer.dropEffect = 'move';
-}
-
-function onConditionDrop(e, branch, targetIdx) {
-  e.preventDefault();
-  if (!conditionDragSrc || conditionDragSrc.branch !== branch || conditionDragSrc.blockIdx === targetIdx) return;
-  const bArr = getConditionBlocks(branch);
-  const [moved] = bArr.splice(conditionDragSrc.blockIdx, 1);
-  bArr.splice(targetIdx, 0, moved);
-  setConditionBlocks(branch, bArr);
-  conditionDragSrc = null;
 }
 
 function readCurrentConditionState() {
