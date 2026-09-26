@@ -289,7 +289,14 @@ function editBlock(idx) {
   openModal(blocks[idx].type, blocks[idx]);
 }
 
+function confirmDeleteBlock(b) {
+  if (!b) return false;
+  const meta = BLOCK_META[b.type] || { labelKey: b.type };
+  return confirm(t('confirm_delete_block', t(meta.labelKey), truncate(blockDesc(b), 60)));
+}
+
 function deleteBlock(idx) {
+  if (!confirmDeleteBlock(blocks[idx])) return;
   blocks.splice(idx, 1);
   renderBlocks(); updateCodePreview();
 }
@@ -2336,6 +2343,7 @@ function duplicateChoiceBlockToEnd(choiceIdx, blockIdx) {
 
 function removeChoiceBlock(choiceIdx, blockIdx) {
   const bArr = getChoiceBlocks(choiceIdx);
+  if (!confirmDeleteBlock(bArr[blockIdx])) return;
   bArr.splice(blockIdx, 1);
   setChoiceBlocks(choiceIdx, bArr);
 }
@@ -2631,6 +2639,7 @@ function duplicateConditionBlockToEnd(branch, blockIdx) {
 
 function removeConditionBlock(branch, blockIdx) {
   const bArr = getConditionBlocks(branch);
+  if (!confirmDeleteBlock(bArr[blockIdx])) return;
   bArr.splice(blockIdx, 1);
   setConditionBlocks(branch, bArr);
 }

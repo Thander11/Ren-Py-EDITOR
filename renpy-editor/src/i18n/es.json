@@ -246,5 +246,6 @@
   "bg_needs_image": "Selecciona una imagen para el fondo",
   "bg_needs_name": "Escribe un nombre para el fondo",
   "scene_needs_image": "Selecciona una imagen para la escena",
-  "scene_needs_name": "Escribe un nombre para la escena"
+  "scene_needs_name": "Escribe un nombre para la escena",
+  "confirm_delete_block": "¿Seguro que quieres eliminar este bloque?\n\n{0}: {1}"
 }
