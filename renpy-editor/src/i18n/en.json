@@ -259,5 +259,12 @@
   "select_character_for_expr": "Select a character to see its expressions.",
   "select_type_for_expr": "Select a type to see its expressions.",
   "char_needs_image_attr": "This character has no expression tag (image). Edit it in the Characters tab to set one.",
-  "expr_naming_hint": "Expressions are named character_type_identifier (e.g. Ryu_hunter_1), using the same types as the sprites."
+  "expr_naming_hint": "Expressions are named character_type_identifier (e.g. Ryu_hunter_1), using the same types as the sprites.",
+  "audio_folder_files": "Audio files in the audio folder",
+  "audio_click_hint": "Click a file to select it and listen to it. Click it again to pause.",
+  "search_placeholder": "Search...",
+  "stop_preview": "Stop playback",
+  "no_audio_files": "There are no audio files in the project's audio/ folder.",
+  "no_results": "No results.",
+  "audio_play_error": "Could not play \"{0}\""
 }

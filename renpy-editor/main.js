@@ -398,17 +398,14 @@ ipcMain.handle('list-rpy-files', () => {
   } catch (e) { return []; }
 });
 
-// ── List audio files ──
+// ── List audio files in game/audio/ (recursive, paths relative to game/) ──
 ipcMain.handle('list-audio-files', () => {
   if (!currentGamePath) return [];
-  const audioFiles = [];
-  // images/audio/
-  const imgAudio = path.join(currentGamePath, 'images', 'audio');
-  try { audioFiles.push(...fs.readdirSync(imgAudio).filter(f => !fs.statSync(path.join(imgAudio, f)).isDirectory())); } catch (e) {}
-  // audio/
   const audioDir = path.join(currentGamePath, 'audio');
-  try { audioFiles.push(...fs.readdirSync(audioDir).filter(f => !fs.statSync(path.join(audioDir, f)).isDirectory())); } catch (e) {}
-  return audioFiles;
+  return listDirRecursive(audioDir, currentGamePath)
+    .filter(f => !f.isDir && /\.(ogg|opus|mp3|wav|flac|m4a)$/i.test(f.name))
+    .map(f => f.path)
+    .sort((a, b) => a.localeCompare(b));
 });
 
 // ── List image files in a subdirectory (relative to images/) or absolute path ──

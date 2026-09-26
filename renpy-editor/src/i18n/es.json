@@ -261,5 +261,12 @@
   "select_character_for_expr": "Selecciona un personaje para ver sus expresiones.",
   "select_type_for_expr": "Selecciona un tipo para ver sus expresiones.",
   "char_needs_image_attr": "Este personaje no tiene etiqueta de expresiones (image). Edítalo en la pestaña Personajes para indicarla.",
-  "expr_naming_hint": "Las expresiones se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1), usando los mismos tipos que los sprites."
+  "expr_naming_hint": "Las expresiones se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1), usando los mismos tipos que los sprites.",
+  "audio_folder_files": "Audios de la carpeta audio",
+  "audio_click_hint": "Haz clic en un audio para seleccionarlo y escucharlo. Vuelve a hacer clic para pausarlo.",
+  "search_placeholder": "Buscar...",
+  "stop_preview": "Detener reproducción",
+  "no_audio_files": "No hay archivos de audio en la carpeta audio/ del proyecto.",
+  "no_results": "Sin resultados.",
+  "audio_play_error": "No se pudo reproducir \"{0}\""
 }

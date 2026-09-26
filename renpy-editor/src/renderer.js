@@ -230,9 +230,14 @@ function parseScriptLabels(text) {
 // IMAGE LOADING — uses game:// protocol
 // ═══════════════════════════════════════════════════════════════════
 function getImageURL(relativePath) {
+  return getGameFileURL('images/' + relativePath);
+}
+
+// file:// URL of a file given its path relative to the game/ folder
+function getGameFileURL(relativePath) {
   if (!gamePath) return null;
   // Build absolute file path, then convert to a proper file:// URL
-  const absPath = gamePath.replace(/\\/g, '/') + '/images/' + relativePath;
+  const absPath = gamePath.replace(/\\/g, '/') + '/' + relativePath;
   // Encode each segment but preserve drive letter colon
   const parts = absPath.split('/');
   const encoded = parts.map((s, i) => {
@@ -1474,6 +1479,7 @@ function getShownSprites(blockList, limit) {
 let pendingBlock = {};
 
 function openModal(type, existing) {
+  if (audioPreviewFile) stopAudioPreview();
   pendingBlock = existing ? { ...existing } : { type };
   const overlay = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-title');
@@ -1520,6 +1526,10 @@ function openModal(type, existing) {
   }
   if (type === 'scene') {
     setTimeout(() => initializeScenePicker(pendingBlock.background), 50);
+  }
+  if (type === 'music') {
+    renderAudioList();
+    refreshAudioFiles();
   }
   if (type === 'menu') {
     setTimeout(() => {
@@ -1578,6 +1588,7 @@ function restoreMenuPosition(choiceIdx, savedMenuScrollTop, savedChoiceBlocksScr
 }
 
 function closeModal() {
+  if (audioPreviewFile) stopAudioPreview();
   document.getElementById('modal-overlay').classList.remove('open');
   if (conditionBlockContext) {
     const { savedConditionBlock, savedEditingIndex, parentConditionContext, parentChoiceContext, branch, savedConditionScrollTop, savedBranchScrollTop, savedBranchAtBottom } = conditionBlockContext;
@@ -1990,21 +2001,32 @@ function buildModalBody(type, b) {
         <input class="form-input" id="f-dur" type="number" min="0.1" step="0.1" value="${b.duration || ''}" placeholder="Ej: 2.0">
       </div>`;
 
-    case 'music': return `
+    case 'music': {
+      const isStop = (b.action || 'play') === 'stop';
+      return `
       <div class="form-group">
         <label class="form-label">${t('music_action')}</label>
         <div class="radio-group">
-          ${['play', 'stop', 'queue'].map(a => `<label class="radio-option"><input type="radio" name="f-action" value="${a}" ${(b.action || 'play') === a ? 'checked' : ''}> ${a}</label>`).join('')}
+          ${['play', 'stop', 'queue'].map(a => `<label class="radio-option"><input type="radio" name="f-action" value="${a}" onchange="onMusicActionChange()" ${(b.action || 'play') === a ? 'checked' : ''}> ${a}</label>`).join('')}
         </div>
       </div>
-      <div class="form-group" id="fg-file">
+      <div class="form-group music-file-section" ${isStop ? 'style="display:none"' : ''}>
         <label class="form-label">${t('audio_file')}</label>
-        <input class="form-input" id="f-file" list="dl-audio" value="${b.file || ''}" placeholder="Ej: audio/Morning.mp3">
-        <datalist id="dl-audio">${data.audioFiles.map(f => `<option value="audio/${f}">`).join('')}</datalist>
+        <input class="form-input" id="f-file" value="${escHtml(b.file || '')}" placeholder="Ej: audio/Morning.mp3" oninput="renderAudioList()">
       </div>
-      <div class="form-group" id="fg-loop">
+      <div class="form-group music-file-section" ${isStop ? 'style="display:none"' : ''}>
+        <label class="form-label">${t('audio_folder_files')}</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <input class="form-input" id="f-audio-filter" placeholder="${t('search_placeholder')}" oninput="renderAudioList()">
+          <button class="btn btn-secondary" type="button" onclick="stopAudioPreview()" title="${t('stop_preview')}">⏹</button>
+        </div>
+        <div id="audio-list" class="audio-list"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">${t('audio_click_hint')}</div>
+      </div>
+      <div class="form-group music-file-section" id="fg-loop" ${isStop ? 'style="display:none"' : ''}>
         <label class="radio-option"><input type="checkbox" id="f-loop" ${b.loop !== false ? 'checked' : ''}> ${t('loop_playback')}</label>
       </div>`;
+    }
 
     case 'jump': return `
       <div class="form-group">
@@ -2059,6 +2081,85 @@ function handleCustomCodeKeydown(e, el) {
       }
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MUSIC MODAL — list of game/audio files with click-to-play preview
+// ═══════════════════════════════════════════════════════════════════
+const audioPreview = new Audio();
+let audioPreviewFile = '';
+audioPreview.addEventListener('ended', () => { audioPreviewFile = ''; renderAudioList(); });
+audioPreview.addEventListener('error', () => {
+  if (!audioPreviewFile) return;
+  notify(t('audio_play_error', audioPreviewFile), 'err');
+  audioPreviewFile = '';
+  renderAudioList();
+});
+
+function stopAudioPreview() {
+  audioPreview.pause();
+  audioPreviewFile = '';
+  renderAudioList();
+}
+
+function playAudioPreview(file) {
+  audioPreview.pause();
+  audioPreviewFile = file;
+  audioPreview.src = getGameFileURL(file);
+  audioPreview.currentTime = 0;
+  audioPreview.play().catch(() => {});
+}
+
+function onMusicActionChange() {
+  const action = document.querySelector('input[name="f-action"]:checked')?.value || 'play';
+  document.querySelectorAll('.music-file-section').forEach(el => { el.style.display = action === 'stop' ? 'none' : ''; });
+  if (action === 'stop') stopAudioPreview();
+}
+
+function renderAudioList() {
+  const list = document.getElementById('audio-list');
+  if (!list) return;
+  if (!data.audioFiles.length) {
+    list.innerHTML = `<div class="audio-empty">${t('no_audio_files')}</div>`;
+    return;
+  }
+  const filter = (document.getElementById('f-audio-filter')?.value || '').trim().toLowerCase();
+  const selected = document.getElementById('f-file')?.value || '';
+  const items = data.audioFiles
+    .map((file, idx) => ({ file, idx }))
+    .filter(({ file }) => !filter || file.toLowerCase().includes(filter));
+  if (!items.length) {
+    list.innerHTML = `<div class="audio-empty">${t('no_results')}</div>`;
+    return;
+  }
+  list.innerHTML = items.map(({ file, idx }) => {
+    const playing = file === audioPreviewFile;
+    const name = file.replace(/^audio\//, '');
+    return `<div class="audio-item ${file === selected ? 'selected' : ''} ${playing ? 'playing' : ''}" onclick="onAudioItemClick(${idx})" title="${escHtml(file)}">
+      <span class="audio-play">${playing ? '⏸' : '▶'}</span>
+      <span class="audio-name">${escHtml(name)}</span>
+    </div>`;
+  }).join('');
+}
+
+// Clicking a file selects it and plays it (clicking the playing one pauses it)
+function onAudioItemClick(idx) {
+  const file = data.audioFiles[idx];
+  if (!file) return;
+  const input = document.getElementById('f-file');
+  if (input) input.value = file;
+  if (audioPreviewFile === file && !audioPreview.paused) {
+    audioPreview.pause();
+    audioPreviewFile = '';
+  } else {
+    playAudioPreview(file);
+  }
+  renderAudioList();
+}
+
+async function refreshAudioFiles() {
+  if (gamePath) data.audioFiles = await window.api.listAudioFiles();
+  renderAudioList();
 }
 
 // ═══════════════════════════════════════════════════════════════════
