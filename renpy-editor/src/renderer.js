@@ -41,6 +41,7 @@ async function loadI18n(lang) {
     const raw = await window.api.readI18n(lang);
     translations = JSON.parse(raw);
     currentLang = lang;
+    document.documentElement.lang = lang;
   } catch (e) { translations = {}; }
 }
 
@@ -62,7 +63,7 @@ function applyI18n() {
       let currentIcon = '';
       if (spaceIdx > 0 && spaceIdx <= 2) {
         const prefix = text.substring(0, spaceIdx);
-        if (!/[a-zA-Z0-9]/.test(prefix)) {
+        if (!/[\p{L}\p{N}]/u.test(prefix)) {
           currentIcon = prefix;
         }
       }
@@ -72,7 +73,7 @@ function applyI18n() {
       let newText = val;
       if (valSpaceIdx > 0 && valSpaceIdx <= 2) {
         const prefix = val.substring(0, valSpaceIdx);
-        if (!/[a-zA-Z0-9]/.test(prefix)) {
+        if (!/[\p{L}\p{N}]/u.test(prefix)) {
           newText = val.substring(valSpaceIdx + 1);
         }
       }

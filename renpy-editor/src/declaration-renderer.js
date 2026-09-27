@@ -39,6 +39,7 @@ async function loadI18n(lang) {
     const raw = await window.declApi.readI18n(lang);
     translations = JSON.parse(raw);
     currentLang = lang;
+    document.documentElement.lang = lang;
   } catch (e) { translations = {}; }
 }
 function t(key, ...args) {

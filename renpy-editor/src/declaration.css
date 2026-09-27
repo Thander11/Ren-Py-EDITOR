@@ -17,7 +17,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
   background: var(--bg); color: var(--text);
   overflow-x: hidden;
 }
