@@ -169,3 +169,4 @@ main { padding: 16px 20px; }
 
 /* Japanese: prefer Japanese fonts so kanji don't use Chinese glyphs */
 :lang(ja) body { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', sans-serif; }
+:lang(zh-TW) body { font-family: 'Segoe UI', 'Microsoft JhengHei UI', 'Microsoft JhengHei', 'PingFang TC', sans-serif; }
