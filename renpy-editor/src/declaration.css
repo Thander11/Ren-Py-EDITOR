@@ -166,3 +166,6 @@ main { padding: 16px 20px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* Japanese: prefer Japanese fonts so kanji don't use Chinese glyphs */
+:lang(ja) body { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', sans-serif; }

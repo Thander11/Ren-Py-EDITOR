@@ -738,3 +738,6 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   border-color: var(--accent);
   background: rgba(78,205,196,0.15);
 }
+
+/* Japanese: prefer Japanese fonts so kanji don't use Chinese glyphs */
+:lang(ja) body { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', sans-serif; }
