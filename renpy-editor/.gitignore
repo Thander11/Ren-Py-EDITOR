@@ -37,6 +37,9 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Ajustes locales del editor (se generan automáticamente en cada PC)
+settings.json
+
 # Archivos temporales
 tmp/
 temp/
