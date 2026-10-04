@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Ren'Py EDITOR — Menú principal</title>
+  <link rel="stylesheet" href="declaration.css">
+  <link rel="stylesheet" href="main-menu.css">
+</head>
+<body>
+  <header class="mm-header">
+    <h1 data-i18n="main_menu_title">Menú principal</h1>
+    <label class="mm-check mm-enabled">
+      <input type="checkbox" id="mm-enabled" data-key="enabled">
+      <span data-i18n="mm_enabled">Usar menú personalizado</span>
+    </label>
+    <span id="mm-dirty" class="mm-dirty" data-i18n="mm_unsaved">Cambios sin guardar</span>
+    <div class="mm-header-actions">
+      <button class="btn btn-secondary" onclick="resetConfig()" data-i18n="mm_reset">↺ Restablecer</button>
+      <button class="btn btn-secondary" onclick="saveAndTest()" data-i18n="mm_test">▶ Probar en Ren'Py</button>
+      <button class="btn btn-primary" onclick="saveConfig()" data-i18n="mm_save">💾 Guardar</button>
+    </div>
+  </header>
+
+  <div class="mm-layout">
+    <!-- Preview -->
+    <section class="mm-preview-pane">
+      <div class="mm-preview-info">
+        <span data-i18n="mm_preview">Vista previa</span>
+        <span id="mm-resolution"></span>
+        <span class="mm-preview-hint" data-i18n="mm_preview_hint">Arrastra el título o los botones para moverlos.</span>
+      </div>
+      <div id="mm-stage-wrap">
+        <div id="mm-stage">
+          <div id="pv-bg"></div>
+          <div id="pv-side-panel"></div>
+          <div id="pv-overlay"></div>
+          <div id="pv-title" class="pv-draggable" data-drag="title">
+            <div id="pv-title-text"></div>
+            <div id="pv-version"></div>
+          </div>
+          <div id="pv-buttons" class="pv-draggable" data-drag="buttons"></div>
+          <div id="pv-disabled" data-i18n="mm_disabled_preview">El menú personalizado está desactivado: el juego usa el menú original.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <aside class="mm-settings">
+      <!-- Background -->
+      <details class="mm-section" open>
+        <summary data-i18n="mm_section_background">Fondo</summary>
+        <div class="form-group">
+          <label data-i18n="mm_bg_type">Tipo de fondo</label>
+          <select class="form-select" data-key="background.type">
+            <option value="default" data-i18n="mm_bg_default">Fondo original del proyecto</option>
+            <option value="color" data-i18n="mm_bg_color">Color sólido</option>
+            <option value="image" data-i18n="mm_bg_image">Imagen</option>
+            <option value="gif" data-i18n="mm_bg_gif">GIF animado</option>
+            <option value="video" data-i18n="mm_bg_video">Vídeo</option>
+          </select>
+        </div>
+        <div class="form-group" data-show-if="background.type=color">
+          <label data-i18n="mm_color">Color</label>
+          <input type="color" class="mm-color" data-key="background.color">
+        </div>
+        <div class="form-group" data-show-if="background.type=image,gif,video">
+          <label data-i18n="mm_file">Archivo</label>
+          <div class="mm-file-row">
+            <span id="mm-bg-file" class="mm-file-name" data-i18n="mm_no_file">Sin archivo</span>
+            <button class="btn btn-secondary" onclick="pickBackground()" data-i18n="mm_choose_file">📂 Elegir archivo</button>
+          </div>
+        </div>
+        <div class="form-group" data-show-if="background.type=image,gif">
+          <label data-i18n="mm_fit">Ajuste</label>
+          <select class="form-select" data-key="background.fit">
+            <option value="cover" data-i18n="mm_fit_cover">Rellenar (recorta)</option>
+            <option value="contain" data-i18n="mm_fit_contain">Ajustar (sin recortar)</option>
+            <option value="fill" data-i18n="mm_fit_fill">Estirar</option>
+          </select>
+        </div>
+        <div class="form-hint" data-show-if="background.type=gif" data-i18n="mm_gif_hint">Ren'Py no reproduce GIFs, así que el editor extrae sus fotogramas y crea una animación equivalente.</div>
+        <div class="form-hint" data-show-if="background.type=video" data-i18n="mm_video_hint">Formato recomendado: WebM (VP9).</div>
+      </details>
+
+      <!-- Overlay -->
+      <details class="mm-section">
+        <summary data-i18n="mm_section_overlay">Capa superior</summary>
+        <label class="mm-check">
+          <input type="checkbox" data-key="overlay.sidePanel">
+          <span data-i18n="mm_side_panel">Mostrar el panel lateral oscuro del menú original</span>
+        </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="mm_overlay_color">Color de oscurecimiento</label>
+            <input type="color" class="mm-color" data-key="overlay.color">
+          </div>
+          <div class="form-group">
+            <label><span data-i18n="mm_overlay_opacity">Opacidad del oscurecimiento</span> <output data-out="overlay.opacity"></output>%</label>
+            <input type="range" min="0" max="100" data-key="overlay.opacity">
+          </div>
+        </div>
+      </details>
+
+      <!-- Title -->
+      <details class="mm-section">
+        <summary data-i18n="mm_section_title">Título</summary>
+        <label class="mm-check">
+          <input type="checkbox" data-key="title.show">
+          <span data-i18n="mm_title_show">Mostrar título</span>
+        </label>
+        <div data-show-if="title.show=true">
+          <div class="form-group">
+            <label data-i18n="mm_title_text">Texto del título</label>
+            <input class="form-input" id="mm-title-text" data-key="title.text">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><span data-i18n="mm_size">Tamaño</span> <output data-out="title.size"></output></label>
+              <input type="range" min="12" max="300" data-key="title.size">
+            </div>
+            <div class="form-group mm-narrow">
+              <label data-i18n="mm_color">Color</label>
+              <input type="color" class="mm-color" data-key="title.color">
+            </div>
+          </div>
+          <div class="form-group">
+            <label data-i18n="mm_font">Fuente</label>
+            <div class="mm-font-row">
+              <select class="form-select mm-font-family" data-font-family="title"></select>
+              <select class="form-select mm-font-style" data-font-style="title" data-i18n-title="mm_font_style"></select>
+              <button class="btn btn-secondary" onclick="pickFont('title')" data-i18n="mm_font_from_file">📂 Archivo</button>
+            </div>
+            <div class="form-hint mm-font-license" data-font-hint="title"></div>
+            <div class="mm-font-info">
+              <span class="mm-font-summary" data-font-summary></span>
+              <details>
+                <summary data-i18n="mm_fonts_why">¿Por qué no aparece una fuente?</summary>
+                <p data-i18n="mm_fonts_why_text"></p>
+                <div class="mm-font-links">
+                  <button class="btn btn-secondary" onclick="window.mmApi.openFreeFontsSite()" data-i18n="mm_fonts_get_free">Descargar fuentes libres (Google Fonts)</button>
+                  <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">↻ Actualizar lista</button>
+                </div>
+              </details>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><span data-i18n="mm_outline">Contorno</span> <output data-out="title.outlineSize"></output></label>
+              <input type="range" min="0" max="12" data-key="title.outlineSize">
+            </div>
+            <div class="form-group mm-narrow">
+              <label data-i18n="mm_outline_color">Color del contorno</label>
+              <input type="color" class="mm-color" data-key="title.outlineColor">
+            </div>
+          </div>
+          <div class="form-group">
+            <label data-i18n="mm_position">Posición</label>
+            <div class="mm-position">
+              <div class="mm-pos-grid" data-pos-grid="title"></div>
+              <div class="mm-pos-sliders">
+                <label><span data-i18n="mm_pos_x">Horizontal</span> <output data-out="title.xalign" data-percent></output></label>
+                <input type="range" min="0" max="1" step="0.005" data-key="title.xalign">
+                <label><span data-i18n="mm_pos_y">Vertical</span> <output data-out="title.yalign" data-percent></output></label>
+                <input type="range" min="0" max="1" step="0.005" data-key="title.yalign">
+              </div>
+            </div>
+          </div>
+          <label class="mm-check">
+            <input type="checkbox" data-key="title.showVersion">
+            <span data-i18n="mm_version_show">Mostrar versión</span>
+          </label>
+          <div class="form-row" data-show-if="title.showVersion=true">
+            <div class="form-group">
+              <label><span data-i18n="mm_version_size">Tamaño de la versión</span> <output data-out="title.versionSize"></output></label>
+              <input type="range" min="8" max="120" data-key="title.versionSize">
+            </div>
+            <div class="form-group mm-narrow">
+              <label data-i18n="mm_version_color">Color de la versión</label>
+              <input type="color" class="mm-color" data-key="title.versionColor">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Buttons -->
+      <details class="mm-section">
+        <summary data-i18n="mm_section_buttons">Botones</summary>
+        <div class="form-group">
+          <label data-i18n="mm_btn_list">Botones del menú</label>
+          <div id="mm-button-list" class="mm-button-list"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="mm_layout">Disposición</label>
+            <select class="form-select" data-key="buttons.layout">
+              <option value="vertical" data-i18n="mm_layout_vertical">Vertical (en columna)</option>
+              <option value="horizontal" data-i18n="mm_layout_horizontal">Horizontal (en fila)</option>
+            </select>
+          </div>
+          <div class="form-group" data-show-if="buttons.layout=vertical">
+            <label data-i18n="mm_text_align">Alineación del texto</label>
+            <select class="form-select" data-key="buttons.textAlign">
+              <option value="left" data-i18n="mm_align_left">Izquierda</option>
+              <option value="center" data-i18n="mm_align_center">Centro</option>
+              <option value="right" data-i18n="mm_align_right">Derecha</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label data-i18n="mm_position">Posición</label>
+          <div class="mm-position">
+            <div class="mm-pos-grid" data-pos-grid="buttons"></div>
+            <div class="mm-pos-sliders">
+              <label><span data-i18n="mm_pos_x">Horizontal</span> <output data-out="buttons.xalign" data-percent></output></label>
+              <input type="range" min="0" max="1" step="0.005" data-key="buttons.xalign">
+              <label><span data-i18n="mm_pos_y">Vertical</span> <output data-out="buttons.yalign" data-percent></output></label>
+              <input type="range" min="0" max="1" step="0.005" data-key="buttons.yalign">
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label><span data-i18n="mm_size">Tamaño</span> <output data-out="buttons.size"></output></label>
+            <input type="range" min="10" max="160" data-key="buttons.size">
+          </div>
+          <div class="form-group">
+            <label><span data-i18n="mm_spacing">Separación</span> <output data-out="buttons.spacing"></output></label>
+            <input type="range" min="0" max="200" data-key="buttons.spacing">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group mm-narrow">
+            <label data-i18n="mm_idle_color">Color normal</label>
+            <input type="color" class="mm-color" data-key="buttons.idleColor">
+          </div>
+          <div class="form-group mm-narrow">
+            <label data-i18n="mm_hover_color">Color al pasar el ratón</label>
+            <input type="color" class="mm-color" data-key="buttons.hoverColor">
+          </div>
+        </div>
+        <div class="form-group">
+          <label data-i18n="mm_font">Fuente</label>
+          <div class="mm-font-row">
+            <select class="form-select mm-font-family" data-font-family="buttons"></select>
+            <select class="form-select mm-font-style" data-font-style="buttons" data-i18n-title="mm_font_style"></select>
+            <button class="btn btn-secondary" onclick="pickFont('buttons')" data-i18n="mm_font_from_file">📂 Archivo</button>
+          </div>
+          <div class="form-hint mm-font-license" data-font-hint="buttons"></div>
+          <div class="mm-font-info">
+            <span class="mm-font-summary" data-font-summary></span>
+            <details>
+              <summary data-i18n="mm_fonts_why">¿Por qué no aparece una fuente?</summary>
+              <p data-i18n="mm_fonts_why_text"></p>
+              <div class="mm-font-links">
+                <button class="btn btn-secondary" onclick="window.mmApi.openFreeFontsSite()" data-i18n="mm_fonts_get_free">Descargar fuentes libres (Google Fonts)</button>
+                <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">↻ Actualizar lista</button>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label><span data-i18n="mm_outline">Contorno</span> <output data-out="buttons.outlineSize"></output></label>
+            <input type="range" min="0" max="12" data-key="buttons.outlineSize">
+          </div>
+          <div class="form-group mm-narrow">
+            <label data-i18n="mm_outline_color">Color del contorno</label>
+            <input type="color" class="mm-color" data-key="buttons.outlineColor">
+          </div>
+        </div>
+        <label class="mm-check">
+          <input type="checkbox" data-key="buttons.bgEnabled">
+          <span data-i18n="mm_btn_bg">Fondo de los botones</span>
+        </label>
+        <div data-show-if="buttons.bgEnabled=true">
+          <div class="form-group">
+            <label data-i18n="mm_btn_bg_kind">Tipo de fondo</label>
+            <select class="form-select" data-key="buttons.bgKind">
+              <option value="color" data-i18n="mm_btn_bg_kind_color">Color</option>
+              <option value="image" data-i18n="mm_btn_bg_kind_image">Imagen</option>
+            </select>
+          </div>
+          <div id="mm-btn-bgimg" data-show-if="buttons.bgKind=image"></div>
+          <div class="form-row" data-show-if="buttons.bgKind=color">
+            <div class="form-group mm-narrow">
+              <label data-i18n="mm_btn_bg_color">Color de fondo</label>
+              <input type="color" class="mm-color" data-key="buttons.bgColor">
+            </div>
+            <div class="form-group mm-narrow">
+              <label data-i18n="mm_btn_bg_hover">Color de fondo al pasar el ratón</label>
+              <input type="color" class="mm-color" data-key="buttons.bgHoverColor">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="mm_btn_bg_opacity">Opacidad del fondo</span> <output data-out="buttons.bgOpacity"></output>%</label>
+              <input type="range" min="0" max="100" data-key="buttons.bgOpacity">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><span data-i18n="mm_btn_padding">Margen interior</span> <output data-out="buttons.padding"></output></label>
+              <input type="range" min="0" max="80" data-key="buttons.padding">
+            </div>
+            <div class="form-group">
+              <label><span data-i18n="mm_btn_width">Ancho mínimo (0 = automático)</span> <output data-out="buttons.minWidth"></output></label>
+              <input type="range" min="0" max="1000" step="10" data-key="buttons.minWidth">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Music -->
+      <details class="mm-section">
+        <summary data-i18n="mm_section_music">Música</summary>
+        <div class="form-group">
+          <label data-i18n="mm_music_file">Música del menú</label>
+          <select class="form-select" id="mm-music" data-key="music.file"></select>
+          <audio id="mm-music-player" controls></audio>
+          <div class="form-hint" data-i18n="mm_music_hint">Archivos de la carpeta game/audio.</div>
+        </div>
+      </details>
+    </aside>
+  </div>
+
+  <div id="notif" class="notification"></div>
+  <script src="main-menu-renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+/* ═══════════════════════════════════════════════════════════
+   Main Menu Editor Window — on top of declaration.css
+   ═══════════════════════════════════════════════════════════ */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow: hidden; }
+
+.mm-header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 20px;
+}
+.mm-header h1 { margin-bottom: 0; }
+.mm-header-actions { margin-left: auto; display: flex; gap: 8px; }
+.mm-dirty { font-size: 11px; color: #f5a524; visibility: hidden; }
+.mm-dirty.show { visibility: visible; }
+
+.mm-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text); cursor: pointer; margin: 6px 0;
+}
+.mm-enabled { font-weight: 600; margin: 0; }
+
+.mm-layout { flex: 1; display: flex; min-height: 0; }
+
+/* ── Preview ── */
+.mm-preview-pane {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  padding: 12px 16px; gap: 8px;
+}
+.mm-preview-info { display: flex; gap: 12px; align-items: baseline; font-size: 12px; color: var(--text2); }
+.mm-preview-info > span:first-child { font-weight: 600; color: var(--text); }
+.mm-preview-hint { margin-left: auto; color: var(--text3); }
+
+#mm-stage-wrap {
+  flex: 1; min-height: 0; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+#mm-stage {
+  position: absolute; left: 0; top: 0;
+  transform-origin: 0 0;
+  overflow: hidden; background: #000;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .45);
+  font-family: 'DejaVu Sans', Verdana, sans-serif;
+  user-select: none;
+}
+#pv-bg, #pv-overlay, #pv-side-panel { position: absolute; left: 0; top: 0; height: 100%; }
+#pv-bg, #pv-overlay { width: 100%; }
+#pv-bg > img, #pv-bg > video { width: 100%; height: 100%; display: block; }
+/* Like Ren'Py's main_menu_frame: the image keeps its size and is cropped to the panel width */
+#pv-side-panel { background-repeat: no-repeat; background-size: auto; }
+
+.pv-draggable { position: absolute; cursor: move; white-space: nowrap; }
+.pv-draggable:hover { outline: 2px dashed rgba(78, 205, 196, .7); outline-offset: 6px; }
+.pv-draggable.dragging { outline: 2px solid var(--accent); outline-offset: 6px; }
+
+#pv-buttons { display: flex; }
+#mm-stage .pv-btn {
+  color: var(--pv-idle); background: var(--pv-bg);
+  line-height: normal; transition: color .1s, background .1s;
+}
+#mm-stage .pv-btn:hover { color: var(--pv-hover); background: var(--pv-bg-hover); }
+#pv-title-text, #pv-version {
+  position: relative; width: fit-content;
+  line-height: normal;
+}
+
+#pv-disabled {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center; text-align: center;
+  background: rgba(0, 0, 0, .6); color: #fff; font-size: 40px; padding: 60px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+#mm-stage.disabled #pv-disabled { display: flex; }
+
+/* ── Settings ── */
+.mm-settings {
+  width: 400px; flex-shrink: 0; overflow-y: auto;
+  border-left: 1px solid var(--border); background: var(--surface);
+  padding: 10px 14px 30px;
+}
+.mm-section {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card-bg); margin-bottom: 10px;
+}
+.mm-section > summary {
+  cursor: pointer; padding: 10px 12px; font-weight: 600; font-size: 13px;
+  list-style: none; user-select: none;
+}
+.mm-section > summary::-webkit-details-marker { display: none; }
+.mm-section > summary::before { content: '▸ '; color: var(--text3); }
+.mm-section[open] > summary::before { content: '▾ '; }
+.mm-section[open] > summary { border-bottom: 1px solid var(--border); }
+.mm-section > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.mm-section > :last-child { margin-bottom: 12px; }
+.mm-section .form-group { margin-top: 10px; }
+.mm-section .form-row { gap: 10px; }
+.mm-section .form-row .form-group { min-width: 100px; }
+.mm-section .form-group.mm-narrow { flex: 0 0 auto; min-width: 0; }
+.mm-section label output { color: var(--accent); font-weight: 600; }
+.mm-section input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.mm-color {
+  width: 56px; height: 28px; padding: 0 2px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 4px; background: var(--bg);
+}
+
+.mm-file-row { display: flex; gap: 6px; align-items: center; }
+.mm-file-name {
+  flex: 1; min-width: 0; font-size: 11px; color: var(--text2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.mm-font-row { display: flex; gap: 6px; align-items: center; }
+.mm-font-row .mm-font-family { flex: 1; min-width: 0; }
+.mm-font-row .mm-font-style { width: 110px; flex-shrink: 0; }
+.mm-font-row .btn { flex-shrink: 0; white-space: nowrap; }
+.mm-font-family option { font-size: 14px; }
+
+.mm-position { display: flex; gap: 12px; align-items: center; }
+.mm-pos-grid {
+  display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; flex-shrink: 0;
+}
+.mm-pos-grid button {
+  width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg);
+}
+.mm-pos-grid button:hover { border-color: var(--accent); }
+.mm-pos-grid button.active { background: var(--accent); border-color: var(--accent); }
+.mm-pos-sliders { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.mm-pos-sliders label { font-size: 11px; color: var(--text2); font-weight: 600; }
+
+.mm-button-list { display: flex; flex-direction: column; gap: 4px; }
+.mm-button-item {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 6px;
+}
+.mm-button-item.hidden-btn { opacity: .55; }
+.mm-button-item .mm-btn-name { width: 110px; flex-shrink: 0; font-size: 12px; }
+.mm-button-item .form-input { flex: 1; min-width: 0; padding: 3px 6px; font-size: 12px; }
+.mm-button-item .mm-move {
+  background: none; border: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 0 2px;
+}
+.mm-button-item .mm-move:hover { color: var(--text); }
+.mm-button-item .mm-move:disabled { visibility: hidden; }
+
+#mm-music-player { width: 100%; height: 32px; margin-top: 6px; }
+
+/* Fonts: only installed fonts whose license allows distributing them */
+.mm-font-license.warn { color: #f5a524; }
+.mm-font-info {
+  margin-top: 6px; padding: 6px 8px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--border); font-size: 11px; color: var(--text2);
+}
+.mm-font-summary::before { content: '🔒 '; }
+.mm-font-info details { margin-top: 4px; }
+.mm-font-info summary { cursor: pointer; color: var(--accent); user-select: none; }
+.mm-font-info p { margin: 6px 0; line-height: 1.45; }
+.mm-font-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.mm-font-links .btn { padding: 4px 8px; font-size: 11px; }
+
+/* Buttons: options of each button */
+.mm-button-item { flex-direction: column; align-items: stretch; }
+.mm-button-row { display: flex; align-items: center; gap: 6px; }
+.mm-btn-badges { font-size: 11px; min-width: 0; }
+.mm-btn-opts.active { color: var(--accent); }
+.mm-btn-details {
+  border-top: 1px dashed var(--border); margin-top: 4px; padding: 2px 4px 6px;
+}
+.mm-btn-details .form-group { margin-top: 8px; }
+
+/* Preview: image buttons and buttons with their own position */
+#mm-stage .pv-img-btn { background: transparent; padding: 0; line-height: 0; }
+#mm-stage .pv-img-btn:hover { background: transparent; }
+.pv-img-btn img { display: block; }
+.pv-img-btn .pv-img-hover { display: none; }
+.pv-img-btn:hover .pv-img-hover { display: block; }
+.pv-img-btn:hover .pv-img-idle:not(:last-child) { display: none; }
+.pv-img-glow:hover img { filter: brightness(1.25); }
+
+/* Preview: text buttons with a background image (stretched like Ren'Py's Frame,
+   keeping --b px of borders); in ::before so the hover glow doesn't affect the text */
+#mm-stage .pv-bgimg { isolation: isolate; }
+.pv-bgimg::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  border-style: solid; border-color: transparent; border-width: var(--b);
+  border-image: var(--img) var(--bs) fill / var(--b) stretch;
+}
+.pv-bgimg:hover::before { border-image-source: var(--img-hover, var(--img)); }
+.pv-bgimg-glow:hover::before { filter: brightness(1.25); }

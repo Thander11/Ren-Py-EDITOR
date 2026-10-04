@@ -3652,6 +3652,14 @@ function openDeclarations() {
   window.api.openDeclarationWindow();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// MAIN MENU — opens separate window
+// ═══════════════════════════════════════════════════════════════════
+function openMainMenuEditor() {
+  if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
+  window.api.openMainMenuWindow();
+}
+
 async function launchProjectFromEditor() {
   if (!gamePath) {
     notify(t('open_project_first'), 'err');

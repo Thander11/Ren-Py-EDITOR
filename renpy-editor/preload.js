@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('api', {
   // Declaration window
   openDeclarationWindow: () => ipcRenderer.invoke('open-declaration-window'),
 
+  // Main menu editor window
+  openMainMenuWindow: () => ipcRenderer.invoke('open-main-menu-window'),
+
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
