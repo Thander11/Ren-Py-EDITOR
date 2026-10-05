@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
+  getSpellcheckLanguages: () => ipcRenderer.invoke('get-spellcheck-languages'),
 
   // i18n
   readI18n: (lang) => ipcRenderer.invoke('read-i18n', lang),

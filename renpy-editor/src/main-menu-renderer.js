@@ -310,6 +310,7 @@ function renderButtonList() {
 
     const input = el('input', 'form-input');
     input.value = it.text;
+    input.spellcheck = true;
     input.placeholder = MENU_BUTTONS[it.id].text;
     input.addEventListener('input', () => { it.text = input.value; buttonChanged(false); });
 

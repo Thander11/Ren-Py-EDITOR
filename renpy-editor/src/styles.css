@@ -636,6 +636,17 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 #settings-panel.open { display: block; }
 #settings-panel { max-height: calc(100vh - 60px); overflow-y: auto; }
 .settings-hint { font-size: 11px; color: var(--text3); line-height: 1.4; margin-bottom: 6px; }
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  padding: 3px 0;
+  cursor: pointer;
+}
+.settings-check input { accent-color: var(--accent); cursor: pointer; }
+#settings-panel .form-group { margin-bottom: 14px; }
 #custom-theme-editor { margin-top: 8px; }
 #custom-theme-editor:empty { display: none; }
 #custom-theme-editor .btn { width: 100%; }

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -18,6 +18,7 @@ let settings = {
   renpyInstallDir: '',
   projectsDirectory: '',
   windowMaximized: false,
+  spellcheckLanguages: [],
   panelSizes: { panelCode: 560, panelAssets: 220 }
 };
 let fsWatcher = null;
@@ -63,6 +64,7 @@ protocol.registerSchemesAsPrivileged([{
 // ── App Ready ──
 app.whenReady().then(() => {
   loadSettings();
+  applySpellcheckSettings();
 
   // Register the game:// protocol to serve files from the game directory
   protocol.handle('game', (request) => {
@@ -91,6 +93,49 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// ── Spellcheck ──
+// Dictionaries offered in the settings panel (only those Electron can download are shown)
+const SPELLCHECK_LANGUAGES = ['es-ES', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'it-IT', 'pt-BR', 'ru'];
+
+function applySpellcheckSettings() {
+  const ses = session.defaultSession;
+  const available = ses.availableSpellCheckerLanguages;
+  const langs = (settings.spellcheckLanguages || []).filter(l => available.includes(l));
+  ses.setSpellCheckerEnabled(langs.length > 0);
+  if (langs.length) ses.setSpellCheckerLanguages(langs);
+}
+
+// Right-click menu on editable fields: spelling suggestions + clipboard actions
+function attachEditContextMenu(win) {
+  win.webContents.on('context-menu', (_, params) => {
+    if (!params.isEditable) return;
+    const items = [];
+    if (params.misspelledWord) {
+      const suggestions = params.dictionarySuggestions.slice(0, 6);
+      if (suggestions.length) {
+        suggestions.forEach(word => items.push({ label: word, click: () => win.webContents.replaceMisspelling(word) }));
+      } else {
+        items.push({ label: mt('spell_no_suggestions'), enabled: false });
+      }
+      items.push({ type: 'separator' });
+      items.push({
+        label: mt('spell_add_to_dictionary'),
+        click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      });
+      items.push({ type: 'separator' });
+    }
+    const f = params.editFlags;
+    items.push(
+      { label: mt('ctx_cut'), role: 'cut', enabled: f.canCut },
+      { label: mt('ctx_copy'), role: 'copy', enabled: f.canCopy },
+      { label: mt('ctx_paste'), role: 'paste', enabled: f.canPaste },
+      { type: 'separator' },
+      { label: mt('ctx_select_all'), role: 'selectAll', enabled: f.canSelectAll }
+    );
+    Menu.buildFromTemplate(items).popup({ window: win });
+  });
+}
+
 // ── Create Main Window ──
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -105,6 +150,7 @@ function createMainWindow() {
     }
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+  attachEditContextMenu(mainWindow);
   Menu.setApplicationMenu(null);
   if (process.argv.includes('--dev')) mainWindow.webContents.openDevTools();
   
@@ -139,6 +185,7 @@ function createDeclarationWindow() {
     }
   });
   declWindow.loadFile(path.join(__dirname, 'src', 'declaration.html'));
+  attachEditContextMenu(declWindow);
   declWindow.on('closed', () => { declWindow = null; });
 }
 
@@ -158,6 +205,7 @@ function createMainMenuWindow() {
     }
   });
   mainMenuWindow.loadFile(path.join(__dirname, 'src', 'main-menu.html'));
+  attachEditContextMenu(mainMenuWindow);
   // Opens maximized, filling the screen
   mainMenuWindow.once('ready-to-show', () => {
     mainMenuWindow.maximize();
@@ -985,11 +1033,18 @@ ipcMain.handle('get-settings', () => settings);
 ipcMain.handle('save-settings', (_, newSettings) => {
   settings = deepMerge(settings, newSettings);
   saveSettings();
+  if (newSettings.spellcheckLanguages) applySpellcheckSettings();
   // Notify all windows of settings change
   if (mainWindow) mainWindow.webContents.send('settings-changed', settings);
   if (declWindow) declWindow.webContents.send('settings-changed', settings);
   if (mainMenuWindow) mainMenuWindow.webContents.send('settings-changed', settings);
   return true;
+});
+
+// ── Spellcheck languages that can be enabled in the settings panel ──
+ipcMain.handle('get-spellcheck-languages', () => {
+  const available = session.defaultSession.availableSpellCheckerLanguages;
+  return SPELLCHECK_LANGUAGES.filter(l => available.includes(l));
 });
 
 // ── Get game path ──

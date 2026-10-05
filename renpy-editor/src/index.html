@@ -49,6 +49,11 @@
       </select>
     </div>
     <div class="form-group">
+      <label class="form-label" data-i18n="spellcheck">Corrector ortográfico</label>
+      <div class="settings-hint" data-i18n="spellcheck_hint">Marca las erratas en los textos de la historia. Clic derecho sobre una palabra para ver sugerencias.</div>
+      <div id="setting-spellcheck"></div>
+    </div>
+    <div class="form-group">
       <label class="form-label">Ren'Py</label>
       <div class="settings-path" id="setting-renpy-path"></div>
       <button class="btn btn-secondary btn-sm" onclick="openRenpyDialog()" data-i18n="renpy_change_or_install">⚙️ Cambiar o instalar</button>
@@ -174,6 +179,7 @@
 
   <script src="theme.js"></script>
   <script src="dialog.js"></script>
+  <script src="spellcheck.js"></script>
   <script src="sprite-utils.js"></script>
   <script src="renderer.js"></script>
 </body>

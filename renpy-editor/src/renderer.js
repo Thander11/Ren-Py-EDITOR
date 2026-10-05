@@ -197,12 +197,44 @@ async function resetCustomTheme() {
   await window.api.saveSettings({ customTheme: { ...customTheme } });
 }
 
+// ── Spellcheck: one checkbox per dictionary, saved per user ──
+let spellcheckAvailable = [];
+let spellcheckLanguages = [];
+
+async function initSpellcheckSettings(s) {
+  spellcheckLanguages = s.spellcheckLanguages || [];
+  spellcheckAvailable = await window.api.getSpellcheckLanguages();
+  renderSpellcheckSettings();
+}
+
+function renderSpellcheckSettings() {
+  const el = document.getElementById('setting-spellcheck');
+  let names = null;
+  try { names = new Intl.DisplayNames([currentLang], { type: 'language' }); } catch (e) { /* show codes */ }
+  el.innerHTML = spellcheckAvailable.map(code => {
+    const name = names?.of(code) || code;
+    return `
+    <label class="settings-check">
+      <input type="checkbox" ${spellcheckLanguages.includes(code) ? 'checked' : ''} onchange="toggleSpellcheckLanguage('${code}', this.checked)">
+      <span>${escHtml(name.charAt(0).toUpperCase() + name.slice(1))}</span>
+    </label>`;
+  }).join('');
+}
+
+async function toggleSpellcheckLanguage(code, on) {
+  spellcheckLanguages = on
+    ? [...new Set([...spellcheckLanguages, code])]
+    : spellcheckLanguages.filter(l => l !== code);
+  await window.api.saveSettings({ spellcheckLanguages });
+}
+
 async function changeLanguage(lang) {
   await loadI18n(lang);
   applyI18n();
   updateProjectsDirLabel();
   updateRenpyPathLabel();
   renderCustomThemeEditor(document.getElementById('setting-theme').value);
+  renderSpellcheckSettings();
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();
@@ -2055,7 +2087,7 @@ function buildModalBody(type, b) {
     case 'narration': return `
       <div class="form-group">
         <label class="form-label">${t('narrator_text')}</label>
-        <textarea class="form-textarea" id="f-text" rows="4" placeholder="${t('write_narration')}">${b.text || ''}</textarea>
+        <textarea class="form-textarea" id="f-text" rows="4" spellcheck="true" placeholder="${t('write_narration')}">${b.text || ''}</textarea>
       </div>`;
 
     case 'dialogue': return `
@@ -2079,7 +2111,7 @@ function buildModalBody(type, b) {
       </div>
       <div class="form-group">
         <label class="form-label">${t('dialogue_text')}</label>
-        <textarea class="form-textarea" id="f-text" rows="4" placeholder="${t('write_dialogue')}">${b.text || ''}</textarea>
+        <textarea class="form-textarea" id="f-text" rows="4" spellcheck="true" placeholder="${t('write_dialogue')}">${b.text || ''}</textarea>
       </div>
       <div class="form-group" style="margin-top:4px;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
@@ -2257,7 +2289,7 @@ function buildModalBody(type, b) {
     case 'comment': return `
       <div class="form-group">
         <label class="form-label">${t('comment_text')}</label>
-        <input class="form-input" id="f-text" value="${b.text || ''}" placeholder="Ej: TO-DO: añadir expresión aquí">
+        <input class="form-input" id="f-text" spellcheck="true" value="${b.text || ''}" placeholder="Ej: TO-DO: añadir expresión aquí">
       </div>`;
 
     case 'custom': return `
@@ -2656,7 +2688,7 @@ function buildChoiceHtml(ch, i) {
     </div>
     <div class="form-group">
       <label class="form-label">${t('option_text')}</label>
-      <input class="form-input" id="ct-${i}" value="${escHtml(ch.text || '')}" placeholder="Ej: Ir con Lucco">
+      <input class="form-input" id="ct-${i}" spellcheck="true" value="${escHtml(ch.text || '')}" placeholder="Ej: Ir con Lucco">
     </div>
     <input type="hidden" id="cb-${i}" value="${blocksJson}">
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
@@ -4171,6 +4203,7 @@ function notify(msg, type = 'ok') {
   updateProjectsDirLabel();
   updateRenpyPathLabel();
   renderCustomThemeEditor(s.theme);
+  initSpellcheckSettings(s);
   renderBlocks();
   updateCodePreview();
 
