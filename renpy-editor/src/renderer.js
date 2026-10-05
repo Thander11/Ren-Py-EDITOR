@@ -423,7 +423,7 @@ async function createNewRpy() {
 
 async function selectRpyFile(filename) {
   if (filename === activeRpyFile) return;
-  if (blocks.length > 0 && !confirm(t('change_file_confirm', blocks.length, filename))) return;
+  if (blocks.length > 0 && !await showConfirm(t('change_file_confirm', blocks.length, filename), { type: 'warning' })) return;
   resetManualCodePreview();
   activeRpyFile = filename;
   blocks = [];
@@ -450,14 +450,14 @@ function editBlock(idx) {
   openModal(blocks[idx].type, blocks[idx]);
 }
 
-function confirmDeleteBlock(b) {
+async function confirmDeleteBlock(b) {
   if (!b) return false;
   const meta = BLOCK_META[b.type] || { labelKey: b.type };
-  return confirm(t('confirm_delete_block', t(meta.labelKey), truncate(blockDesc(b), 60)));
+  return showConfirm(t('confirm_delete_block', t(meta.labelKey), truncate(blockDesc(b), 60)), { danger: true });
 }
 
-function deleteBlock(idx) {
-  if (!confirmDeleteBlock(blocks[idx])) return;
+async function deleteBlock(idx) {
+  if (!await confirmDeleteBlock(blocks[idx])) return;
   blocks.splice(idx, 1);
   renderBlocks(); updateCodePreview();
 }
@@ -480,9 +480,9 @@ function duplicateBlockToEnd(idx) {
   document.getElementById('block-list').scrollTop = document.getElementById('block-list').scrollHeight;
 }
 
-function clearAllBlocks() {
+async function clearAllBlocks() {
   if (!blocks.length) return;
-  if (confirm(t('clear_confirm'))) { blocks = []; renderBlocks(); updateCodePreview(); }
+  if (await showConfirm(t('clear_confirm'), { danger: true })) { blocks = []; renderBlocks(); updateCodePreview(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1099,7 +1099,7 @@ async function appendToScript() {
 
   const labelName = (document.getElementById('target-label')?.value || '').trim();
   if (labelName) {
-    if (!confirm(t('overwrite_label', labelName))) return;
+    if (!await showConfirm(t('overwrite_label', labelName), { type: 'warning' })) return;
   }
 
   const newCode = codeText;
@@ -1527,7 +1527,7 @@ async function onTargetLabelChange() {
     return;
   }
   if (blocks.length > 0) {
-    if (!confirm(t('load_label_confirm', blocks.length, labelName))) {
+    if (!await showConfirm(t('load_label_confirm', blocks.length, labelName), { type: 'warning' })) {
       sel.value = sel.dataset.prev || '';
       return;
     }
@@ -2921,9 +2921,9 @@ function duplicateChoiceBlockToEnd(choiceIdx, blockIdx) {
   scrollChoiceBlocksToBottom(choiceIdx);
 }
 
-function removeChoiceBlock(choiceIdx, blockIdx) {
+async function removeChoiceBlock(choiceIdx, blockIdx) {
   const bArr = getChoiceBlocks(choiceIdx);
-  if (!confirmDeleteBlock(bArr[blockIdx])) return;
+  if (!await confirmDeleteBlock(bArr[blockIdx])) return;
   bArr.splice(blockIdx, 1);
   setChoiceBlocks(choiceIdx, bArr);
 }
@@ -3182,9 +3182,9 @@ function duplicateConditionBlockToEnd(branch, blockIdx) {
   scrollConditionBranchToBottom(branch);
 }
 
-function removeConditionBlock(branch, blockIdx) {
+async function removeConditionBlock(branch, blockIdx) {
   const bArr = getConditionBlocks(branch);
-  if (!confirmDeleteBlock(bArr[blockIdx])) return;
+  if (!await confirmDeleteBlock(bArr[blockIdx])) return;
   bArr.splice(blockIdx, 1);
   setConditionBlocks(branch, bArr);
 }
@@ -4039,7 +4039,7 @@ async function createProject() {
   }
   const [accent, boring, light] = PROJECT_THEMES[selectedProjectTheme];
 
-  if (blocks.length > 0 && !confirm(t('project_discard_blocks', blocks.length))) return;
+  if (blocks.length > 0 && !await showConfirm(t('project_discard_blocks', blocks.length), { type: 'warning' })) return;
 
   setProjectDialogBusy(true);
   showProjectProgress(t('project_step_generating'));
@@ -4255,6 +4255,9 @@ function notify(msg, type = 'ok') {
       notify('Datos recargados', 'ok');
     }
   });
+
+  // Dialogs requested by the main process (e.g. image folder migration)
+  window.api.onShowAppDialog(opts => showDialog(opts));
 
   // Listen for settings changes from other windows
   window.api.onSettingsChanged((s) => {

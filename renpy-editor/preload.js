@@ -43,4 +43,8 @@ contextBridge.exposeInMainWorld('api', {
   onFileChanged: (cb) => ipcRenderer.on('file-changed', (_, filename) => cb(filename)),
   onProjectCreationProgress: (cb) => ipcRenderer.on('project-creation-progress', (_, step) => cb(step)),
   onRenpyInstallProgress: (cb) => ipcRenderer.on('renpy-install-progress', (_, data) => cb(data)),
+  // Themed dialogs requested by the main process: cb(opts) resolves with the pressed button index
+  onShowAppDialog: (cb) => ipcRenderer.on('show-app-dialog', async (_, id, opts) => {
+    ipcRenderer.send('app-dialog-response', id, await cb(opts));
+  }),
 });

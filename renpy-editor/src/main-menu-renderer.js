@@ -750,7 +750,7 @@ async function pickFont(target) {
   const copied = await copyToProject('font', 'font_', async (src) => {
     const fonts = await window.mmApi.readFontFileInfo(src);
     license = fonts.find(f => f.license)?.license || '';
-    return !!license || confirm(t('mm_font_file_unverified'));
+    return !!license || await showConfirm(t('mm_font_file_unverified'), { type: 'warning' });
   });
   if (!copied) return;
   Object.assign(cfg[target], { font: copied.rel, fontName: copied.name, fontLicense: license, systemFont: null });
@@ -1293,8 +1293,8 @@ async function saveAndTest() {
   if (!res?.ok && res?.error !== 'cancelled') notify(t('launch_failed') + (res?.message ? `: ${res.message}` : ''), 'err');
 }
 
-function resetConfig() {
-  if (!confirm(t('mm_reset_confirm'))) return;
+async function resetConfig() {
+  if (!await showConfirm(t('mm_reset_confirm'), { type: 'warning' })) return;
   cfg = defaultConfig();
   markDirty();
   refreshAll();

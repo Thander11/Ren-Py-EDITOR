@@ -522,6 +522,26 @@ function rewriteMovedImagePaths(gamePath, done) {
   return count;
 }
 
+// Show a themed dialog (src/dialog.js) in a window and wait for the pressed button.
+// Same options and { response } result as Electron's message box.
+let appDialogSeq = 0;
+function showAppDialog(win, opts) {
+  if (!win || win.isDestroyed()) return Promise.resolve({ response: opts.cancelId ?? -1 });
+  return new Promise(resolve => {
+    const id = ++appDialogSeq;
+    const finish = (response) => {
+      ipcMain.removeListener('app-dialog-response', onReply);
+      win.webContents.removeListener('destroyed', onGone);
+      resolve({ response });
+    };
+    const onReply = (e, replyId, response) => { if (replyId === id) finish(response); };
+    const onGone = () => finish(opts.cancelId ?? -1);
+    ipcMain.on('app-dialog-response', onReply);
+    win.webContents.once('destroyed', onGone);
+    win.webContents.send('show-app-dialog', id, opts);
+  });
+}
+
 // If declared images aren't in their English folder (whatever language their folder is in),
 // ask to move them there and update the paths in the .rpy files.
 async function offerImageFolderMigration(gamePath) {
@@ -532,7 +552,7 @@ async function offerImageFolderMigration(gamePath) {
   const detail = groups
     .map(g => mt('migration_folder_line', g.from ? `images/${g.from}` : mt('migration_images_root'), `images/${g.to}`, g.count))
     .join('\n');
-  const { response } = await dialog.showMessageBox(mainWindow, {
+  const { response } = await showAppDialog(mainWindow, {
     type: 'question',
     buttons: [mt('migration_accept'), mt('migration_later')],
     defaultId: 0,
@@ -548,11 +568,11 @@ async function offerImageFolderMigration(gamePath) {
     result = executeImageFolderMigration(gamePath, moves);
     rewritten = rewriteMovedImagePaths(gamePath, result.done);
   } catch (e) {
-    dialog.showMessageBox(mainWindow, { type: 'error', title: mt('migration_title'), message: mt('migration_error', e.message) });
+    showAppDialog(mainWindow, { type: 'error', title: mt('migration_title'), message: mt('migration_error', e.message) });
     return;
   }
   const { stats } = result;
-  dialog.showMessageBox(mainWindow, {
+  showAppDialog(mainWindow, {
     type: stats.conflicts ? 'warning' : 'info',
     title: mt('migration_title'),
     message: mt('migration_done', stats.moved, rewritten),

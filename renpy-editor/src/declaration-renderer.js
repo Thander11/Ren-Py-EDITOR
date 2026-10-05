@@ -262,7 +262,7 @@ async function saveCharacter() {
 
 async function deleteCharacter(idx) {
   const c = characters[idx];
-  if (!confirm(t('confirm_delete_char', c.displayName))) return;
+  if (!await showConfirm(t('confirm_delete_char', c.displayName), { danger: true })) return;
 
   const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const lines = ptxt.split('\n');
@@ -275,7 +275,7 @@ async function deleteCharacter(idx) {
 
   // Offer to delete image files
   if (c.images.length > 0) {
-    const del = confirm(t('confirm_delete_char_files'));
+    const del = await showConfirm(t('confirm_delete_char_files'), { danger: true, cancelText: t('dialog_keep_files') });
     if (del) {
       for (const img of c.images) {
         if (img.path) await window.declApi.deleteImage(img.path);
@@ -454,7 +454,7 @@ async function deleteSprite(charId, imgIdx) {
   const chr = characters.find(c => c.id === charId);
   if (!chr) return;
   const img = chr.images[imgIdx];
-  if (!img || !confirm(t('confirm_delete_sprite', img.key))) return;
+  if (!img || !await showConfirm(t('confirm_delete_sprite', img.key), { danger: true })) return;
 
   const ptxt = await window.declApi.readFile('characters.rpy') || '';
   const lines = ptxt.split('\n');
@@ -466,7 +466,7 @@ async function deleteSprite(charId, imgIdx) {
 
   // Delete image file
   if (img.path) {
-    const del = confirm(t('confirm_delete_with_file'));
+    const del = await showConfirm(t('confirm_delete_with_file'), { danger: true, cancelText: t('dialog_keep_file') });
     if (del) await window.declApi.deleteImage(img.path);
   }
 
@@ -690,7 +690,7 @@ async function saveExprEdit() {
 
 async function deleteExpression(exprIdx) {
   const expr = expressions[exprIdx];
-  if (!expr || !confirm(t('confirm_delete_expr', expr.key))) return;
+  if (!expr || !await showConfirm(t('confirm_delete_expr', expr.key), { danger: true })) return;
 
   const etxt = await window.declApi.readFile('expressions.rpy') || '';
   const lines = etxt.split('\n');
@@ -700,7 +700,7 @@ async function deleteExpression(exprIdx) {
 
   // Delete image file
   if (expr.path) {
-    const del = confirm(t('confirm_delete_with_file'));
+    const del = await showConfirm(t('confirm_delete_with_file'), { danger: true, cancelText: t('dialog_keep_file') });
     if (del) await window.declApi.deleteImage(expr.path);
   }
 
@@ -919,7 +919,7 @@ async function saveBgEdit() {
 
 async function deleteBackground(idx) {
   const bg = backgrounds[idx];
-  if (!bg || !confirm(t('confirm_delete_bg', bg.key))) return;
+  if (!bg || !await showConfirm(t('confirm_delete_bg', bg.key), { danger: true })) return;
 
   const ftxt = await window.declApi.readFile('backgrounds.rpy') || '';
   const lines = ftxt.split('\n');
@@ -931,7 +931,7 @@ async function deleteBackground(idx) {
 
   // Delete image file
   if (bg.path) {
-    const del = confirm(t('confirm_delete_with_file'));
+    const del = await showConfirm(t('confirm_delete_with_file'), { danger: true, cancelText: t('dialog_keep_file') });
     if (del) await window.declApi.deleteImage(bg.path);
   }
 
@@ -1066,7 +1066,7 @@ async function saveSceneEdit() {
 
 async function deleteScene(idx) {
   const sc = scenes[idx];
-  if (!sc || !confirm(t('confirm_delete_scene', sc.key))) return;
+  if (!sc || !await showConfirm(t('confirm_delete_scene', sc.key), { danger: true })) return;
 
   const stxt = await window.declApi.readFile('scenes.rpy') || '';
   const lines = stxt.split('\n');
@@ -1077,7 +1077,7 @@ async function deleteScene(idx) {
   await window.declApi.writeFile('scenes.rpy', filtered.join('\n'));
 
   if (sc.path) {
-    const del = confirm(t('confirm_delete_with_file'));
+    const del = await showConfirm(t('confirm_delete_with_file'), { danger: true, cancelText: t('dialog_keep_file') });
     if (del) await window.declApi.deleteImage(sc.path);
   }
 
@@ -1217,7 +1217,7 @@ async function saveTransformEdit() {
 }
 
 async function deleteTransform(name, file) {
-  if (!confirm(t('delete_item') + ' ' + name + '?')) return;
+  if (!await showConfirm(t('confirm_delete_transform', name), { danger: true })) return;
 
   const txt = await window.declApi.readFile(file) || '';
   const lines = txt.split('\n');
