@@ -50,7 +50,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 #pv-side-panel { background-repeat: no-repeat; background-size: auto; }
 
 .pv-draggable { position: absolute; cursor: move; white-space: nowrap; }
-.pv-draggable:hover { outline: 2px dashed rgba(78, 205, 196, .7); outline-offset: 6px; }
+.pv-draggable:hover { outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 6px; }
 .pv-draggable.dragging { outline: 2px solid var(--accent); outline-offset: 6px; }
 
 #pv-buttons { display: flex; }

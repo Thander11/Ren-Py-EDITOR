@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Ren'Py EDITOR — Styles with Dark / Light theme support
+   Ren'Py EDITOR — Styles with Dark / Light / OLED / Custom themes
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Dark Theme (default) ── */
@@ -44,6 +44,40 @@
   --scrollbar-thumb: #c0c8d0;
   --header-bg: #e8ecf2;
   --code-bg: #ffffff;
+}
+
+/* ── OLED Theme (pure black, blue details) ── */
+[data-theme="oled"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface2: #141414;
+  --border: #1c2a40;
+  --text: #e6edf5;
+  --text2: #8aa0bf;
+  --text3: #55657d;
+  --accent: #3b8eff;
+  --accent2: #2a6fd6;
+  --red: #ff4d6a;
+  --green: #4ade80;
+  --orange: #f5a623;
+  --modal-bg: #000000;
+  --shadow: rgba(0,0,0,0.8);
+  --scrollbar-track: #000000;
+  --scrollbar-thumb: #1c2a40;
+  --header-bg: #000000;
+  --code-bg: #000000;
+}
+
+/* Custom theme: variables are set inline by theme.js on top of the dark defaults */
+
+/* ── Code panel colors (follow the theme; the custom theme can override them) ── */
+:root {
+  --code-editor-bg: var(--bg);
+  --code-text: var(--text);
+  --code-keyword: var(--red);
+  --code-string: var(--orange);
+  --code-comment: var(--green);
+  --code-number: var(--accent);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -221,25 +255,23 @@ body {
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
-  color: var(--text);
-  background-color: var(--bg);
+  color: var(--code-text);
+  background-color: var(--code-editor-bg);
+  caret-color: var(--code-text);
   tab-size: 4;
   border-radius: 4px;
 }
 #code-preview[contenteditable="true"] { cursor: text; }
-#code-preview.editing {
-  outline: 1px solid var(--accent);
-  background-color: var(--surface2);
-}
+#code-preview.editing { outline: 1px solid var(--accent); outline-offset: -1px; }
 
 /* Syntax Highlighting */
-.hl-keyword { color: var(--red); font-weight: bold; }
-.hl-string { color: var(--orange); }
-.hl-comment { color: var(--green); font-style: italic; }
-.hl-number { color: var(--accent); }
+.hl-keyword { color: var(--code-keyword); font-weight: bold; }
+.hl-string { color: var(--code-string); }
+.hl-comment { color: var(--code-comment); font-style: italic; }
+.hl-number { color: var(--code-number); }
 .hl-operator { color: var(--text2); }
-.hl-python { color: var(--text); }
-.hl-function { color: var(--accent); font-weight: bold; }
+.hl-python { color: var(--code-text); }
+.hl-function { color: var(--code-number); font-weight: bold; }
 
 /* ── Buttons ── */
 .btn {
@@ -397,7 +429,7 @@ body {
 }
 .np-theme span { width: 18px; height: 10px; border-radius: 2px; display: block; }
 .np-theme:hover { border-color: var(--text2); }
-.np-theme.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,205,196,0.35); }
+.np-theme.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .np-progress {
   margin-top: 8px; padding: 8px 10px; border-radius: 4px; font-size: 12px;
   background: var(--surface2); color: var(--text); border-left: 3px solid var(--accent);
@@ -505,7 +537,7 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   background: var(--bg);
 }
 .img-option:hover { border-color: var(--accent); }
-.img-option.selected { border-color: var(--accent); background: rgba(78,205,196,0.1); }
+.img-option.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .img-option img {
   width: 100%;
   aspect-ratio: 3/4;
@@ -535,7 +567,7 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 }
 .choice-item.choice-focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(78, 205, 196, 0.25);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .choice-header {
   display: flex;
@@ -602,7 +634,63 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   display: none;
 }
 #settings-panel.open { display: block; }
-#settings-panel .form-group { margin-bottom: 14px; }
+#settings-panel { max-height: calc(100vh - 60px); overflow-y: auto; }
+.settings-hint { font-size: 11px; color: var(--text3); line-height: 1.4; margin-bottom: 6px; }
+#custom-theme-editor { margin-top: 8px; }
+#custom-theme-editor:empty { display: none; }
+#custom-theme-editor .btn { width: 100%; }
+
+/* ── Custom theme editor dialog (no blur: the app behind is the live preview) ── */
+#theme-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25);
+  display: none; align-items: center; justify-content: flex-start;
+  padding: 24px; z-index: 1100;
+}
+#theme-overlay.open { display: flex; }
+#theme-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  width: 360px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px var(--shadow);
+}
+#theme-header { padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 15px; font-weight: 600; }
+#theme-body { padding: 14px 20px; overflow-y: auto; }
+#theme-footer {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 12px 20px; border-top: 1px solid var(--border);
+}
+.custom-theme-row {
+  display: grid;
+  grid-template-columns: 1fr 40px 96px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.custom-theme-row input[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+.custom-theme-row .form-input { font-family: monospace; padding: 5px 8px; }
+.custom-theme-section {
+  font-size: 11px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .3px;
+  margin: 14px 0 8px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.custom-theme-section:first-of-type { margin-top: 4px; padding-top: 0; border-top: none; }
+#ct-code-sample {
+  margin: 4px 0 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre;
+  overflow-x: auto;
+  color: var(--code-text); background: var(--code-editor-bg);
+}
 #settings-panel .settings-title {
   font-size: 13px;
   font-weight: 700;
@@ -711,7 +799,7 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   border: 1px solid transparent;
 }
 .audio-item:hover { background: var(--surface2); }
-.audio-item.selected { border-color: var(--accent); background: rgba(78,205,196,0.1); }
+.audio-item.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .audio-item.playing .audio-play { color: var(--accent); }
 .audio-play { width: 16px; text-align: center; color: var(--text2); flex-shrink: 0; }
 .audio-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; }
@@ -736,7 +824,7 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 
 .scene-picker-tab.active {
   border-color: var(--accent);
-  background: rgba(78,205,196,0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 /* Japanese: prefer Japanese fonts so kanji don't use Chinese glyphs */

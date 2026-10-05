@@ -98,9 +98,103 @@ function toggleSettings() {
   document.getElementById('settings-panel').classList.toggle('open', settingsOpen);
 }
 
+let customTheme = { ...CUSTOM_THEME_DEFAULT };
+let customThemeSaveTimer = null;
+
 async function changeTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
+  applyTheme({ theme, customTheme });
+  renderCustomThemeEditor(theme);
   await window.api.saveSettings({ theme });
+  if (theme === 'custom') openCustomThemeEditor();
+}
+
+// Settings panel: just a button to open the color editor when the custom theme is selected
+function renderCustomThemeEditor(theme) {
+  const el = document.getElementById('custom-theme-editor');
+  el.innerHTML = theme !== 'custom' ? '' : `
+    <button class="btn btn-secondary btn-sm" onclick="openCustomThemeEditor()">${t('custom_theme_edit')}</button>`;
+}
+
+// Separate dialog with the color pickers: the native color popup doesn't cover other settings
+// and the app stays visible behind it as a live preview
+const CUSTOM_THEME_CODE_SAMPLE = [
+  'label start:',
+  '    # Comentario',
+  '    scene bg cafeteria',
+  '    e "¡Hola!"',
+  '    $ puntos = 10',
+  '    pause 1.5',
+  '    jump capitulo_2'
+].join('\n');
+
+function customThemeRow(k, value) {
+  return `
+    <div class="custom-theme-row">
+      <span>${t('custom_theme_' + k)}</span>
+      <input type="color" id="ct-color-${k}" value="${value}" oninput="changeCustomThemeColor('${k}', this.value)">
+      <input class="form-input" id="ct-hex-${k}" value="${value}" maxlength="7" spellcheck="false"
+        oninput="onCustomThemeHexInput('${k}', this.value)">
+    </div>`;
+}
+
+function openCustomThemeEditor() {
+  settingsOpen = false;
+  document.getElementById('settings-panel').classList.remove('open');
+  const c = resolveCustomTheme(customTheme);
+  document.getElementById('theme-body').innerHTML = `
+    <div class="settings-hint">${t('custom_theme_hint')}</div>
+    <div class="custom-theme-section">${t('custom_theme_section_ui')}</div>
+    ${CUSTOM_THEME_KEYS.map(k => customThemeRow(k, c[k])).join('')}
+    <div class="custom-theme-section">${t('custom_theme_section_code')}</div>
+    <pre id="ct-code-sample">${highlightRenpyCode(CUSTOM_THEME_CODE_SAMPLE)}</pre>
+    ${CUSTOM_THEME_CODE_KEYS.map(k => customThemeRow(k, c[k])).join('')}`;
+  document.getElementById('theme-overlay').classList.add('open');
+  document.addEventListener('keydown', onCustomThemeEditorKey, true);
+}
+
+function closeCustomThemeEditor() {
+  document.getElementById('theme-overlay').classList.remove('open');
+  document.removeEventListener('keydown', onCustomThemeEditorKey, true);
+}
+
+function onCustomThemeEditorKey(e) {
+  if (e.key === 'Escape' && !document.querySelector('.app-dialog-overlay')) { e.preventDefault(); closeCustomThemeEditor(); }
+}
+
+// Code colors not set by the user follow the interface ones, so every field is refreshed
+function syncCustomThemeInputs(skipKey, skipField) {
+  const c = resolveCustomTheme(customTheme);
+  [...CUSTOM_THEME_KEYS, ...CUSTOM_THEME_CODE_KEYS].forEach(k => {
+    const color = document.getElementById('ct-color-' + k);
+    const hex = document.getElementById('ct-hex-' + k);
+    if (color && !(k === skipKey && skipField === 'color')) color.value = c[k];
+    if (hex && !(k === skipKey && skipField === 'hex')) hex.value = c[k];
+  });
+}
+
+// source: the field that was edited ('color' or 'hex'), left untouched while the user types
+function changeCustomThemeColor(key, value, source = 'color') {
+  customTheme[key] = value;
+  syncCustomThemeInputs(key, source);
+  applyTheme({ theme: 'custom', customTheme });
+  clearTimeout(customThemeSaveTimer);
+  customThemeSaveTimer = setTimeout(() => {
+    window.api.saveSettings({ customTheme: { ...customTheme } }).catch(e => {});
+  }, 250);
+}
+
+function onCustomThemeHexInput(key, value) {
+  let v = value.trim();
+  if (!v.startsWith('#')) v = '#' + v;
+  if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
+  changeCustomThemeColor(key, v.toLowerCase(), 'hex');
+}
+
+async function resetCustomTheme() {
+  customTheme = { ...CUSTOM_THEME_DEFAULT };
+  applyTheme({ theme: 'custom', customTheme });
+  syncCustomThemeInputs();
+  await window.api.saveSettings({ customTheme: { ...customTheme } });
 }
 
 async function changeLanguage(lang) {
@@ -108,6 +202,7 @@ async function changeLanguage(lang) {
   applyI18n();
   updateProjectsDirLabel();
   updateRenpyPathLabel();
+  renderCustomThemeEditor(document.getElementById('setting-theme').value);
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();
@@ -4046,8 +4141,9 @@ function notify(msg, type = 'ok') {
 (async function init() {
   // Load settings
   const s = await window.api.getSettings();
+  customTheme = { ...CUSTOM_THEME_DEFAULT, ...(s.customTheme || {}) };
   if (s.theme) {
-    document.documentElement.setAttribute('data-theme', s.theme);
+    applyTheme(s);
     document.getElementById('setting-theme').value = s.theme;
   }
   if (s.language) {
@@ -4074,6 +4170,7 @@ function notify(msg, type = 'ok') {
   applyI18n();
   updateProjectsDirLabel();
   updateRenpyPathLabel();
+  renderCustomThemeEditor(s.theme);
   renderBlocks();
   updateCodePreview();
 
@@ -4161,9 +4258,10 @@ function notify(msg, type = 'ok') {
 
   // Listen for settings changes from other windows
   window.api.onSettingsChanged((s) => {
-    if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+    // This window owns the custom colors, so keep the local copy (avoids flicker while dragging)
+    applyTheme({ ...s, customTheme });
     if (s.language && s.language !== currentLang) {
-      loadI18n(s.language).then(() => { applyI18n(); renderBlocks(); });
+      loadI18n(s.language).then(() => { applyI18n(); renderBlocks(); renderCustomThemeEditor(s.theme); });
     }
   });
 

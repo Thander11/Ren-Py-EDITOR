@@ -1315,7 +1315,7 @@ function refreshAll() {
 // ═══════════════════════════════════════════════════════════
 (async function init() {
   const s = await window.mmApi.getSettings();
-  if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+  applyTheme(s);
   await loadI18n(s.language || 'es');
   loadRenpyDefaultFont(s.renpyExecutablePath);
 
@@ -1336,7 +1336,7 @@ function refreshAll() {
   loadSystemFonts();
 
   window.mmApi.onSettingsChanged(async (ns) => {
-    if (ns.theme) document.documentElement.setAttribute('data-theme', ns.theme);
+    applyTheme(ns);
     if (ns.language) {
       await loadI18n(ns.language);
       applyI18n();

@@ -1297,7 +1297,7 @@ function notify(msg, type = 'ok') {
 // ═══════════════════════════════════════════════════════════
 (async function init() {
   const s = await window.declApi.getSettings();
-  if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+  applyTheme(s);
   if (s.language) await loadI18n(s.language);
   else await loadI18n('es');
   applyI18n();
@@ -1306,7 +1306,7 @@ function notify(msg, type = 'ok') {
   renderCharList();
 
   window.declApi.onSettingsChanged((s) => {
-    if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+    applyTheme(s);
     if (s.language && s.language !== currentLang) {
       loadI18n(s.language).then(() => applyI18n());
     }

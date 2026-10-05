@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   Declaration Window Styles — Dark/Light Theme
+   Declaration Window Styles — Dark/Light/OLED/Custom Theme
    ═══════════════════════════════════════════════════════════ */
-[data-theme="dark"] {
+[data-theme="dark"], [data-theme="custom"] {
   --bg: #0f1923; --surface: #1a2733; --border: #2a3a4a;
   --text: #e0e6ed; --text2: #8899aa; --text3: #556677;
   --accent: #4ecdc4; --accent2: #45b7b0; --red: #e94560;
@@ -12,6 +12,12 @@
   --text: #1f2937; --text2: #4b5563; --text3: #9ca3af;
   --accent: #0ea5e9; --accent2: #0284c7; --red: #ef4444;
   --card-bg: #ffffff;
+}
+[data-theme="oled"] {
+  --bg: #000000; --surface: #0a0a0a; --border: #1c2a40;
+  --text: #e6edf5; --text2: #8aa0bf; --text3: #55657d;
+  --accent: #3b8eff; --accent2: #2a6fd6; --red: #ff4d6a;
+  --card-bg: #111111;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

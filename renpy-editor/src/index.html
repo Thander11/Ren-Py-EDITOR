@@ -25,9 +25,12 @@
     <div class="form-group">
       <label class="form-label" data-i18n="theme">Tema</label>
       <select class="form-select" id="setting-theme" onchange="changeTheme(this.value)">
-        <option value="dark">🌙 Oscuro</option>
-        <option value="light">☀️ Claro</option>
+        <option value="dark" data-i18n="theme_dark">🌙 Oscuro</option>
+        <option value="light" data-i18n="theme_light">☀️ Claro</option>
+        <option value="oled" data-i18n="theme_oled">⚫ OLED</option>
+        <option value="custom" data-i18n="theme_custom">🎨 Personalizado</option>
       </select>
+      <div id="custom-theme-editor"></div>
     </div>
     <div class="form-group">
       <label class="form-label" data-i18n="language">Idioma</label>
@@ -153,9 +156,22 @@
     </div>
   </div>
 
+  <!-- Custom theme editor -->
+  <div id="theme-overlay">
+    <div id="theme-box" role="dialog" aria-modal="true">
+      <div id="theme-header"><span data-i18n="custom_theme_title">🎨 Tema personalizado</span></div>
+      <div id="theme-body"></div>
+      <div id="theme-footer">
+        <button class="btn btn-secondary" onclick="resetCustomTheme()" data-i18n="custom_theme_reset">↺ Restablecer colores</button>
+        <button class="btn btn-primary" onclick="closeCustomThemeEditor()" data-i18n="custom_theme_done">Listo</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification -->
   <div id="notif"></div>
 
+  <script src="theme.js"></script>
   <script src="sprite-utils.js"></script>
   <script src="renderer.js"></script>
 </body>
