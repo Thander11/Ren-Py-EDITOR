@@ -1258,6 +1258,99 @@ ipcMain.handle('launch-renpy-project', async () => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// BUILD — packages the game with the "distribute" command of Ren'Py's
+// launcher, the same one behind its "Build Distributions" button
+// ═══════════════════════════════════════════════════════════════════
+const BUILD_PACKAGES = ['win', 'linux', 'mac', 'pc', 'market'];
+let buildProcess = null;
+
+function defaultBuildFolder() {
+  const root = currentGamePath && getProjectRootFromGamePath(currentGamePath);
+  return root ? root + '-dists' : '';
+}
+
+// Ren'Py's own Python prints the build progress; renpy.exe alone has no console
+function renpyBuildCommand(renpyExecutable) {
+  const sdk = path.dirname(renpyExecutable);
+  const lib = { win32: 'py3-windows-x86_64/python.exe', linux: 'py3-linux-x86_64/python', darwin: 'py3-mac-universal/python' }[process.platform];
+  const python = lib && path.join(sdk, 'lib', lib);
+  const script = path.join(sdk, 'renpy.py');
+  if (python && fs.existsSync(python) && fs.existsSync(script)) return { cmd: python, args: ['-u', script], sdk };
+  return { cmd: renpyExecutable, args: [], sdk };
+}
+
+ipcMain.handle('get-build-defaults', () => ({ destination: defaultBuildFolder(), building: !!buildProcess }));
+
+ipcMain.handle('select-build-folder', async (_, current) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: mt('build_select_folder'),
+    defaultPath: current || defaultBuildFolder() || undefined,
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('open-folder', (_, folder) => folder && fs.existsSync(folder) ? shell.openPath(folder) : 'missing');
+
+ipcMain.handle('build-game', async (_, opts) => {
+  if (buildProcess) return { ok: false, error: 'busy' };
+  if (!currentGamePath) return { ok: false, error: 'no-project' };
+  const packages = (opts.packages || []).filter(p => BUILD_PACKAGES.includes(p));
+  if (!packages.length) return { ok: false, error: 'no-packages' };
+  const renpyExecutable = await ensureRenpyExecutablePath();
+  if (!renpyExecutable || !fs.existsSync(renpyExecutable)) return { ok: false, error: 'no-renpy' };
+  const projectRoot = getProjectRootFromGamePath(currentGamePath);
+  const destination = opts.destination || defaultBuildFolder();
+  try { fs.mkdirSync(destination, { recursive: true }); } catch (e) { return { ok: false, error: 'destination', message: e.message }; }
+
+  const { cmd, args, sdk } = renpyBuildCommand(renpyExecutable);
+  const before = new Set(fs.readdirSync(destination));
+  const send = (msg) => { if (mainWindow) mainWindow.webContents.send('build-progress', msg); };
+  const log = [];
+
+  return new Promise((resolve) => {
+    const fullArgs = [...args, path.join(sdk, 'launcher'), 'distribute', projectRoot,
+      '--destination', destination, '--no-update', ...packages.flatMap(p => ['--package', p])];
+    try {
+      buildProcess = spawn(cmd, fullArgs, { cwd: sdk, windowsHide: true });
+    } catch (e) {
+      resolve({ ok: false, error: 'launch-failed', message: e.message });
+      return;
+    }
+    let pending = '';
+    // Progress lines end in \r and look like "Writing the win zip package. - 12 of 300"
+    const onData = (chunk) => {
+      pending += chunk.toString('utf-8');
+      const parts = pending.split(/\r\n|\r|\n/);
+      pending = parts.pop();
+      for (const raw of parts) {
+        const line = raw.trim();
+        if (!line) continue;
+        const m = /^(.*?) - (\d+) of (\d+)$/.exec(line);
+        if (m) send({ type: 'progress', text: m[1], done: +m[2], total: +m[3] });
+        else { log.push(line); send({ type: 'info', text: line }); }
+      }
+    };
+    buildProcess.stdout.on('data', onData);
+    buildProcess.stderr.on('data', onData);
+    buildProcess.on('error', (e) => { buildProcess = null; resolve({ ok: false, error: 'launch-failed', message: e.message }); });
+    buildProcess.on('close', (code, signal) => {
+      buildProcess = null;
+      const files = fs.existsSync(destination) ? fs.readdirSync(destination).filter(f => !before.has(f)) : [];
+      const ok = code === 0 && log.some(l => /All packages have been built/i.test(l));
+      resolve({ ok, cancelled: !!signal, code, destination, files, log: log.slice(-30) });
+    });
+  });
+});
+
+ipcMain.handle('cancel-build', () => {
+  if (!buildProcess) return false;
+  buildProcess.kill();
+  return true;
+});
+
 // ── Select images for import (declaration window) ──
 ipcMain.handle('select-image-files', async () => {
   const result = await dialog.showOpenDialog(declWindow || mainWindow, {

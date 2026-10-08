@@ -27,6 +27,7 @@
     <button class="sb-item" onclick="openProjectFolder()"><span class="icon" data-icon="folder-open" data-icon-size="18"></span><span data-i18n="open_project">Abrir carpeta del proyecto</span></button>
     <button class="sb-item" onclick="newProject()"><span class="icon" data-icon="project-new" data-icon-size="18"></span><span data-i18n="new_project">Nuevo proyecto</span></button>
     <button class="sb-item" onclick="openGameSettings()"><span class="icon" data-icon="game" data-icon-size="18"></span><span data-i18n="game_settings">Ajustes del juego</span></button>
+    <button class="sb-item" onclick="openBuildDialog()"><span class="icon" data-icon="package" data-icon-size="18"></span><span data-i18n="build_game">Compilar juego</span></button>
     <div class="sb-bottom">
       <button class="btn btn-primary sb-play" onclick="launchProjectFromEditor()"><span class="icon" data-icon="play" data-icon-size="13"></span><span data-i18n="launch_project">Iniciar juego</span></button>
       <button class="sb-item" id="settings-btn" onclick="toggleSettings()" aria-controls="settings-panel" aria-expanded="false"><span class="icon" data-icon="settings" data-icon-size="18"></span><span data-i18n="settings">Ajustes</span></button>
@@ -258,6 +259,18 @@
     </div>
   </div>
 
+  <!-- Build the game -->
+  <div id="build-overlay" class="app-overlay">
+    <div class="app-box" role="dialog" aria-modal="true" aria-labelledby="build-title">
+      <div class="app-box-header">
+        <span id="build-title" data-i18n="build_game">Compilar juego</span>
+        <button class="btn btn-secondary btn-sm btn-icon" id="build-close-x" onclick="closeBuildDialog()" data-i18n-title="close" aria-label="Cerrar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div class="app-box-body" id="build-body"></div>
+      <div class="app-box-footer" id="build-footer"></div>
+    </div>
+  </div>
+
   <!-- Ren'Py not installed dialog -->
   <div id="renpy-overlay">
     <div id="renpy-box">
@@ -292,5 +305,6 @@
   <script src="renderer.js"></script>
   <script src="story-map.js"></script>
   <script src="game-settings.js"></script>
+  <script src="build.js"></script>
 </body>
 </html>

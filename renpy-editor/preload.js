@@ -30,6 +30,14 @@ contextBridge.exposeInMainWorld('api', {
   selectGameIcon: () => ipcRenderer.invoke('select-game-icon'),
   setGameIcon: (srcPath) => ipcRenderer.invoke('set-game-icon', srcPath),
 
+  // Build the game with Ren'Py
+  getBuildDefaults: () => ipcRenderer.invoke('get-build-defaults'),
+  selectBuildFolder: (current) => ipcRenderer.invoke('select-build-folder', current),
+  openFolder: (folder) => ipcRenderer.invoke('open-folder', folder),
+  buildGame: (opts) => ipcRenderer.invoke('build-game', opts),
+  cancelBuild: () => ipcRenderer.invoke('cancel-build'),
+  onBuildProgress: (cb) => ipcRenderer.on('build-progress', (_, msg) => cb(msg)),
+
   // Declaration window
   openDeclarationWindow: () => ipcRenderer.invoke('open-declaration-window'),
 
