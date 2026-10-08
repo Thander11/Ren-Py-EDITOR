@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 let mainWindow = null;
 let declWindow = null;
 let mainMenuWindow = null;
+let guiEditorWindow = null;
 let currentGamePath = '';
 let settings = {
   theme: 'dark',
@@ -212,6 +213,30 @@ function createMainMenuWindow() {
     mainMenuWindow.show();
   });
   mainMenuWindow.on('closed', () => { mainMenuWindow = null; });
+}
+
+// ── Game interface (GUI) editor window ──
+function createGuiEditorWindow() {
+  if (guiEditorWindow) { guiEditorWindow.focus(); return; }
+  guiEditorWindow = new BrowserWindow({
+    width: 1300, height: 820,
+    minWidth: 900, minHeight: 600,
+    title: "Ren'Py EDITOR — " + mt('gui_editor_title'),
+    parent: mainWindow,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'gui-editor-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  guiEditorWindow.loadFile(path.join(__dirname, 'src', 'gui-editor.html'));
+  attachEditContextMenu(guiEditorWindow);
+  guiEditorWindow.once('ready-to-show', () => {
+    guiEditorWindow.maximize();
+    guiEditorWindow.show();
+  });
+  guiEditorWindow.on('closed', () => { guiEditorWindow = null; });
 }
 
 // Folders (relative to game/) that the editor reads from and writes to
@@ -940,11 +965,28 @@ ipcMain.handle('set-game-icon', (_, srcPath) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+ipcMain.handle('open-gui-editor-window', () => {
+  if (!currentGamePath) return false;
+  createGuiEditorWindow();
+  return true;
+});
+
+// Font files inside game/ (relative paths), for the font selectors of the GUI editor
+ipcMain.handle('list-project-fonts', () => {
+  if (!currentGamePath) return [];
+  try {
+    return listDirRecursive(currentGamePath, currentGamePath)
+      .filter(f => !f.isDir && /\.(ttf|otf|ttc)$/i.test(f.name))
+      .map(f => f.path.replace(/\\/g, '/'))
+      .sort();
+  } catch (e) { return []; }
+});
+
 // ── Pick a media file of the given kind (image, gif, video, font) ──
-ipcMain.handle('select-media-file', async (_, kind) => {
+ipcMain.handle('select-media-file', async (e, kind) => {
   const extensions = MEDIA_EXTENSIONS[kind];
   if (!extensions) return null;
-  const result = await dialog.showOpenDialog(mainMenuWindow || mainWindow, {
+  const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender) || mainWindow, {
     title: mt('mm_select_' + kind),
     properties: ['openFile'],
     filters: [{ name: mt('mm_kind_' + kind), extensions }]
@@ -1173,6 +1215,7 @@ ipcMain.handle('save-settings', (_, newSettings) => {
   if (mainWindow) mainWindow.webContents.send('settings-changed', settings);
   if (declWindow) declWindow.webContents.send('settings-changed', settings);
   if (mainMenuWindow) mainMenuWindow.webContents.send('settings-changed', settings);
+  if (guiEditorWindow) guiEditorWindow.webContents.send('settings-changed', settings);
   return true;
 });
 

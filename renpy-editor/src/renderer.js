@@ -4034,6 +4034,11 @@ function openMainMenuEditor() {
   window.api.openMainMenuWindow();
 }
 
+function openGuiEditor() {
+  if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
+  window.api.openGuiEditorWindow();
+}
+
 async function launchProjectFromEditor() {
   if (!gamePath) {
     notify(t('open_project_first'), 'err');

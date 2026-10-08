@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
   // Main menu editor window
   openMainMenuWindow: () => ipcRenderer.invoke('open-main-menu-window'),
 
+  // Game interface (GUI) editor window
+  openGuiEditorWindow: () => ipcRenderer.invoke('open-gui-editor-window'),
+
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),

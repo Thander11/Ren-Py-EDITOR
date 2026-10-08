@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Ren'Py EDITOR — Interfaz del juego</title>
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="declaration.css">
+  <link rel="stylesheet" href="gui-editor.css">
+  <link rel="stylesheet" href="dialog.css">
+</head>
+<body>
+  <header class="ge-header">
+    <h1 data-i18n="gui_editor_title">Interfaz del juego</h1>
+    <span id="ge-dirty" class="ge-dirty" data-i18n="mm_unsaved">Cambios sin guardar</span>
+    <div class="ge-header-actions">
+      <button class="btn btn-secondary" onclick="saveAndTest()"><span class="icon" data-icon="play" data-icon-size="12"></span><span data-i18n="mm_test">Probar en Ren'Py</span></button>
+      <button class="btn btn-primary" onclick="saveGui()"><span class="icon" data-icon="save" data-icon-size="15"></span><span data-i18n="mm_save">Guardar</span></button>
+    </div>
+  </header>
+
+  <div class="ge-layout">
+    <!-- Preview -->
+    <section class="ge-preview-pane" aria-labelledby="ge-preview-title">
+      <div class="ge-preview-bar">
+        <span id="ge-preview-title" class="ge-preview-label" data-i18n="mm_preview">Vista previa</span>
+        <div class="ge-tabs" role="tablist">
+          <button role="tab" id="ge-tab-dialogue" aria-selected="true" onclick="setPreviewMode('dialogue')" data-i18n="gui_tab_dialogue">Diálogo</button>
+          <button role="tab" id="ge-tab-choice" aria-selected="false" onclick="setPreviewMode('choice')" data-i18n="gui_tab_choice">Elección</button>
+          <button role="tab" id="ge-tab-menu" aria-selected="false" onclick="setPreviewMode('menu')" data-i18n="gui_tab_menu">Menú del juego</button>
+        </div>
+        <label class="ge-bg-select">
+          <span data-i18n="gui_preview_background">Fondo</span>
+          <select class="form-select" id="ge-bg" onchange="renderPreview()"></select>
+        </label>
+      </div>
+      <div id="ge-stage-wrap">
+        <div id="ge-stage"></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <aside class="ge-settings">
+      <details class="ge-section" open>
+        <summary data-i18n="gui_section_text">Texto general</summary>
+        <div class="ge-grid">
+          <label class="ge-field"><span data-i18n="gui_font_text">Fuente del diálogo</span><select class="form-select" data-font="text"></select></label>
+          <label class="ge-field"><span data-i18n="gui_font_name">Fuente de los nombres</span><select class="form-select" data-font="name"></select></label>
+          <label class="ge-field"><span data-i18n="gui_font_interface">Fuente de menús y botones</span><select class="form-select" data-font="interface"></select></label>
+        </div>
+        <button class="btn btn-secondary btn-sm ge-add-font" onclick="addFontFile()"><span class="icon" data-icon="plus" data-icon-size="13"></span><span data-i18n="gui_font_add">Añadir fuente desde un archivo…</span></button>
+        <div class="ge-range"><span data-i18n="gui_size_text">Tamaño del diálogo</span><input type="range" min="14" max="72" data-key="sizes.text"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_size_name">Tamaño de los nombres</span><input type="range" min="14" max="96" data-key="sizes.name"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_size_interface">Tamaño de menús y botones</span><input type="range" min="14" max="72" data-key="sizes.interface"><output></output></div>
+        <div class="ge-colors">
+          <label><input type="color" data-key="colors.text"><span data-i18n="gui_color_text">Texto del diálogo</span></label>
+          <label><input type="color" data-key="colors.interface"><span data-i18n="gui_color_interface">Texto de los menús</span></label>
+        </div>
+        <div class="ge-range"><span data-i18n="gui_cps">Velocidad del texto</span><input type="range" min="0" max="150" step="5" data-key="cps"><output></output></div>
+        <p class="ge-hint" data-i18n="gui_cps_hint">Letras por segundo al aparecer el texto (0 = todo de golpe). Es el valor inicial: cada jugador puede cambiarlo en las opciones.</p>
+      </details>
+
+      <details class="ge-section" open>
+        <summary data-i18n="gui_section_textbox">Caja de diálogo</summary>
+        <div class="ge-image" data-image="textbox"></div>
+        <div class="ge-range"><span data-i18n="gui_textbox_height">Altura de la caja</span><input type="range" min="80" data-max="h/2" data-key="textbox.height"><output></output></div>
+        <div class="ge-sub" data-i18n="gui_dialogue_position">Posición del texto dentro de la caja</div>
+        <div class="ge-range"><span data-i18n="gui_x">Horizontal</span><input type="range" min="0" data-max="w" data-key="dialogue.xpos"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_y">Vertical</span><input type="range" min="0" data-max="textbox" data-key="dialogue.ypos"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_width">Ancho</span><input type="range" min="200" data-max="w" data-key="dialogue.width"><output></output></div>
+        <label class="ge-field"><span data-i18n="gui_align">Alineación</span>
+          <select class="form-select" data-key="dialogue.xalign" data-num>
+            <option value="0" data-i18n="gui_align_left">Izquierda</option>
+            <option value="0.5" data-i18n="gui_align_center">Centro</option>
+            <option value="1" data-i18n="gui_align_right">Derecha</option>
+          </select>
+        </label>
+      </details>
+
+      <details class="ge-section">
+        <summary data-i18n="gui_section_name">Nombre del personaje</summary>
+        <div class="ge-colors">
+          <label><input type="color" data-key="colors.accent"><span data-i18n="gui_color_accent">Color de acento</span></label>
+        </div>
+        <p class="ge-hint" data-i18n="gui_accent_hint">Es el color de los nombres (salvo los personajes con color propio) y de los títulos de los menús.</p>
+        <div class="ge-range"><span data-i18n="gui_x">Horizontal</span><input type="range" min="0" data-max="w" data-key="name.xpos"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_y">Vertical</span><input type="range" min="-120" data-max="textbox" data-key="name.ypos"><output></output></div>
+        <label class="ge-field"><span data-i18n="gui_align">Alineación</span>
+          <select class="form-select" data-key="name.xalign" data-num>
+            <option value="0" data-i18n="gui_align_left">Izquierda</option>
+            <option value="0.5" data-i18n="gui_align_center">Centro</option>
+            <option value="1" data-i18n="gui_align_right">Derecha</option>
+          </select>
+        </label>
+        <div class="ge-sub" data-i18n="gui_namebox">Caja del nombre</div>
+        <div class="ge-image" data-image="namebox"></div>
+      </details>
+
+      <details class="ge-section">
+        <summary data-i18n="gui_section_choice">Botones de elección</summary>
+        <div class="ge-range"><span data-i18n="gui_width">Ancho</span><input type="range" min="200" data-max="w" data-key="choice.width"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_size_choice">Tamaño del texto</span><input type="range" min="14" max="72" data-key="choice.textSize"><output></output></div>
+        <div class="ge-range"><span data-i18n="gui_choice_spacing">Separación</span><input type="range" min="0" max="120" data-key="choice.spacing"><output></output></div>
+        <div class="ge-colors">
+          <label><input type="color" data-key="choice.idleColor"><span data-i18n="gui_color_idle_text">Texto normal</span></label>
+          <label><input type="color" data-key="choice.hoverColor"><span data-i18n="gui_color_hover_text">Texto al pasar el ratón</span></label>
+        </div>
+        <div class="ge-sub" data-i18n="gui_choice_background">Fondo de los botones</div>
+        <div class="ge-image" data-image="choice"></div>
+      </details>
+
+      <details class="ge-section">
+        <summary data-i18n="gui_section_menu">Menús del juego</summary>
+        <div class="ge-sub" data-i18n="gui_menu_background">Fondo de guardar, cargar y opciones</div>
+        <div class="ge-image" data-image="gamemenu"></div>
+        <div class="ge-sub" data-i18n="gui_menu_buttons">Botones de los menús</div>
+        <div class="ge-colors">
+          <label><input type="color" data-key="colors.idle"><span data-i18n="gui_color_idle">Normal</span></label>
+          <label><input type="color" data-key="colors.hover"><span data-i18n="gui_color_hover">Al pasar el ratón</span></label>
+          <label><input type="color" data-key="colors.selected"><span data-i18n="gui_color_selected">Seleccionado</span></label>
+        </div>
+        <p class="ge-hint" data-i18n="gui_bars_hint">Las barras y deslizadores mantienen sus imágenes actuales.</p>
+      </details>
+      <p class="ge-hint ge-backup-hint" data-i18n="gui_backup_hint">Antes de cambiar una imagen por primera vez, el editor guarda la original en gui/editor_backup.</p>
+    </aside>
+  </div>
+
+  <div id="notif" class="notification"></div>
+
+  <script src="theme.js"></script>
+  <script src="icons.js"></script>
+  <script src="dialog.js"></script>
+  <script src="gui-editor-renderer.js"></script>
+</body>
+</html>
