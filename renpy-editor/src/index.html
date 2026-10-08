@@ -112,6 +112,7 @@
     <div id="panel-assets">
       <div id="panel-assets-header"><span class="icon" data-icon="file" data-icon-size="14"></span><span data-i18n="panel_files">Archivos</span></div>
       <div id="asset-content"></div>
+      <div class="resize-handle col" id="resize-assets" data-i18n-title="resize_panel"></div>
     </div>
 
     <!-- Center Panel: Block Builder -->
@@ -151,18 +152,20 @@
           <button class="palette-btn" onclick="addBlock('custom')"><span class="icon" data-icon="custom"></span><span data-i18n="block_custom">Código libre</span></button>
         </div>
       </aside>
+      <div class="resize-handle col split" id="resize-palette" data-i18n-title="resize_panel"></div>
       <div id="block-list"></div>
     </div>
 
     <!-- Right Panel: Code Preview -->
     <div id="panel-code">
-      <div id="panel-resize-handle"></div>
+      <div class="resize-handle col left" id="panel-resize-handle" data-i18n-title="resize_panel"></div>
       <div id="scene-preview-section">
         <div class="row">
           <span class="title" data-i18n="scene_preview">Vista previa de la escena</span>
           <span id="scene-preview-info"></span>
         </div>
         <div id="scene-preview"></div>
+        <div class="resize-handle row" id="resize-preview" data-i18n-title="resize_preview"></div>
       </div>
       <div id="code-header">
         <div class="row">

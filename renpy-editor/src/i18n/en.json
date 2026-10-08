@@ -68,6 +68,8 @@
   "panel_files": "Files",
   "panel_preview": "Preview",
   "panel_code": "Code",
+  "resize_panel": "Resize the panel (double click: default size)",
+  "resize_preview": "Resize the preview height (double click: default size)",
   "scene_preview": "Scene preview",
   "scene_preview_empty": "Add blocks to see how the scene looks",
   "scene_preview_block": "Block {0} of {1}",

@@ -68,6 +68,8 @@
   "panel_files": "文件",
   "panel_preview": "预览",
   "panel_code": "代码",
+  "resize_panel": "调整面板宽度（双击：恢复默认）",
+  "resize_preview": "调整预览高度（双击：恢复默认）",
   "scene_preview": "场景预览",
   "scene_preview_empty": "添加区块以查看场景效果",
   "scene_preview_block": "第 {0} 个区块，共 {1} 个",

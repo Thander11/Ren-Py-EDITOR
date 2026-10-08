@@ -68,6 +68,8 @@
   "panel_files": "File",
   "panel_preview": "Anteprima",
   "panel_code": "Codice",
+  "resize_panel": "Ridimensiona il pannello (doppio clic: dimensione iniziale)",
+  "resize_preview": "Cambia l'altezza dell'anteprima (doppio clic: dimensione iniziale)",
   "scene_preview": "Anteprima della scena",
   "scene_preview_empty": "Aggiungi blocchi per vedere la scena",
   "scene_preview_block": "Blocco {0} di {1}",

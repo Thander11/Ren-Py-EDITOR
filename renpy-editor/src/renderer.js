@@ -510,6 +510,7 @@ function updateScenePreview() {
   if (!box) return;
   const { width: W, height: H } = data.resolution;
   box.style.aspectRatio = `${W} / ${H}`;
+  if (previewHeight) applyPreviewHeight(previewHeight);
   if (!gamePath || !blocks.length) {
     box.innerHTML = `<div class="sp-empty">${t(gamePath ? 'scene_preview_empty' : 'open_folder_hint')}</div>`;
     info.textContent = '';
@@ -4425,37 +4426,79 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// PANEL RESIZE
+// PANEL RESIZE — drag a panel's edge (or focus it and use the arrow
+// keys); double click goes back to the default size
 // ═══════════════════════════════════════════════════════════════════
-(function () {
-  const handle = document.getElementById('panel-resize-handle');
-  const panelCode = document.getElementById('panel-code');
-  let isDragging = false, startX, startW;
+let previewHeight = 0;  // 0 = the preview takes the panel's whole width
 
-  handle.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startX = e.clientX;
-    startW = panelCode.offsetWidth;
-    handle.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
+// dir: +1 when dragging right/down makes the panel bigger, -1 when it makes it smaller
+const PANEL_RESIZERS = [
+  { handle: 'resize-assets', target: 'panel-assets', key: 'panelAssets', axis: 'x', dir: 1, min: 140, max: () => 420 },
+  { handle: 'resize-palette', target: 'block-palette', key: 'palette', axis: 'x', dir: 1, min: 150, max: () => 320 },
+  { handle: 'panel-resize-handle', target: 'panel-code', key: 'panelCode', axis: 'x', dir: -1, min: 300, max: () => window.innerWidth * 0.7 },
+  { handle: 'resize-preview', target: 'scene-preview', key: 'previewHeight', axis: 'y', dir: 1, min: 120,
+    max: () => Math.max(240, document.getElementById('panel-code').clientHeight - 160) }
+];
+
+// The preview keeps the game's proportions, so its height is set through its width
+function applyPreviewHeight(h) {
+  previewHeight = h || 0;
+  const box = document.getElementById('scene-preview');
+  const { width: W, height: H } = data.resolution;
+  box.style.maxWidth = previewHeight ? Math.round(previewHeight * W / H) + 'px' : '';
+}
+
+function panelSize(r) {
+  const el = document.getElementById(r.target);
+  return r.axis === 'y' ? el.offsetHeight : el.offsetWidth;
+}
+
+function setPanelSize(r, value) {
+  const v = value ? Math.round(Math.max(r.min, Math.min(value, r.max()))) : 0;
+  if (r.key === 'previewHeight') applyPreviewHeight(v);
+  else document.getElementById(r.target).style.width = v ? v + 'px' : '';
+  return v;
+}
+
+function savePanelSize(r, v) {
+  window.api.saveSettings({ panelSizes: { [r.key]: v || null } }).catch(e => {});
+}
+
+(function () {
+  let drag = null;
+  for (const r of PANEL_RESIZERS) {
+    const handle = document.getElementById(r.handle);
+    handle.setAttribute('role', 'separator');
+    handle.setAttribute('tabindex', '0');
+    handle.setAttribute('aria-orientation', r.axis === 'x' ? 'vertical' : 'horizontal');
+    handle.addEventListener('mousedown', (e) => {
+      drag = { r, handle, start: r.axis === 'x' ? e.clientX : e.clientY, size: panelSize(r) };
+      handle.classList.add('dragging');
+      document.body.style.cursor = r.axis === 'x' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    handle.addEventListener('dblclick', () => savePanelSize(r, setPanelSize(r, 0)));
+    handle.addEventListener('keydown', (e) => {
+      const keys = r.axis === 'x' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
+      const i = keys.indexOf(e.key);
+      if (i < 0) return;
+      e.preventDefault();
+      savePanelSize(r, setPanelSize(r, panelSize(r) + (i ? 16 : -16) * r.dir));
+    });
+  }
   document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const delta = startX - e.clientX;
-    const newW = Math.max(280, Math.min(startW + delta, window.innerWidth * 0.7));
-    panelCode.style.width = newW + 'px';
+    if (!drag) return;
+    const delta = ((drag.r.axis === 'x' ? e.clientX : e.clientY) - drag.start) * drag.r.dir;
+    setPanelSize(drag.r, drag.size + delta);
   });
   document.addEventListener('mouseup', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    handle.classList.remove('dragging');
+    if (!drag) return;
+    drag.handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    // Save the new panel size
-    const finalWidth = panelCode.offsetWidth;
-    window.api.saveSettings({ panelSizes: { panelCode: finalWidth } }).catch(e => {});
+    savePanelSize(drag.r, panelSize(drag.r));
+    drag = null;
   });
 })();
 
@@ -4478,15 +4521,9 @@ document.addEventListener('keydown', (e) => {
   }
   
   // Restore panel sizes
-  if (s.panelSizes) {
-    if (s.panelSizes.panelCode) {
-      const panelCode = document.getElementById('panel-code');
-      if (panelCode) panelCode.style.width = s.panelSizes.panelCode + 'px';
-    }
-    if (s.panelSizes.panelAssets) {
-      const panelAssets = document.getElementById('panel-assets');
-      if (panelAssets) panelAssets.style.width = s.panelSizes.panelAssets + 'px';
-    }
+  for (const r of PANEL_RESIZERS) {
+    const v = s.panelSizes && s.panelSizes[r.key];
+    if (v) setPanelSize(r, v);
   }
   
   projectsDirectory = s.projectsDirectory || '';

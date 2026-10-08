@@ -68,6 +68,8 @@
   "panel_files": "檔案",
   "panel_preview": "預覽",
   "panel_code": "程式碼",
+  "resize_panel": "調整面板寬度（按兩下：恢復預設）",
+  "resize_preview": "調整預覽高度（按兩下：恢復預設）",
   "scene_preview": "場景預覽",
   "scene_preview_empty": "新增區塊以查看場景效果",
   "scene_preview_block": "第 {0} 個區塊，共 {1} 個",

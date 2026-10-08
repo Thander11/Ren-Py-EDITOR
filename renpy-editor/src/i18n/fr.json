@@ -68,6 +68,8 @@
   "panel_files": "Fichiers",
   "panel_preview": "Aperçu",
   "panel_code": "Code",
+  "resize_panel": "Redimensionner le panneau (double-clic : taille par défaut)",
+  "resize_preview": "Changer la hauteur de l'aperçu (double-clic : taille par défaut)",
   "scene_preview": "Aperçu de la scène",
   "scene_preview_empty": "Ajoutez des blocs pour voir le rendu de la scène",
   "scene_preview_block": "Bloc {0} sur {1}",

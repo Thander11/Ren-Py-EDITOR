@@ -68,6 +68,8 @@
   "panel_files": "ファイル",
   "panel_preview": "プレビュー",
   "panel_code": "コード",
+  "resize_panel": "パネルの幅を変更（ダブルクリックで初期サイズ）",
+  "resize_preview": "プレビューの高さを変更（ダブルクリックで初期サイズ）",
   "scene_preview": "シーンプレビュー",
   "scene_preview_empty": "ブロックを追加するとシーンが表示されます",
   "scene_preview_block": "ブロック {0} / {1}",

@@ -67,6 +67,8 @@
   "panel_files": "Archivos",
   "panel_preview": "Vista previa",
   "panel_code": "Código",
+  "resize_panel": "Cambiar el ancho del panel (doble clic: tamaño inicial)",
+  "resize_preview": "Cambiar la altura de la vista previa (doble clic: tamaño inicial)",
   "scene_preview": "Vista previa de la escena",
   "scene_preview_empty": "Añade bloques para ver cómo queda la escena",
   "scene_preview_block": "Bloque {0} de {1}",

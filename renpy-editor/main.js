@@ -19,7 +19,7 @@ let settings = {
   projectsDirectory: '',
   windowMaximized: false,
   spellcheckLanguages: [],
-  panelSizes: { panelCode: 560, panelAssets: 220 }
+  panelSizes: {}
 };
 let fsWatcher = null;
 let watchDebounce = null;
