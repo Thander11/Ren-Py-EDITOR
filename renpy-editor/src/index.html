@@ -9,26 +9,56 @@
   <link rel="stylesheet" href="dialog.css">
 </head>
 <body>
-  <!-- Header -->
-  <div id="header">
-    <h1 data-i18n="title">Ren'Py EDITOR</h1>
-    <button class="btn btn-primary" onclick="newProject()" data-i18n="new_project">➕ Nuevo proyecto</button>
-    <button class="btn btn-primary" onclick="openProjectFolder()" data-i18n="open_project">Abrir carpeta del proyecto</button>
-    <button class="btn btn-primary" onclick="launchProjectFromEditor()" data-i18n="launch_project">Iniciar juego</button>
-    <button class="btn btn-secondary" onclick="openStoryMap()" data-i18n="map_button">Mapa</button>
-    <button class="btn btn-secondary" onclick="openDeclarations()" data-i18n="declarations">Declaraciones</button>
-    <button class="btn btn-secondary" onclick="openMainMenuEditor()" data-i18n="main_menu_button">Menú principal</button>
-    <div class="panel-menu-wrap">
-      <button class="btn btn-secondary" id="panel-menu-btn" onclick="togglePanelMenu()" aria-haspopup="true" aria-expanded="false" aria-controls="panel-menu"><span data-i18n="panels_show">Mostrar</span> ▾</button>
-      <div id="panel-menu" hidden>
-        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-files" onchange="setPanelVisible('files', this.checked)"><span data-i18n="panel_files">Archivos</span></label>
-        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-preview" onchange="setPanelVisible('preview', this.checked)"><span data-i18n="panel_preview">Vista previa</span></label>
-        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-code" onchange="setPanelVisible('code', this.checked)"><span data-i18n="panel_code">Código</span></label>
-      </div>
+  <div id="app">
+  <!-- Sidebar: every section always visible, with icon and name -->
+  <nav id="sidebar" data-i18n-aria="nav_sections" aria-label="Secciones">
+    <div class="sb-brand">
+      <span class="sb-logo" aria-hidden="true">R'</span>
+      <span class="sb-brand-text">
+        <span class="sb-app" data-i18n="title">Ren'Py EDITOR</span>
+        <span class="sb-project" id="project-name"></span>
+      </span>
     </div>
-    <button class="btn btn-secondary" onclick="toggleSettings()">⚙️ <span data-i18n="settings">Ajustes</span></button>
-    <span id="status-bar"></span>
-  </div>
+    <button class="sb-item" id="nav-map" onclick="openStoryMap()"><span class="icon" data-icon="map" data-icon-size="18"></span><span data-i18n="map_button">Mapa</span></button>
+    <button class="sb-item active" id="nav-scenes" onclick="closeStoryMap()" aria-current="page"><span class="icon" data-icon="scenes" data-icon-size="18"></span><span data-i18n="nav_scenes">Escenas</span></button>
+    <button class="sb-item" onclick="openDeclarations()"><span class="icon" data-icon="characters" data-icon-size="18"></span><span data-i18n="declarations">Declaraciones</span></button>
+    <button class="sb-item" onclick="openMainMenuEditor()"><span class="icon" data-icon="main-menu" data-icon-size="18"></span><span data-i18n="main_menu_button">Menú principal</span></button>
+    <div class="sb-section" data-i18n="nav_project">Proyecto</div>
+    <button class="sb-item" onclick="openProjectFolder()"><span class="icon" data-icon="folder-open" data-icon-size="18"></span><span data-i18n="open_project">Abrir carpeta del proyecto</span></button>
+    <button class="sb-item" onclick="newProject()"><span class="icon" data-icon="project-new" data-icon-size="18"></span><span data-i18n="new_project">Nuevo proyecto</span></button>
+    <div class="sb-bottom">
+      <button class="btn btn-primary sb-play" onclick="launchProjectFromEditor()"><span class="icon" data-icon="play" data-icon-size="13"></span><span data-i18n="launch_project">Iniciar juego</span></button>
+      <button class="sb-item" id="settings-btn" onclick="toggleSettings()" aria-controls="settings-panel" aria-expanded="false"><span class="icon" data-icon="settings" data-icon-size="18"></span><span data-i18n="settings">Ajustes</span></button>
+      <div id="status-bar"></div>
+    </div>
+  </nav>
+
+  <div id="workspace">
+  <!-- Header of the scene editor -->
+  <header id="header">
+    <div class="hdr-title">
+      <span class="hdr-section" data-i18n="nav_scenes">Escenas</span>
+      <span class="hdr-file" id="header-file"></span>
+    </div>
+    <label class="hdr-label">
+      <span data-i18n="target_label">Label destino:</span>
+      <select class="form-select" id="target-label" onfocus="this.dataset.prev = this.value" onchange="onTargetLabelChange()">
+        <option value="" data-i18n="end_of_file">— Al final del archivo —</option>
+      </select>
+    </label>
+    <div class="hdr-tools">
+      <div class="panel-menu-wrap">
+        <button class="btn btn-secondary" id="panel-menu-btn" onclick="togglePanelMenu()" aria-haspopup="true" aria-expanded="false" aria-controls="panel-menu"><span class="icon" data-icon="panels" data-icon-size="15"></span><span data-i18n="panels_show">Mostrar</span><span class="icon" data-icon="chevron-down" data-icon-size="13"></span></button>
+        <div id="panel-menu" hidden>
+          <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-files" onchange="setPanelVisible('files', this.checked)"><span data-i18n="panel_files">Archivos</span></label>
+          <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-preview" onchange="setPanelVisible('preview', this.checked)"><span data-i18n="panel_preview">Vista previa</span></label>
+          <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-code" onchange="setPanelVisible('code', this.checked)"><span data-i18n="panel_code">Código</span></label>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="clearAllBlocks()"><span class="icon" data-icon="eraser" data-icon-size="15"></span><span data-i18n="clear_all">Limpiar todo</span></button>
+      <button class="btn btn-primary" onclick="appendToScript()"><span class="icon" data-icon="save" data-icon-size="15"></span><span data-i18n="save_to_file">Guardar en archivo</span></button>
+    </div>
+  </header>
 
   <!-- Settings Panel -->
   <div id="settings-panel">
@@ -79,7 +109,7 @@
   <div id="main">
     <!-- Left Panel: File Browser -->
     <div id="panel-assets">
-      <div id="panel-assets-header">📁 .rpy</div>
+      <div id="panel-assets-header"><span class="icon" data-icon="file" data-icon-size="14"></span><span data-i18n="panel_files">Archivos</span></div>
       <div id="asset-content"></div>
     </div>
 
@@ -120,23 +150,18 @@
       <div id="code-header">
         <div class="row">
           <span class="title" data-i18n="code_preview">Vista previa del código</span>
-          <div style="margin-left:auto;display:flex;gap:4px;">
-            <button class="btn btn-primary btn-sm" onclick="appendToScript()" data-i18n="save_to_file">Guardar en archivo</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyCode()" data-i18n="copy_code">Copiar código</button>
-            <button class="btn btn-secondary btn-sm" onclick="clearAllBlocks()" data-i18n="clear_all">Limpiar todo</button>
-            <button class="btn btn-secondary btn-sm" onclick="exportToFile()" data-i18n="export">Exportar</button>
+          <div class="code-actions">
+            <button class="btn btn-secondary btn-sm" onclick="copyCode()"><span class="icon" data-icon="copy" data-icon-size="13"></span><span data-i18n="copy_code">Copiar código</span></button>
+            <button class="btn btn-secondary btn-sm" onclick="exportToFile()"><span class="icon" data-icon="export" data-icon-size="13"></span><span data-i18n="export">Exportar</span></button>
           </div>
-        </div>
-        <div class="row">
-          <label style="font-size:11px;color:var(--text2);" data-i18n="target_label">Label destino:</label>
-          <select class="form-select" id="target-label" onfocus="this.dataset.prev = this.value" onchange="onTargetLabelChange()" style="width:auto;min-width:160px;padding:3px 6px;font-size:11px;">
-            <option value="" data-i18n="end_of_file">— Al final del archivo —</option>
-          </select>
         </div>
       </div>
       <pre id="code-preview"></pre>
     </div>
   </div>
+
+  </div><!-- #workspace -->
+  </div><!-- #app -->
 
   <!-- Modal Overlay -->
   <div id="modal-overlay">

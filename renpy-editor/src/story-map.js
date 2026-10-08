@@ -19,6 +19,7 @@ let mapZoom = 1;
 async function openStoryMap() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
   document.getElementById('map-overlay').classList.add('open');
+  setActiveNav('nav-map');
   storyMap = await buildStoryMap();
   layoutStoryMap(storyMap);
   if (!storyMap.nodes.has(mapSelected)) mapSelected = storyMap.nodes.has('start') ? 'start' : null;
@@ -28,6 +29,16 @@ async function openStoryMap() {
 
 function closeStoryMap() {
   document.getElementById('map-overlay').classList.remove('open');
+  setActiveNav('nav-scenes');
+}
+
+// Marks the open section in the sidebar
+function setActiveNav(id) {
+  document.querySelectorAll('#sidebar .sb-item[id^="nav-"]').forEach(el => {
+    const on = el.id === id;
+    el.classList.toggle('active', on);
+    if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
+  });
 }
 
 // ── Parsing ──

@@ -63,6 +63,10 @@ function applyI18n() {
     const key = el.getAttribute('data-i18n-title');
     if (translations[key]) { el.title = t(key); el.setAttribute('aria-label', t(key)); }
   });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const key = el.getAttribute('data-i18n-aria');
+    if (translations[key]) el.setAttribute('aria-label', t(key));
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -73,6 +77,7 @@ let settingsOpen = false;
 function toggleSettings() {
   settingsOpen = !settingsOpen;
   document.getElementById('settings-panel').classList.toggle('open', settingsOpen);
+  document.getElementById('settings-btn').setAttribute('aria-expanded', String(settingsOpen));
 }
 
 let customTheme = { ...CUSTOM_THEME_DEFAULT };
@@ -567,6 +572,7 @@ function scaleScenePreview() {
 // ASSET BROWSER (left panel — .rpy file list)
 // ═══════════════════════════════════════════════════════════════════
 function renderAssetBrowser() {
+  document.getElementById('header-file').textContent = gamePath ? activeRpyFile : '';
   const c = document.getElementById('asset-content');
   if (!gamePath) {
     c.innerHTML = `<div style="color:var(--text3);font-style:italic;text-align:center;margin-top:30px;font-size:11px;">${t('open_folder_hint')}</div>`;
@@ -4308,7 +4314,11 @@ async function createProject() {
 function setStatus(msg, type = '') {
   const el = document.getElementById('status-bar');
   el.textContent = msg;
+  el.title = msg;
   el.className = type === 'ok' ? 'status-ok' : type === 'err' ? 'status-err' : '';
+  // The project's name is the folder that contains game/
+  const parts = (gamePath || '').split(/[\\/]/).filter(Boolean);
+  document.getElementById('project-name').textContent = parts.length > 1 ? parts[parts.length - 2] : '';
 }
 
 let notifTimer;
@@ -4436,6 +4446,7 @@ document.addEventListener('keydown', (e) => {
   updateRenpyPathLabel();
   renderCustomThemeEditor(s.theme);
   initSpellcheckSettings(s);
+  hydrateIcons();
   renderBlocks();
   updateCodePreview();
   new ResizeObserver(scaleScenePreview).observe(document.getElementById('scene-preview'));
