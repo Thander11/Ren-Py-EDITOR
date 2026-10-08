@@ -23,7 +23,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 20px 60px var(--shadow, rgba(0, 0, 0, 0.5));
-  font-family: 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: var(--font-ui, 'Segoe UI', system-ui, sans-serif);
   animation: app-dialog-pop .14s ease-out;
 }
 .app-dialog-main {
@@ -84,9 +84,9 @@
   transition: background .15s, border-color .15s, opacity .15s;
 }
 .app-dialog-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.app-dialog-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.app-dialog-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
 .app-dialog-btn.primary:hover { background: var(--accent2); border-color: var(--accent2); }
-.app-dialog-btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.app-dialog-btn.danger { background: var(--red); border-color: var(--red); color: var(--on-accent, #fff); }
 .app-dialog-btn.danger:hover { opacity: .85; }
 .app-dialog-btn.secondary { background: transparent; color: var(--text); }
 .app-dialog-btn.secondary:hover { background: var(--border); }

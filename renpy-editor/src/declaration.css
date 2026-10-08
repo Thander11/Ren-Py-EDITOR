@@ -1,29 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
    Declaration Window Styles — Dark/Light/OLED/Custom Theme
    ═══════════════════════════════════════════════════════════ */
-[data-theme="dark"], [data-theme="custom"] {
-  --bg: #0f1923; --surface: #1a2733; --border: #2a3a4a;
-  --text: #e0e6ed; --text2: #8899aa; --text3: #556677;
-  --accent: #4ecdc4; --accent2: #45b7b0; --red: #e94560;
-  --card-bg: #1e2d3d;
-}
-[data-theme="light"] {
-  --bg: #f0f2f5; --surface: #ffffff; --border: #d0d7de;
-  --text: #1f2937; --text2: #4b5563; --text3: #9ca3af;
-  --accent: #0ea5e9; --accent2: #0284c7; --red: #ef4444;
-  --card-bg: #ffffff;
-}
-[data-theme="oled"] {
-  --bg: #000000; --surface: #0a0a0a; --border: #1c2a40;
-  --text: #e6edf5; --text2: #8aa0bf; --text3: #55657d;
-  --accent: #3b8eff; --accent2: #2a6fd6; --red: #ff4d6a;
-  --card-bg: #111111;
-}
+/* Colors and fonts come from themes.css */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg); color: var(--text);
   overflow-x: hidden;
 }
@@ -61,11 +44,11 @@ main { padding: 16px 20px; }
   font-size: 12px; padding: 7px 14px; font-weight: 500;
   transition: background 0.2s;
 }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover { background: var(--accent2); }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover { background: var(--border); }
-.btn-danger { background: var(--red); color: #fff; }
+.btn-danger { background: var(--red); color: var(--on-accent); }
 .btn-danger:hover { opacity: 0.85; }
 
 .form-card {
@@ -140,8 +123,8 @@ main { padding: 16px 20px; }
   z-index: 100;
 }
 .notification.show { transform: translateY(0); opacity: 1; }
-.notification.ok { background: #22c55e; color: #fff; }
-.notification.err { background: var(--red); color: #fff; }
+.notification.ok { background: var(--green); color: var(--on-accent); }
+.notification.err { background: var(--red); color: var(--on-accent); }
 
 .form-hint { font-size: 11px; color: var(--text3); margin-top: 8px; }
 .empty-msg { color: var(--text3); font-size: 12px; text-align: center; padding: 14px; }

@@ -8,14 +8,19 @@ const CUSTOM_THEME_KEYS = ['bg', 'surface', 'surface2', 'border', 'text', 'text2
 const CUSTOM_THEME_CODE_KEYS = ['codeBg', 'codeText', 'codeKeyword', 'codeString', 'codeComment', 'codeNumber'];
 
 const CUSTOM_THEME_DEFAULT = {
-  bg: '#0f1923',
-  surface: '#1a2a3a',
-  surface2: '#243447',
-  border: '#2d4a5e',
-  text: '#e0e6ed',
-  text2: '#8a9bb5',
-  accent: '#4ecdc4'
+  bg: '#0e1312',
+  surface: '#121918',
+  surface2: '#18211f',
+  border: '#26322f',
+  text: '#e6eeec',
+  text2: '#a6b8b3',
+  accent: '#7fe0b0'
 };
+
+// Translations start with an emoji; the interface draws its own icons instead
+function stripLeadingEmoji(s) {
+  return String(s).replace(/^(?:[\p{Extended_Pictographic}\p{Regional_Indicator}][️‍\p{Extended_Pictographic}\p{Regional_Indicator}]*\s*)+/u, '');
+}
 
 // CSS variable for each code color
 const CODE_THEME_VARS = {
@@ -25,8 +30,8 @@ const CODE_THEME_VARS = {
 
 // Every CSS variable that applyTheme() may set inline
 const THEME_VARS = [
-  ...CUSTOM_THEME_KEYS, 'text3', 'accent2', 'modal-bg', 'shadow', 'scrollbar-track',
-  'scrollbar-thumb', 'header-bg', 'code-bg', 'card-bg', ...Object.values(CODE_THEME_VARS)
+  ...CUSTOM_THEME_KEYS, 'text3', 'accent2', 'on-accent', 'modal-bg', 'shadow', 'scrollbar-track',
+  'scrollbar-thumb', 'header-bg', 'nav-bg', 'code-bg', 'card-bg', ...Object.values(CODE_THEME_VARS)
 ];
 
 function themeHexToRgb(hex) {
@@ -58,10 +63,10 @@ function resolveCustomTheme(custom) {
   return {
     codeBg: c.bg,
     codeText: c.text,
-    codeKeyword: '#e94560',
-    codeString: '#f5a623',
-    codeComment: '#56c596',
-    codeNumber: c.accent,
+    codeKeyword: c.accent,
+    codeString: themeIsLight(c.bg) ? '#b25f1c' : '#f0b38a',
+    codeComment: themeMix(c.text2, c.bg, 0.3),
+    codeNumber: themeIsLight(c.bg) ? '#2c5fc4' : '#9cc3ff',
     ...c
   };
 }
@@ -76,12 +81,15 @@ function buildCustomThemeVars(custom) {
   return {
     ...c,
     'text3': themeMix(c.text2, c.bg, 0.4),
-    'accent2': themeMix(c.accent, '#000000', 0.15),
+    'accent2': themeMix(c.accent, light ? '#000000' : '#ffffff', 0.15),
+    // Text on accent-colored buttons: dark on a light accent, white on a dark one
+    'on-accent': themeIsLight(c.accent) ? themeMix(c.accent, '#000000', 0.85) : '#ffffff',
     'modal-bg': light ? 'rgba(0,0,0,0.15)' : deep,
     'shadow': light ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.5)',
-    'scrollbar-track': c.surface,
+    'scrollbar-track': 'transparent',
     'scrollbar-thumb': c.border,
-    'header-bg': deep,
+    'header-bg': light ? c.surface : c.bg,
+    'nav-bg': deep,
     'code-bg': light ? c.surface : deep,
     'card-bg': c.surface2,
     ...code

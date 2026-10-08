@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Ren'Py EDITOR — Menú principal</title>
+  <link rel="stylesheet" href="themes.css">
   <link rel="stylesheet" href="declaration.css">
   <link rel="stylesheet" href="main-menu.css">
   <link rel="stylesheet" href="dialog.css">
@@ -16,9 +17,9 @@
     </label>
     <span id="mm-dirty" class="mm-dirty" data-i18n="mm_unsaved">Cambios sin guardar</span>
     <div class="mm-header-actions">
-      <button class="btn btn-secondary" onclick="resetConfig()" data-i18n="mm_reset">↺ Restablecer</button>
-      <button class="btn btn-secondary" onclick="saveAndTest()" data-i18n="mm_test">▶ Probar en Ren'Py</button>
-      <button class="btn btn-primary" onclick="saveConfig()" data-i18n="mm_save">💾 Guardar</button>
+      <button class="btn btn-secondary" onclick="resetConfig()" data-i18n="mm_reset">Restablecer</button>
+      <button class="btn btn-secondary" onclick="saveAndTest()" data-i18n="mm_test">Probar en Ren'Py</button>
+      <button class="btn btn-primary" onclick="saveConfig()" data-i18n="mm_save">Guardar</button>
     </div>
   </header>
 
@@ -68,7 +69,7 @@
           <label data-i18n="mm_file">Archivo</label>
           <div class="mm-file-row">
             <span id="mm-bg-file" class="mm-file-name" data-i18n="mm_no_file">Sin archivo</span>
-            <button class="btn btn-secondary" onclick="pickBackground()" data-i18n="mm_choose_file">📂 Elegir archivo</button>
+            <button class="btn btn-secondary" onclick="pickBackground()" data-i18n="mm_choose_file">Elegir archivo</button>
           </div>
         </div>
         <div class="form-group" data-show-if="background.type=image,gif">
@@ -129,7 +130,7 @@
             <div class="mm-font-row">
               <select class="form-select mm-font-family" data-font-family="title"></select>
               <select class="form-select mm-font-style" data-font-style="title" data-i18n-title="mm_font_style"></select>
-              <button class="btn btn-secondary" onclick="pickFont('title')" data-i18n="mm_font_from_file">📂 Archivo</button>
+              <button class="btn btn-secondary" onclick="pickFont('title')" data-i18n="mm_font_from_file">Archivo</button>
             </div>
             <div class="form-hint mm-font-license" data-font-hint="title"></div>
             <div class="mm-font-info">
@@ -139,7 +140,7 @@
                 <p data-i18n="mm_fonts_why_text"></p>
                 <div class="mm-font-links">
                   <button class="btn btn-secondary" onclick="window.mmApi.openFreeFontsSite()" data-i18n="mm_fonts_get_free">Descargar fuentes libres (Google Fonts)</button>
-                  <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">↻ Actualizar lista</button>
+                  <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">Actualizar lista</button>
                 </div>
               </details>
             </div>
@@ -244,7 +245,7 @@
           <div class="mm-font-row">
             <select class="form-select mm-font-family" data-font-family="buttons"></select>
             <select class="form-select mm-font-style" data-font-style="buttons" data-i18n-title="mm_font_style"></select>
-            <button class="btn btn-secondary" onclick="pickFont('buttons')" data-i18n="mm_font_from_file">📂 Archivo</button>
+            <button class="btn btn-secondary" onclick="pickFont('buttons')" data-i18n="mm_font_from_file">Archivo</button>
           </div>
           <div class="form-hint mm-font-license" data-font-hint="buttons"></div>
           <div class="mm-font-info">
@@ -254,7 +255,7 @@
               <p data-i18n="mm_fonts_why_text"></p>
               <div class="mm-font-links">
                 <button class="btn btn-secondary" onclick="window.mmApi.openFreeFontsSite()" data-i18n="mm_fonts_get_free">Descargar fuentes libres (Google Fonts)</button>
-                <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">↻ Actualizar lista</button>
+                <button class="btn btn-secondary" onclick="refreshSystemFonts()" data-i18n="mm_fonts_refresh">Actualizar lista</button>
               </div>
             </details>
           </div>
@@ -324,6 +325,7 @@
 
   <div id="notif" class="notification"></div>
   <script src="theme.js"></script>
+  <script src="icons.js"></script>
   <script src="dialog.js"></script>
   <script src="spellcheck.js"></script>
   <script src="main-menu-renderer.js"></script>

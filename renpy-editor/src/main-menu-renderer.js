@@ -44,7 +44,7 @@ async function loadI18n(lang) {
   } catch (e) { translations = {}; }
 }
 function t(key, ...args) {
-  let str = translations[key] || key;
+  let str = stripLeadingEmoji(translations[key] || key);
   args.forEach((a, i) => { str = str.replace(`{${i}}`, a); });
   return str;
 }

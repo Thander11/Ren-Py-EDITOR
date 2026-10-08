@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ren'Py EDITOR</title>
+  <link rel="stylesheet" href="themes.css">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="dialog.css">
 </head>
@@ -35,26 +36,26 @@
     <div class="form-group">
       <label class="form-label" data-i18n="theme">Tema</label>
       <select class="form-select" id="setting-theme" onchange="changeTheme(this.value)">
-        <option value="dark" data-i18n="theme_dark">🌙 Oscuro</option>
-        <option value="light" data-i18n="theme_light">☀️ Claro</option>
-        <option value="oled" data-i18n="theme_oled">⚫ OLED</option>
-        <option value="custom" data-i18n="theme_custom">🎨 Personalizado</option>
+        <option value="dark" data-i18n="theme_dark">Oscuro</option>
+        <option value="light" data-i18n="theme_light">Claro</option>
+        <option value="oled" data-i18n="theme_oled">OLED</option>
+        <option value="custom" data-i18n="theme_custom">Personalizado</option>
       </select>
       <div id="custom-theme-editor"></div>
     </div>
     <div class="form-group">
       <label class="form-label" data-i18n="language">Idioma</label>
       <select class="form-select" id="setting-lang" onchange="changeLanguage(this.value)">
-        <option value="es">🇪🇸 Español</option>
-        <option value="en">🇬🇧 English</option>
-        <option value="de">🇩🇪 Deutsch</option>
-        <option value="fr">🇫🇷 Français</option>
-        <option value="it">🇮🇹 Italiano</option>
-        <option value="pt-BR">🇧🇷 Português</option>
-        <option value="ru">🇷🇺 Русский</option>
-        <option value="zh-CN">🇨🇳 简体中文</option>
+        <option value="es">Español</option>
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+        <option value="it">Italiano</option>
+        <option value="pt-BR">Português</option>
+        <option value="ru">Русский</option>
+        <option value="zh-CN">简体中文</option>
         <option value="zh-TW">繁體中文</option>
-        <option value="ja">🇯🇵 日本語</option>
+        <option value="ja">日本語</option>
       </select>
     </div>
     <div class="form-group">
@@ -65,12 +66,12 @@
     <div class="form-group">
       <label class="form-label">Ren'Py</label>
       <div class="settings-path" id="setting-renpy-path"></div>
-      <button class="btn btn-secondary btn-sm" onclick="openRenpyDialog()" data-i18n="renpy_change_or_install">⚙️ Cambiar o instalar</button>
+      <button class="btn btn-secondary btn-sm" onclick="openRenpyDialog()" data-i18n="renpy_change_or_install">Cambiar o instalar</button>
     </div>
     <div class="form-group">
       <label class="form-label" data-i18n="projects_dir">Carpeta de proyectos</label>
       <div class="settings-path" id="setting-projects-dir"></div>
-      <button class="btn btn-secondary btn-sm" onclick="changeProjectsDirectory()" data-i18n="change_folder">📂 Cambiar carpeta</button>
+      <button class="btn btn-secondary btn-sm" onclick="changeProjectsDirectory()" data-i18n="change_folder">Cambiar carpeta</button>
     </div>
   </div>
 
@@ -181,10 +182,10 @@
   <!-- Custom theme editor -->
   <div id="theme-overlay">
     <div id="theme-box" role="dialog" aria-modal="true">
-      <div id="theme-header"><span data-i18n="custom_theme_title">🎨 Tema personalizado</span></div>
+      <div id="theme-header"><span data-i18n="custom_theme_title">Tema personalizado</span></div>
       <div id="theme-body"></div>
       <div id="theme-footer">
-        <button class="btn btn-secondary" onclick="resetCustomTheme()" data-i18n="custom_theme_reset">↺ Restablecer colores</button>
+        <button class="btn btn-secondary" onclick="resetCustomTheme()" data-i18n="custom_theme_reset">Restablecer colores</button>
         <button class="btn btn-primary" onclick="closeCustomThemeEditor()" data-i18n="custom_theme_done">Listo</button>
       </div>
     </div>
@@ -225,6 +226,7 @@
   <div id="notif"></div>
 
   <script src="theme.js"></script>
+  <script src="icons.js"></script>
   <script src="dialog.js"></script>
   <script src="spellcheck.js"></script>
   <script src="sprite-utils.js"></script>

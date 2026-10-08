@@ -43,7 +43,7 @@ async function loadI18n(lang) {
   } catch (e) { translations = {}; }
 }
 function t(key, ...args) {
-  let str = translations[key] || key;
+  let str = stripLeadingEmoji(translations[key] || key);
   args.forEach((a, i) => { str = str.replace(`{${i}}`, a); });
   return str;
 }
@@ -300,8 +300,8 @@ function renderCharList() {
       <span class="item-name">${c.displayName}</span>
       <span class="item-detail">${c.id}${c.imageAttr ? ' — expr="' + c.imageAttr + '"' : ''} — ${c.images.length} sprites</span>
       <span class="item-actions">
-        <button onclick="showAddCharForm(${i})" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteCharacter(${i})" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showAddCharForm(${i})" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+        <button onclick="deleteCharacter(${i})" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
       </span>
     </div>`).join('');
 }
@@ -344,8 +344,8 @@ function loadCharSprites() {
                 <img src="${getImageURL(img.path)}" onerror="this.style.display='none'" />
                 <div class="lbl">${id}</div>
                 <div class="item-actions" style="margin-top:4px;">
-                  <button onclick="showSpriteEditForm('${chr.id}', ${idx})" title="${t('edit_item')}">✏️</button>
-                  <button onclick="deleteSprite('${chr.id}', ${idx})" title="${t('delete_item')}">🗑️</button>
+                  <button onclick="showSpriteEditForm('${chr.id}', ${idx})" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+                  <button onclick="deleteSprite('${chr.id}', ${idx})" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
                 </div>
               </div>`;
             }).join('')}
@@ -608,8 +608,8 @@ function loadCharExpressions() {
               <img src="${getImageURL(e.path)}" onerror="this.style.display='none'" />
               <div class="lbl">${expressionLabel(chr, e.key)}</div>
               <div class="item-actions" style="margin-top:4px;">
-                <button onclick="showExprEditForm(${exprIdx})" title="${t('edit_item')}">✏️</button>
-                <button onclick="deleteExpression(${exprIdx})" title="${t('delete_item')}">🗑️</button>
+                <button onclick="showExprEditForm(${exprIdx})" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+                <button onclick="deleteExpression(${exprIdx})" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
               </div>
             </div>`;
           }).join('')}
@@ -802,8 +802,8 @@ function loadBackgrounds() {
       <img src="${getImageURL(bg.path)}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;" onerror="this.style.display='none'" />
       <div class="lbl">${bg.key}</div>
       <div class="item-actions" style="margin-top:4px;">
-        <button onclick="showBgEditForm(${i})" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteBackground(${i})" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showBgEditForm(${i})" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+        <button onclick="deleteBackground(${i})" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
       </div>
     </div>`).join('');
 }
@@ -951,8 +951,8 @@ function loadScenes() {
       <img src="${getImageURL(sc.path)}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;" onerror="this.style.display='none'" />
       <div class="lbl">${sc.key}</div>
       <div class="item-actions" style="margin-top:4px;">
-        <button onclick="showSceneEditForm(${i})" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteScene(${i})" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showSceneEditForm(${i})" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+        <button onclick="deleteScene(${i})" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
       </div>
     </div>`).join('');
 }
@@ -1102,8 +1102,8 @@ function loadAnimations() {
       <span class="item-name">${tf.name}</span>
       <span class="item-detail">${tf.type}</span>
       <span class="item-actions">
-        <button onclick="showTransformEditForm('${tf.name}', 'animations.rpy', 'anim')" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteTransform('${tf.name}', 'animations.rpy')" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showTransformEditForm('${tf.name}', 'animations.rpy', 'anim')" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+        <button onclick="deleteTransform('${tf.name}', 'animations.rpy')" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
       </span>
     </div>`).join('');
 }
@@ -1120,8 +1120,8 @@ function loadPositions() {
       <span class="item-name">${tf.name}</span>
       <span class="item-detail">${tf.type}</span>
       <span class="item-actions">
-        <button onclick="showTransformEditForm('${tf.name}', 'positions.rpy', 'pos')" title="${t('edit_item')}">✏️</button>
-        <button onclick="deleteTransform('${tf.name}', 'positions.rpy')" title="${t('delete_item')}">🗑️</button>
+        <button onclick="showTransformEditForm('${tf.name}', 'positions.rpy', 'pos')" title="${t('edit_item')}" aria-label="${t('edit_item')}">${icon('edit', 14)}</button>
+        <button onclick="deleteTransform('${tf.name}', 'positions.rpy')" title="${t('delete_item')}" aria-label="${t('delete_item')}">${icon('trash', 14)}</button>
       </span>
     </div>`).join('');
 }

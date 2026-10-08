@@ -1,0 +1,108 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Ren'Py EDITOR — Theme tokens shared by every window
+   Dark (default) / Light / OLED; the custom theme sets its colors
+   inline from theme.js on top of the dark ones.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@import url('../node_modules/@fontsource-variable/manrope/index.css');
+@import url('../node_modules/@fontsource/dm-mono/index.css');
+@import url('../node_modules/@fontsource/dm-mono/500.css');
+
+:root {
+  --font-ui: 'Manrope Variable', 'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --font-mono: 'DM Mono', 'Cascadia Code', 'Consolas', monospace;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* Code panel colors follow the theme; the custom theme can override them */
+  --code-editor-bg: var(--code-bg);
+  --code-text: var(--text);
+  --code-keyword: var(--accent);
+  --code-string: var(--orange);
+  --code-comment: var(--text3);
+  --code-number: var(--blue);
+}
+
+/* ── Dark: deep green with a mint accent ── */
+:root, [data-theme="dark"] {
+  --bg: #0e1312;
+  --surface: #121918;
+  --surface2: #18211f;
+  --border: #26322f;
+  --text: #e6eeec;
+  --text2: #a6b8b3;
+  --text3: #74867f;
+  --accent: #7fe0b0;
+  --accent2: #9be8c2;
+  --on-accent: #062014;
+  --red: #f2908a;
+  --green: #a9e07a;
+  --orange: #f0b38a;
+  --blue: #9cc3ff;
+  --purple: #c7a6e6;
+  --modal-bg: #0b100f;
+  --shadow: rgba(0, 0, 0, 0.55);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #2c3a37;
+  --header-bg: #0e1312;
+  --nav-bg: #0b100f;
+  --code-bg: #0b100f;
+  --card-bg: #18211f;
+}
+
+/* ── Light: soft grey-green paper, deep green accent ── */
+[data-theme="light"] {
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --surface2: #edf2f0;
+  --border: #d3ddda;
+  --text: #13201d;
+  --text2: #475a55;
+  --text3: #74867f;
+  --accent: #1d7f54;
+  --accent2: #166643;
+  --on-accent: #ffffff;
+  --red: #c0392f;
+  --green: #3f8a1f;
+  --orange: #b25f1c;
+  --blue: #2c5fc4;
+  --purple: #7b4bb0;
+  --modal-bg: rgba(0, 0, 0, 0.15);
+  --shadow: rgba(16, 32, 28, 0.14);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #c4d0cc;
+  --header-bg: #ffffff;
+  --nav-bg: #e9efed;
+  --code-bg: #ffffff;
+  --card-bg: #ffffff;
+}
+
+/* ── OLED: pure black with blue details ── */
+[data-theme="oled"] {
+  --bg: #000000;
+  --surface: #070707;
+  --surface2: #111214;
+  --border: #1c2433;
+  --text: #e6edf5;
+  --text2: #9fb2cc;
+  --text3: #66768c;
+  --accent: #5b9dff;
+  --accent2: #82b4ff;
+  --on-accent: #001433;
+  --red: #ff6b7f;
+  --green: #5ee08f;
+  --orange: #f5b55c;
+  --blue: #8ab8ff;
+  --purple: #b99aff;
+  --modal-bg: #000000;
+  --shadow: rgba(0, 0, 0, 0.8);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #1c2433;
+  --header-bg: #000000;
+  --nav-bg: #000000;
+  --code-bg: #000000;
+  --card-bg: #0b0c0e;
+}
+
+/* Stroke icons from icons.js */
+.icon-svg { display: inline-block; flex-shrink: 0; vertical-align: middle; }

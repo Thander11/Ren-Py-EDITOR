@@ -48,45 +48,20 @@ async function loadI18n(lang) {
 }
 
 function t(key, ...args) {
-  let str = translations[key] || key;
+  let str = stripLeadingEmoji(translations[key] || key);
   args.forEach((arg, i) => { str = str.replace(`{${i}}`, arg); });
   return str;
 }
 
+// Icons live outside the translated element (<span data-i18n>), so the text is replaced whole
 function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    const val = t(key);
-    if (val !== key) {
-      const text = el.textContent;
-      
-      // Detectar icono en el texto actual del HTML
-      const spaceIdx = text.indexOf(' ');
-      let currentIcon = '';
-      if (spaceIdx > 0 && spaceIdx <= 2) {
-        const prefix = text.substring(0, spaceIdx);
-        if (!/[\p{L}\p{N}]/u.test(prefix)) {
-          currentIcon = prefix;
-        }
-      }
-      
-      // Detectar y eliminar icono en el texto traducido
-      const valSpaceIdx = val.indexOf(' ');
-      let newText = val;
-      if (valSpaceIdx > 0 && valSpaceIdx <= 2) {
-        const prefix = val.substring(0, valSpaceIdx);
-        if (!/[\p{L}\p{N}]/u.test(prefix)) {
-          newText = val.substring(valSpaceIdx + 1);
-        }
-      }
-      
-      // Usar el icono actual (del HTML) con el nuevo texto (sin icono)
-      if (currentIcon) {
-        el.textContent = currentIcon + ' ' + newText;
-      } else {
-        el.textContent = val;
-      }
-    }
+    if (translations[key]) el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (translations[key]) { el.title = t(key); el.setAttribute('aria-label', t(key)); }
   });
 }
 
@@ -600,7 +575,7 @@ function renderAssetBrowser() {
   const filesHtml = rpyFiles.length
     ? rpyFiles.map(f => {
       const isActive = f === activeRpyFile;
-      return `<div class="rpy-file ${isActive ? 'active' : ''}" onclick="selectRpyFile('${f.replace(/'/g, "\\'")}')" title="${escHtml(f)}">📄 ${escHtml(f)}</div>`;
+      return `<div class="rpy-file ${isActive ? 'active' : ''}" onclick="selectRpyFile('${f.replace(/'/g, "\\'")}')" title="${escHtml(f)}">${icon('file', 14)}<span>${escHtml(f)}</span></div>`;
     }).join('')
     : `<div style="color:var(--text3);font-size:11px;text-align:center;margin:20px 0 10px;">${t('no_rpy_files')}</div>`;
   const newHtml = newRpyEditing
@@ -732,29 +707,29 @@ async function clearAllBlocks() {
 // BLOCK RENDER
 // ═══════════════════════════════════════════════════════════════════
 const BLOCK_META = {
-  narration:  { icon: '📝', labelKey: 'block_narration',     color: '#9aa5b8' },
-  dialogue:   { icon: '💬', labelKey: 'block_dialogue',       color: '#4ecdc4' },
-  show:       { icon: '👤', labelKey: 'block_show',           color: '#56c596' },
-  show_multi: { icon: '👥', labelKey: 'block_show_multi',     color: '#2ecc71' },
-  hide:       { icon: '🫥', labelKey: 'block_hide',           color: '#f5a623' },
-  hide_multi: { icon: '🫧', labelKey: 'block_hide_multi',     color: '#e67e22' },
-  scene:      { icon: '🌄', labelKey: 'block_scene',          color: '#9c59d1' },
-  solid:      { icon: '🎨', labelKey: 'block_solid',          color: '#5d6d7e' },
-  label:      { icon: '📌', labelKey: 'block_label',         color: '#e94560' },
-  menu:       { icon: '❓', labelKey: 'block_menu',            color: '#e67e22' },
-  condition:  { icon: '🔀', labelKey: 'block_condition',       color: '#8e7cc3' },
-  pause:      { icon: '⏸️', labelKey: 'block_pause',         color: '#6b7a96' },
-  music:      { icon: '🎵', labelKey: 'block_music',          color: '#3498db' },
-  jump:       { icon: '↪️', labelKey: 'block_jump',           color: '#f5a623' },
-  call:       { icon: '📞', labelKey: 'block_call',           color: '#9b59b6' },
-  comment:    { icon: '💭', labelKey: 'block_comment',        color: '#6b7a96' },
-  custom:     { icon: '📋', labelKey: 'block_custom',         color: '#2d3f62' },
+  narration:  { icon: icon('narration'), labelKey: 'block_narration',     color: '#9aa5b8' },
+  dialogue:   { icon: icon('dialogue'), labelKey: 'block_dialogue',       color: '#4ecdc4' },
+  show:       { icon: icon('show'), labelKey: 'block_show',           color: '#56c596' },
+  show_multi: { icon: icon('show_multi'), labelKey: 'block_show_multi',     color: '#2ecc71' },
+  hide:       { icon: icon('hide'), labelKey: 'block_hide',           color: '#f5a623' },
+  hide_multi: { icon: icon('hide_multi'), labelKey: 'block_hide_multi',     color: '#e67e22' },
+  scene:      { icon: icon('scene'), labelKey: 'block_scene',          color: '#9c59d1' },
+  solid:      { icon: icon('solid'), labelKey: 'block_solid',          color: '#5d6d7e' },
+  label:      { icon: icon('label'), labelKey: 'block_label',         color: '#e94560' },
+  menu:       { icon: icon('menu'), labelKey: 'block_menu',            color: '#e67e22' },
+  condition:  { icon: icon('condition'), labelKey: 'block_condition',       color: '#8e7cc3' },
+  pause:      { icon: icon('pause'), labelKey: 'block_pause',         color: '#6b7a96' },
+  music:      { icon: icon('music'), labelKey: 'block_music',          color: '#3498db' },
+  jump:       { icon: icon('jump'), labelKey: 'block_jump',           color: '#f5a623' },
+  call:       { icon: icon('call'), labelKey: 'block_call',           color: '#9b59b6' },
+  comment:    { icon: icon('comment'), labelKey: 'block_comment',        color: '#6b7a96' },
+  custom:     { icon: icon('custom'), labelKey: 'block_custom',         color: '#2d3f62' },
 };
 
 function blockDesc(b) {
   switch (b.type) {
     case 'narration': return `"${truncate(b.text, 80)}"`;
-    case 'dialogue':  return `${b.character} → ${b.thought?'💭 ':''}\"${truncate(b.text, 60)}\"`;
+    case 'dialogue':  return b.thought ? `${b.character} → <<${truncate(b.text, 60)}>>` : `${b.character} → "${truncate(b.text, 60)}"`;
     case 'show':       return `${b.image}${b.position?' at '+b.position:''}${b.behind?' behind '+b.behind:''}${b.transition?' with '+b.transition:''}${b.flipH?' [volteado]':''}${b.blur?' [blur]':''}`;
     case 'show_multi': return `${(b.sprites||[]).map(s=>s.image).join(', ')}${b.transition?' with '+b.transition:''}`;
     case 'hide':       return `hide ${b.image}${b.transition?' with '+b.transition:''}`;
@@ -800,10 +775,10 @@ function renderBlocks() {
         <div class="block-desc">${escHtml(blockDesc(b))}</div>
       </div>
       <div class="block-actions">
-        <button class="block-btn" onclick="duplicateBlock(${i})" title="${t('btn_duplicate')}">📋 ${t('btn_duplicate')}</button>
-        <button class="block-btn" onclick="duplicateBlockToEnd(${i})" title="${t('btn_duplicate_end')}">⬇️ ${t('btn_duplicate_end')}</button>
-        <button class="block-btn" onclick="editBlock(${i})" title="${t('btn_edit')}">✏️ ${t('btn_edit')}</button>
-        <button class="block-btn danger" onclick="deleteBlock(${i})" title="${t('btn_delete')}">🗑 ${t('btn_delete')}</button>
+        <button class="block-btn" onclick="duplicateBlock(${i})" title="${t('btn_duplicate')}">${icon('copy', 14)}${t('btn_duplicate')}</button>
+        <button class="block-btn" onclick="duplicateBlockToEnd(${i})" title="${t('btn_duplicate_end')}">${icon('copy-end', 14)}${t('btn_duplicate_end')}</button>
+        <button class="block-btn" onclick="editBlock(${i})" title="${t('btn_edit')}">${icon('edit', 14)}${t('btn_edit')}</button>
+        <button class="block-btn danger" onclick="deleteBlock(${i})" title="${t('btn_delete')}">${icon('trash', 14)}${t('btn_delete')}</button>
       </div>
     </div>`;
   }).join('');
@@ -1928,7 +1903,7 @@ function openModal(type, existing) {
   const modalBox = document.getElementById('modal-box');
 
   const meta = BLOCK_META[type] || { icon: '?', labelKey: type };
-  title.textContent = `${meta.icon} ${existing ? t('edit') : t('add')}: ${t(meta.labelKey)}`;
+  title.innerHTML = `${meta.icon}<span>${existing ? t('edit') : t('add')}: ${escHtml(t(meta.labelKey))}</span>`;
   body.innerHTML = buildModalBody(type, pendingBlock);
   overlay.classList.add('open');
 
@@ -2330,7 +2305,7 @@ function buildModalBody(type, b) {
       <div class="form-group" style="margin-top:4px;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
           <input type="checkbox" id="f-thought" ${b.thought ? 'checked' : ''}>
-          💭 ${t('is_thought')} <span style="color:var(--text3);font-size:11px;">({i}&lt;&lt;Texto&gt;&gt;{/i})</span>
+          ${t('is_thought')} <span style="color:var(--text3);font-size:11px;">({i}&lt;&lt;Texto&gt;&gt;{/i})</span>
         </label>
       </div>`;
 
@@ -2472,7 +2447,7 @@ function buildModalBody(type, b) {
         <label class="form-label">${t('audio_folder_files')}</label>
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <input class="form-input" id="f-audio-filter" placeholder="${t('search_placeholder')}" oninput="renderAudioList()">
-          <button class="btn btn-secondary" type="button" onclick="stopAudioPreview()" title="${t('stop_preview')}">⏹</button>
+          <button class="btn btn-secondary" type="button" onclick="stopAudioPreview()" title="${t('stop_preview')}" aria-label="${t('stop_preview')}">${icon('stop', 14)}</button>
         </div>
         <div id="audio-list" class="audio-list"></div>
         <div style="font-size:10px;color:var(--text3);margin-top:4px;">${t('audio_click_hint')}</div>
@@ -2696,7 +2671,7 @@ function renderAudioList() {
     const playing = file === audioPreviewFile;
     const name = file.replace(/^audio\//, '');
     return `<div class="audio-item ${file === selected ? 'selected' : ''} ${playing ? 'playing' : ''}" onclick="onAudioItemClick(${idx})" title="${escHtml(file)}">
-      <span class="audio-play">${playing ? '⏸' : '▶'}</span>
+      <span class="audio-play">${icon(playing ? 'pause' : 'play', 12)}</span>
       <span class="audio-name">${escHtml(name)}</span>
     </div>`;
   }).join('');
@@ -2782,7 +2757,7 @@ function buildConditionBody(b) {
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
         ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
           const m = BLOCK_META[t2];
-          return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('then','${t2}')">${m.icon}</button>`;
+          return `<button class="btn btn-secondary btn-icon" onclick="addConditionBlock('then','${t2}')" title="${t(m.labelKey)}" aria-label="${t(m.labelKey)}">${m.icon}</button>`;
         }).join('')}
       </div>
       <div id="ifbl" class="choice-blocks-list"></div>
@@ -2806,7 +2781,7 @@ function buildConditionBody(b) {
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
           ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
             const m = BLOCK_META[t2];
-            return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('else','${t2}')">${m.icon}</button>`;
+            return `<button class="btn btn-secondary btn-icon" onclick="addConditionBlock('else','${t2}')" title="${t(m.labelKey)}" aria-label="${t(m.labelKey)}">${m.icon}</button>`;
           }).join('')}
         </div>
         <div id="ifebl" class="choice-blocks-list"></div>
@@ -2831,7 +2806,7 @@ function buildConditionElifHtml(eb, i) {
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
         ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
           const m = BLOCK_META[t2];
-          return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addConditionBlock('elif-${i}','${t2}')">${m.icon}</button>`;
+          return `<button class="btn btn-secondary btn-icon" onclick="addConditionBlock('elif-${i}','${t2}')" title="${t(m.labelKey)}" aria-label="${t(m.labelKey)}">${m.icon}</button>`;
         }).join('')}
       </div>
       <div id="ifel-${i}" class="choice-blocks-list"></div>
@@ -2908,7 +2883,7 @@ function buildChoiceHtml(ch, i) {
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
       ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','condition','pause','music','jump','call','comment','custom'].map(t2 => {
         const m = BLOCK_META[t2];
-        return `<button class="btn btn-secondary" style="font-size:10px;padding:3px 8px;" onclick="addChoiceBlock(${i},'${t2}')">${m.icon}</button>`;
+        return `<button class="btn btn-secondary btn-icon" onclick="addChoiceBlock(${i},'${t2}')" title="${t(m.labelKey)}" aria-label="${t(m.labelKey)}">${m.icon}</button>`;
       }).join('')}
     </div>
     <div id="cbl-${i}" class="choice-blocks-list"></div>
@@ -2950,12 +2925,12 @@ function renderChoiceBlocks(i) {
       ondragover="onInnerDragOver(event,'choice-${i}',${j})" ondragleave="onInnerDragLeave(event)"
       ondrop="onInnerDrop(event,'choice-${i}',${j})">
       <span class="inner-block-handle" title="${t('drag_to_reorder')}">⋮⋮</span>
-      <span style="font-size:12px;">${meta.icon}</span>
+      <span class="inner-block-icon">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
-      <button class="block-btn block-btn-sm" onclick="editChoiceBlock(${i},${j})" title="${t('btn_edit')}">✏️</button>
-      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlock(${i},${j})" title="${t('btn_duplicate')}">📋</button>
-      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlockToEnd(${i},${j})" title="${t('btn_duplicate_end')}">⬇️</button>
-      <button class="block-btn block-btn-sm danger" onclick="removeChoiceBlock(${i},${j})" title="${t('btn_delete')}">🗑</button>
+      <button class="block-btn block-btn-sm" onclick="editChoiceBlock(${i},${j})" title="${t('btn_edit')}" aria-label="${t('btn_edit')}">${icon('edit', 13)}</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlock(${i},${j})" title="${t('btn_duplicate')}" aria-label="${t('btn_duplicate')}">${icon('copy', 13)}</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateChoiceBlockToEnd(${i},${j})" title="${t('btn_duplicate_end')}" aria-label="${t('btn_duplicate_end')}">${icon('copy-end', 13)}</button>
+      <button class="block-btn block-btn-sm danger" onclick="removeChoiceBlock(${i},${j})" title="${t('btn_delete')}" aria-label="${t('btn_delete')}">${icon('trash', 13)}</button>
     </div>`;
   }).join('');
 }
@@ -3287,12 +3262,12 @@ function renderConditionBlocks(branch = 'then') {
       ondragover="onInnerDragOver(event,'cond-${branch}',${j})" ondragleave="onInnerDragLeave(event)"
       ondrop="onInnerDrop(event,'cond-${branch}',${j})">
       <span class="inner-block-handle" title="${t('drag_to_reorder')}">⋮⋮</span>
-      <span style="font-size:12px;">${meta.icon}</span>
+      <span class="inner-block-icon">${meta.icon}</span>
       <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(blockDesc(b))}</span>
-      <button class="block-btn block-btn-sm" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}">✏️</button>
-      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlock('${branch}',${j})" title="${t('btn_duplicate')}">📋</button>
-      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlockToEnd('${branch}',${j})" title="${t('btn_duplicate_end')}">⬇️</button>
-      <button class="block-btn block-btn-sm danger" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}">🗑</button>
+      <button class="block-btn block-btn-sm" onclick="editConditionBlock('${branch}',${j})" title="${t('btn_edit')}" aria-label="${t('btn_edit')}">${icon('edit', 13)}</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlock('${branch}',${j})" title="${t('btn_duplicate')}" aria-label="${t('btn_duplicate')}">${icon('copy', 13)}</button>
+      <button class="block-btn block-btn-sm" onclick="duplicateConditionBlockToEnd('${branch}',${j})" title="${t('btn_duplicate_end')}" aria-label="${t('btn_duplicate_end')}">${icon('copy-end', 13)}</button>
+      <button class="block-btn block-btn-sm danger" onclick="removeConditionBlock('${branch}',${j})" title="${t('btn_delete')}" aria-label="${t('btn_delete')}">${icon('trash', 13)}</button>
     </div>`;
   }).join('');
 }
@@ -4065,9 +4040,9 @@ function openRenpyDialog() {
   document.getElementById('renpy-body').innerHTML = `
     <p class="renpy-msg">${t('renpy_missing_message')}</p>
     <div class="renpy-actions">
-      <button class="btn btn-primary" onclick="installRenpyAutomatically()">⬇️ ${t('renpy_install_auto')}</button>
+      <button class="btn btn-primary" onclick="installRenpyAutomatically()">${icon('export', 15)}${t('renpy_install_auto')}</button>
       <button class="btn btn-secondary" onclick="window.api.openRenpyWebsite()">🌐 ${t('renpy_go_website')}</button>
-      <button class="btn btn-secondary" onclick="selectRenpyExecutableManually()">📂 ${t('renpy_select_existing')}</button>
+      <button class="btn btn-secondary" onclick="selectRenpyExecutableManually()">${icon('folder-open', 15)}${t('renpy_select_existing')}</button>
     </div>
     <div class="np-hint">${t('renpy_install_hint')}</div>
     <div id="renpy-progress" class="renpy-progress" style="display:none;">

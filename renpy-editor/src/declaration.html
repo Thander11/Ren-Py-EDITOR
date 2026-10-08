@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Ren'Py EDITOR — Declaraciones</title>
+  <link rel="stylesheet" href="themes.css">
   <link rel="stylesheet" href="declaration.css">
   <link rel="stylesheet" href="dialog.css">
 </head>
@@ -68,7 +69,7 @@
         <div class="form-hint" data-i18n="sprite_naming_hint">Los sprites se nombran como personaje_tipo_identificación (ej: Ryu_hunter_1).</div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addSpriteIndividual()" data-i18n="add_individual">+ Añadir imagen</button>
-          <button class="btn btn-primary" onclick="addSpriteBatch()" data-i18n="add_batch">📁 Importar carpeta</button>
+          <button class="btn btn-primary" onclick="addSpriteBatch()" data-i18n="add_batch">Importar carpeta</button>
         </div>
       </div>
       <div id="sprite-edit-form" class="form-card" style="display:none;">
@@ -80,7 +81,7 @@
             <label data-i18n="change_image">Cambiar imagen (opcional)</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="se-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectSpriteImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectSpriteImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -113,7 +114,7 @@
         <div class="form-hint" data-i18n="expr_naming_hint">Las expresiones se nombran como personaje_tipo_identificación, con el mismo tipo que los sprites.</div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addExprIndividual()" data-i18n="add_individual">+ Añadir imagen</button>
-          <button class="btn btn-primary" onclick="addExprBatch()" data-i18n="add_batch">📁 Importar carpeta</button>
+          <button class="btn btn-primary" onclick="addExprBatch()" data-i18n="add_batch">Importar carpeta</button>
         </div>
       </div>
       <div id="expr-edit-form" class="form-card" style="display:none;">
@@ -125,7 +126,7 @@
             <label data-i18n="change_image">Cambiar imagen (opcional)</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="ee-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectExprImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectExprImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -151,7 +152,7 @@
             <label data-i18n="select_image">Imagen</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="ba-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectNewBgImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectNewBgImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -169,7 +170,7 @@
             <label data-i18n="change_image">Cambiar imagen (opcional)</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="be-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectBgEditImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectBgEditImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -195,7 +196,7 @@
             <label data-i18n="select_image">Imagen</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="sca-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectNewSceneImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectNewSceneImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -213,7 +214,7 @@
             <label data-i18n="change_image">Cambiar imagen (opcional)</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <span id="sce-file" style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" data-i18n="no_file_selected">Sin archivo</span>
-              <button class="btn btn-secondary" onclick="selectSceneEditImage()" data-i18n="select_file">📂 Elegir</button>
+              <button class="btn btn-secondary" onclick="selectSceneEditImage()" data-i18n="select_file">Elegir</button>
             </div>
           </div>
         </div>
@@ -285,6 +286,7 @@
 
   <div id="notif" class="notification"></div>
   <script src="theme.js"></script>
+  <script src="icons.js"></script>
   <script src="dialog.js"></script>
   <script src="spellcheck.js"></script>
   <script src="sprite-utils.js"></script>
