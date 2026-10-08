@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, shell, session, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -803,6 +803,141 @@ const MEDIA_EXTENSIONS = {
 
 ipcMain.handle('open-main-menu-window', () => {
   createMainMenuWindow();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME SETTINGS — name, version and icons of the game (options.rpy)
+// ═══════════════════════════════════════════════════════════════════
+
+// Value of `define name = "..."` (also inside _("...")), or null
+function readOptionsDefine(text, name) {
+  const m = new RegExp(`^\\s*define\\s+${name.replace(/\./g, '\\.')}\\s*=\\s*(?:_\\(\\s*)?(["'])((?:\\\\.|(?!\\1).)*)\\1`, 'm').exec(text || '');
+  return m ? m[2].replace(/\\(.)/g, '$1') : null;
+}
+
+// Replaces the value of a define, or adds the define at the end when it doesn't exist
+function writeOptionsDefine(text, name, value) {
+  const re = new RegExp(`^(\\s*define\\s+${name.replace(/\./g, '\\.')}\\s*=\\s*).*$`, 'm');
+  if (re.test(text)) return text.replace(re, (_, start) => start + value);
+  return text.replace(/\s*$/, '') + `\n\ndefine ${name} = ${value}\n`;
+}
+
+// Python string literal for a value typed by the user
+function pyString(s) {
+  return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ') + '"';
+}
+
+ipcMain.handle('get-game-info', () => {
+  if (!currentGamePath) return null;
+  const fp = path.join(currentGamePath, 'options.rpy');
+  const text = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf-8') : '';
+  const icon = readOptionsDefine(text, 'config.window_icon') || 'gui/window_icon.png';
+  const base = path.dirname(currentGamePath);
+  return {
+    name: readOptionsDefine(text, 'config.name') || '',
+    version: readOptionsDefine(text, 'config.version') || '',
+    buildName: readOptionsDefine(text, 'build.name') || '',
+    icon,
+    iconExists: fs.existsSync(path.join(currentGamePath, icon)),
+    hasIco: fs.existsSync(path.join(base, 'icon.ico')),
+    hasIcns: fs.existsSync(path.join(base, 'icon.icns'))
+  };
+});
+
+ipcMain.handle('save-game-info', (_, info) => {
+  if (!currentGamePath) return false;
+  const fp = path.join(currentGamePath, 'options.rpy');
+  try {
+    let text = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf-8') : '';
+    // The name stays translatable, like in the options.rpy Ren'Py creates
+    text = writeOptionsDefine(text, 'config.name', `_(${pyString(info.name)})`);
+    text = writeOptionsDefine(text, 'config.version', pyString(info.version));
+    text = writeOptionsDefine(text, 'build.name', pyString(info.buildName));
+    fs.writeFileSync(fp, text, 'utf-8');
+    return true;
+  } catch (e) { return false; }
+});
+
+ipcMain.handle('select-game-icon', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: mt('game_icon_select'),
+    properties: ['openFile'],
+    filters: [{ name: mt('mm_kind_image'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+// Windows .ico with PNG images inside (supported since Windows Vista)
+function buildIco(images) {
+  const header = Buffer.alloc(6 + 16 * images.length);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(images.length, 4);
+  let offset = header.length;
+  images.forEach(({ size, png }, i) => {
+    const e = 6 + 16 * i;
+    header.writeUInt8(size >= 256 ? 0 : size, e);
+    header.writeUInt8(size >= 256 ? 0 : size, e + 1);
+    header.writeUInt8(0, e + 2);
+    header.writeUInt8(0, e + 3);
+    header.writeUInt16LE(1, e + 4);
+    header.writeUInt16LE(32, e + 6);
+    header.writeUInt32LE(png.length, e + 8);
+    header.writeUInt32LE(offset, e + 12);
+    offset += png.length;
+  });
+  return Buffer.concat([header, ...images.map(i => i.png)]);
+}
+
+// Mac .icns with PNG images inside
+function buildIcns(images) {
+  const chunks = images.map(({ type, png }) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii');
+    head.writeUInt32BE(8 + png.length, 4);
+    return Buffer.concat([head, png]);
+  });
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 'ascii');
+  head.writeUInt32BE(8 + chunks.reduce((n, c) => n + c.length, 0), 4);
+  return Buffer.concat([head, ...chunks]);
+}
+
+// The picked image becomes the window icon and the icons of the Windows and Mac builds
+ipcMain.handle('set-game-icon', (_, srcPath) => {
+  if (!currentGamePath || !srcPath) return { ok: false };
+  try {
+    let img = nativeImage.createFromPath(srcPath);
+    if (img.isEmpty()) return { ok: false, error: 'image' };
+    // Icons are square: keep the centre of the image
+    const { width, height } = img.getSize();
+    const side = Math.min(width, height);
+    img = img.crop({ x: Math.floor((width - side) / 2), y: Math.floor((height - side) / 2), width: side, height: side });
+    const png = (size) => img.resize({ width: size, height: size, quality: 'best' }).toPNG();
+
+    const optionsPath = path.join(currentGamePath, 'options.rpy');
+    let options = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf-8') : '';
+    let iconRel = readOptionsDefine(options, 'config.window_icon');
+    if (!iconRel) {
+      iconRel = 'gui/window_icon.png';
+      options = writeOptionsDefine(options, 'config.window_icon', pyString(iconRel));
+      fs.writeFileSync(optionsPath, options, 'utf-8');
+    }
+    const iconPath = path.resolve(currentGamePath, iconRel);
+    if (!iconPath.startsWith(path.resolve(currentGamePath))) return { ok: false };
+    fs.mkdirSync(path.dirname(iconPath), { recursive: true });
+    fs.writeFileSync(iconPath, png(256));
+
+    // Ren'Py takes icon.ico and icon.icns from the project folder (the parent of game/)
+    const base = path.dirname(currentGamePath);
+    fs.writeFileSync(path.join(base, 'icon.ico'), buildIco([16, 24, 32, 48, 64, 128, 256].map(size => ({ size, png: png(size) }))));
+    fs.writeFileSync(path.join(base, 'icon.icns'), buildIcns([
+      { type: 'icp4', png: png(16) }, { type: 'icp5', png: png(32) }, { type: 'icp6', png: png(64) },
+      { type: 'ic07', png: png(128) }, { type: 'ic08', png: png(256) }, { type: 'ic09', png: png(512) }
+    ]));
+    return { ok: true, small: side < 512 };
+  } catch (e) { return { ok: false, error: e.message }; }
 });
 
 // ── Pick a media file of the given kind (image, gif, video, font) ──

@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld('api', {
   listImagesInDir: (relDir) => ipcRenderer.invoke('list-images-in-dir', relDir),
   getGamePath: () => ipcRenderer.invoke('get-game-path'),
 
+  // Game settings: name, version and icons
+  getGameInfo: () => ipcRenderer.invoke('get-game-info'),
+  saveGameInfo: (info) => ipcRenderer.invoke('save-game-info', info),
+  selectGameIcon: () => ipcRenderer.invoke('select-game-icon'),
+  setGameIcon: (srcPath) => ipcRenderer.invoke('set-game-icon', srcPath),
+
   // Declaration window
   openDeclarationWindow: () => ipcRenderer.invoke('open-declaration-window'),
 
