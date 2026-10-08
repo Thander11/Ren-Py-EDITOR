@@ -30,7 +30,9 @@ const data = {
   positions: [],
   expressions: [],   // { charId, key, path }[]
   labels: [],
-  audioFiles: []
+  audioFiles: [],
+  positionAligns: {},  // { name: { x, y } } from Position(...) defines
+  resolution: { width: 1920, height: 1080 }
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -259,7 +261,11 @@ async function openProjectFolder() {
 async function loadProjectData() {
   data.characters = []; data.backgrounds = []; data.animations = [];
   data.positions = []; data.expressions = []; data.labels = []; data.scenes = [];
-  data.audioFiles = [];
+  data.audioFiles = []; data.positionAligns = {};
+  data.resolution = { width: 1920, height: 1080 };
+
+  const guiText = await window.api.readFile('gui.rpy');
+  if (guiText) parseResolution(guiText);
 
   const personajesText = await window.api.readFile('characters.rpy');
   const fondosText     = await window.api.readFile('backgrounds.rpy');
@@ -283,6 +289,8 @@ async function loadProjectData() {
 
   // RPY files
   rpyFiles = await window.api.listRpyFiles();
+
+  checkGuiImages();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -296,7 +304,10 @@ function parsePersonajes(text) {
   let m;
   while ((m = defineRe.exec(text)) !== null) {
     const id = m[1], name = m[2], imageAttr = m[3] || '';
-    if (!chars[id]) { chars[id] = { id, displayName: name, imageAttr, images: [] }; charOrder.push(id); }
+    const lineEnd = text.indexOf('\n', m.index);
+    const colorMatch = /color\s*=\s*"([^"]+)"/.exec(text.slice(m.index, lineEnd < 0 ? undefined : lineEnd));
+    const color = colorMatch ? colorMatch[1] : '';
+    if (!chars[id]) { chars[id] = { id, displayName: name, imageAttr, color, images: [] }; charOrder.push(id); }
   }
 
   const imageRe = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
@@ -337,6 +348,22 @@ function parsePositions(text) {
   const re = /^define\s+(\w+)\s*=/gm;
   let m;
   while ((m = re.exec(text)) !== null) data.positions.push(m[1]);
+
+  // Alignment of each Position(...) define, used by the scene preview
+  const posRe = /^define\s+(\w+)\s*=\s*Position\s*\(([^)]*)\)/gm;
+  while ((m = posRe.exec(text)) !== null) {
+    const x = /xalign\s*=\s*([\d.]+)/.exec(m[2]);
+    const y = /yalign\s*=\s*([\d.]+)/.exec(m[2]);
+    data.positionAligns[m[1]] = { x: x ? parseFloat(x[1]) : 0.5, y: y ? parseFloat(y[1]) : 1.0 };
+  }
+}
+
+// Game resolution from gui.rpy: gui.init(1920, 1080)
+function parseResolution(text) {
+  const m = /gui\.init\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/.exec(text);
+  if (m) data.resolution = { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
+  const accent = /define\s+gui\.accent_color\s*=\s*['"]([^'"]+)['"]/.exec(text);
+  data.guiAccent = accent ? accent[1] : '';
 }
 
 function parseExpresiones(text) {
@@ -375,6 +402,190 @@ function getGameFileURL(relativePath) {
     return encodeURIComponent(s);
   }).join('/');
   return 'file:///' + encoded;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCENE PREVIEW — the stage as it looks after the selected block
+// ═══════════════════════════════════════════════════════════════════
+let previewIndex = -1;  // selected block; -1 = the last one
+const guiImages = { textbox: false, choice: false };
+
+// Ren'Py's built-in positions as { xalign, yalign }
+const BUILTIN_POSITIONS = {
+  left: { x: 0.0, y: 1.0 }, right: { x: 1.0, y: 1.0 }, center: { x: 0.5, y: 1.0 },
+  truecenter: { x: 0.5, y: 0.5 }, top: { x: 0.5, y: 0.0 },
+  topleft: { x: 0.0, y: 0.0 }, topright: { x: 1.0, y: 0.0 }
+};
+
+function previewBlockIndex() {
+  return previewIndex >= 0 && previewIndex < blocks.length ? previewIndex : blocks.length - 1;
+}
+
+function selectPreviewBlock(i) {
+  previewIndex = i;
+  document.querySelectorAll('#block-list > .block').forEach((el, j) => {
+    el.classList.toggle('preview-selected', j === i);
+  });
+  updateScenePreview();
+}
+
+// The textbox and choice images of the project's GUI, when it has them
+function checkGuiImages() {
+  for (const [name, path] of [['textbox', 'gui/textbox.png'], ['choice', 'gui/button/choice_idle_background.png']]) {
+    guiImages[name] = false;
+    const img = new Image();
+    img.onload = () => { guiImages[name] = true; updateScenePreview(); };
+    img.src = getGameFileURL(path);
+  }
+}
+
+function findImagePath(key) {
+  for (const list of [data.backgrounds, data.scenes]) {
+    const found = list.find(x => x.key === key);
+    if (found) return found.path;
+  }
+  for (const c of data.characters) {
+    const found = c.images.find(x => x.key === key);
+    if (found) return found.path;
+  }
+  return null;
+}
+
+// Shown images are identified by their tag (first word of the name), like in Ren'Py
+function previewShowLayer(st, sp) {
+  const tag = (sp.image || '').split(' ')[0];
+  if (!tag) return;
+  const layer = { tag, key: sp.image, position: sp.position, flipH: sp.flipH, blur: sp.blur };
+  const current = st.layers.findIndex(l => l.tag === tag);
+  if (current >= 0) { st.layers[current] = layer; return; }
+  const behind = sp.behind ? st.layers.findIndex(l => l.tag === sp.behind) : -1;
+  if (behind >= 0) st.layers.splice(behind, 0, layer);
+  else st.layers.push(layer);
+}
+
+function previewHideLayer(st, image) {
+  const tag = (image || '').split(' ')[0];
+  st.layers = st.layers.filter(l => l.tag !== tag);
+}
+
+// Stage after running the top-level blocks up to and including `upTo`
+function computeSceneState(upTo) {
+  const st = { background: null, layers: [], say: null, menu: null, music: '' };
+  for (let i = 0; i <= upTo && i < blocks.length; i++) {
+    const b = blocks[i];
+    st.say = null;
+    st.menu = null;
+    switch (b.type) {
+      case 'scene':
+        st.background = { key: b.background, blur: b.blur };
+        st.layers = [];
+        break;
+      case 'show':       previewShowLayer(st, b); break;
+      case 'show_multi': (b.sprites || []).forEach(sp => previewShowLayer(st, sp)); break;
+      case 'hide':       previewHideLayer(st, b.image); break;
+      case 'hide_multi': (b.sprites || []).forEach(sp => previewHideLayer(st, sp.image)); break;
+      case 'solid': {
+        const layer = { tag: b.name, color: b.color };
+        const current = st.layers.findIndex(l => l.tag === b.name);
+        if (current >= 0) st.layers[current] = layer; else st.layers.push(layer);
+        break;
+      }
+      case 'dialogue':
+        st.say = {
+          charId: b.character, text: b.text, thought: b.thought,
+          expression: b.expression, exprTag: b.exprTag || getExpressionCharId(b.character)
+        };
+        break;
+      case 'narration': st.say = { text: b.text }; break;
+      case 'menu':      st.menu = (b.choices || []).map(c => c.text); break;
+      case 'music':     st.music = b.action === 'stop' ? '' : (b.file || ''); break;
+    }
+  }
+  return st;
+}
+
+// Text without Ren'Py text tags like {i} or {color=...}
+function stripTextTags(s) {
+  return (s || '').replace(/\{\/?[a-z]+[^}]*\}/gi, '');
+}
+
+// Images that are not declared or fail to load become a labelled placeholder
+function previewImageHtml(key, path, style, cls) {
+  return path
+    ? `<img class="${cls}" src="${getImageURL(path)}" style="${style}" data-key="${escHtml(key)}" onerror="previewImageError(this)">`
+    : `<div class="sp-missing ${cls}-missing">${escHtml(key)}</div>`;
+}
+
+function previewImageError(img) {
+  const ph = document.createElement('div');
+  ph.className = `sp-missing ${img.className}-missing`;
+  ph.textContent = img.dataset.key;
+  img.replaceWith(ph);
+}
+
+function updateScenePreview() {
+  const box = document.getElementById('scene-preview');
+  const info = document.getElementById('scene-preview-info');
+  if (!box) return;
+  const { width: W, height: H } = data.resolution;
+  box.style.aspectRatio = `${W} / ${H}`;
+  if (!gamePath || !blocks.length) {
+    box.innerHTML = `<div class="sp-empty">${t(gamePath ? 'scene_preview_empty' : 'open_folder_hint')}</div>`;
+    info.textContent = '';
+    return;
+  }
+
+  const idx = previewBlockIndex();
+  const st = computeSceneState(idx);
+  const u = W / 1920;  // GUI sizes below are Ren'Py's defaults at 1920x1080
+  let html = '';
+
+  if (st.background) {
+    const blur = st.background.blur ? 'filter:blur(8px);' : '';
+    html += previewImageHtml(st.background.key, findImagePath(st.background.key), blur, 'sp-bg');
+  }
+
+  for (const l of st.layers) {
+    if (l.color) { html += `<div class="sp-solid" style="background:${escHtml(l.color)}"></div>`; continue; }
+    const pos = data.positionAligns[l.position] || BUILTIN_POSITIONS[l.position] || BUILTIN_POSITIONS.center;
+    const imgStyle = (l.flipH ? 'transform:scaleX(-1);' : '') + (l.blur ? 'filter:blur(8px);' : '');
+    html += `<div class="sp-sprite" style="left:${pos.x * 100}%;top:${pos.y * 100}%;transform:translate(-${pos.x * 100}%,-${pos.y * 100}%)">
+      ${previewImageHtml(l.key, findImagePath(l.key), imgStyle, 'sp-sprite-img')}
+    </div>`;
+  }
+
+  if (st.say) {
+    const chr = st.say.charId ? data.characters.find(c => c.id === st.say.charId) : null;
+    const name = chr ? chr.displayName : (st.say.charId || '');
+    const nameColor = (chr && chr.color) || data.guiAccent || '#ffffff';
+    const text = escHtml(stripTextTags(st.say.text));
+    const bg = guiImages.textbox ? `background-image:url('${getGameFileURL('gui/textbox.png')}');` : 'background-color:rgba(0,0,0,.6);';
+    html += `<div class="sp-textbox" style="height:${278 * u}px;${bg}">
+      ${name ? `<div class="sp-name" style="left:${360 * u}px;top:${3 * u}px;font-size:${45 * u}px;color:${escHtml(nameColor)}">${escHtml(name)}</div>` : ''}
+      <div class="sp-text" style="left:${402 * u}px;top:${75 * u}px;width:${1116 * u}px;font-size:${33 * u}px;${st.say.thought ? 'font-style:italic;' : ''}">${st.say.thought ? `&lt;&lt;${text}&gt;&gt;` : text}</div>
+    </div>`;
+    if (st.say.expression) {
+      const side = data.expressions.find(e => e.charId === st.say.exprTag && e.key === st.say.expression);
+      if (side) html += `<img class="sp-side" src="${getImageURL(side.path)}" onerror="this.style.display='none'">`;
+    }
+  }
+
+  if (st.menu) {
+    const bg = guiImages.choice ? `background-image:url('${getGameFileURL('gui/button/choice_idle_background.png')}');` : 'background-color:rgba(0,0,0,.6);';
+    html += `<div class="sp-menu" style="gap:${33 * u}px">${st.menu.map(c =>
+      `<div class="sp-choice" style="width:${1185 * u}px;font-size:${33 * u}px;padding:${8 * u}px 0;${bg}">${escHtml(stripTextTags(c))}</div>`).join('')}</div>`;
+  }
+
+  box.innerHTML = `<div class="sp-stage" style="width:${W}px;height:${H}px">${html}</div>`;
+  scaleScenePreview();
+  info.textContent = t('scene_preview_block', idx + 1, blocks.length) + (st.music ? ' · ' + t('scene_preview_music', st.music) : '');
+}
+
+// The stage is drawn at the game's resolution and scaled to fit the panel
+function scaleScenePreview() {
+  const box = document.getElementById('scene-preview');
+  const stage = box && box.querySelector('.sp-stage');
+  if (stage) stage.style.transform = `scale(${box.clientWidth / data.resolution.width})`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -573,11 +784,13 @@ function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : (s 
 
 function renderBlocks() {
   const list = document.getElementById('block-list');
-  if (!blocks.length) { list.innerHTML = ''; return; }
+  if (!blocks.length) { list.innerHTML = ''; updateScenePreview(); return; }
+  const selected = previewBlockIndex();
   list.innerHTML = blocks.map((b, i) => {
     const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
     const label = t(meta.labelKey);
-    return `<div class="block type-${b.type}" id="block-${i}" draggable="true"
+    return `<div class="block type-${b.type}${i === selected ? ' preview-selected' : ''}" id="block-${i}" draggable="true"
+      onclick="selectPreviewBlock(${i})"
       ondragstart="onBlockDragStart(event,${i})" ondragend="onBlockDragEnd(event)"
       ondragover="onBlockDragOver(event,${i})" ondragleave="onBlockDragLeave(event)"
       ondrop="onBlockDrop(event,${i})">
@@ -594,6 +807,7 @@ function renderBlocks() {
       </div>
     </div>`;
   }).join('');
+  updateScenePreview();
 }
 
 // ── Drag & Drop ──
@@ -4206,6 +4420,7 @@ function notify(msg, type = 'ok') {
   initSpellcheckSettings(s);
   renderBlocks();
   updateCodePreview();
+  new ResizeObserver(scaleScenePreview).observe(document.getElementById('scene-preview'));
 
   window.api.onRenpyInstallProgress(onRenpyInstallProgress);
 
