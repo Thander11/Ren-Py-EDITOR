@@ -402,6 +402,7 @@ function previewBlockIndex() {
 }
 
 function selectPreviewBlock(i) {
+  if (previewIndex === i && document.getElementById('block-' + i)?.classList.contains('preview-selected')) return;
   previewIndex = i;
   document.querySelectorAll('#block-list > .block').forEach((el, j) => {
     el.classList.toggle('preview-selected', j === i);
@@ -683,13 +684,44 @@ async function confirmDeleteBlock(b) {
 async function deleteBlock(idx) {
   if (!await confirmDeleteBlock(blocks[idx])) return;
   blocks.splice(idx, 1);
+  // The selection stays on the block that takes the deleted one's place
+  if (previewIndex > idx) previewIndex--;
+  if (previewIndex >= blocks.length) previewIndex = blocks.length - 1;
   renderBlocks(); updateCodePreview();
 }
 
 function duplicateBlock(idx) {
   const clone = JSON.parse(JSON.stringify(blocks[idx]));
   blocks.splice(idx + 1, 0, clone);
+  previewIndex = idx + 1;
   renderBlocks(); updateCodePreview();
+}
+
+// Moves a block one place up (-1) or down (+1), keeping it selected
+function moveBlock(idx, dir) {
+  const to = idx + dir;
+  if (to < 0 || to >= blocks.length) return;
+  [blocks[idx], blocks[to]] = [blocks[to], blocks[idx]];
+  previewIndex = to;
+  renderBlocks(); updateCodePreview();
+  document.getElementById('block-' + to)?.focus();
+}
+
+function onBlockKeydown(e, idx) {
+  if (e.target !== e.currentTarget) return;  // keys pressed on its buttons
+  if (e.key === 'Enter') { e.preventDefault(); editBlock(idx); }
+  else if (e.key === 'Delete') { e.preventDefault(); deleteBlock(idx); }
+  else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    moveBlock(idx, e.key === 'ArrowUp' ? -1 : 1);
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = idx + (e.key === 'ArrowUp' ? -1 : 1);
+    if (next >= 0 && next < blocks.length) {
+      selectPreviewBlock(next);
+      document.getElementById('block-' + next).focus();
+    }
+  }
 }
 
 function duplicateBlockToEnd(idx) {
@@ -700,6 +732,7 @@ function duplicateBlockToEnd(idx) {
   } else {
     blocks.push(clone);
   }
+  previewIndex = blocks.indexOf(clone);
   renderBlocks(); updateCodePreview();
   document.getElementById('block-list').scrollTop = document.getElementById('block-list').scrollHeight;
 }
@@ -712,24 +745,25 @@ async function clearAllBlocks() {
 // ═══════════════════════════════════════════════════════════════════
 // BLOCK RENDER
 // ═══════════════════════════════════════════════════════════════════
+// cat: text / scene / flow / audio / advanced, the groups of the block palette
 const BLOCK_META = {
-  narration:  { icon: icon('narration'), labelKey: 'block_narration',     color: '#9aa5b8' },
-  dialogue:   { icon: icon('dialogue'), labelKey: 'block_dialogue',       color: '#4ecdc4' },
-  show:       { icon: icon('show'), labelKey: 'block_show',           color: '#56c596' },
-  show_multi: { icon: icon('show_multi'), labelKey: 'block_show_multi',     color: '#2ecc71' },
-  hide:       { icon: icon('hide'), labelKey: 'block_hide',           color: '#f5a623' },
-  hide_multi: { icon: icon('hide_multi'), labelKey: 'block_hide_multi',     color: '#e67e22' },
-  scene:      { icon: icon('scene'), labelKey: 'block_scene',          color: '#9c59d1' },
-  solid:      { icon: icon('solid'), labelKey: 'block_solid',          color: '#5d6d7e' },
-  label:      { icon: icon('label'), labelKey: 'block_label',         color: '#e94560' },
-  menu:       { icon: icon('menu'), labelKey: 'block_menu',            color: '#e67e22' },
-  condition:  { icon: icon('condition'), labelKey: 'block_condition',       color: '#8e7cc3' },
-  pause:      { icon: icon('pause'), labelKey: 'block_pause',         color: '#6b7a96' },
-  music:      { icon: icon('music'), labelKey: 'block_music',          color: '#3498db' },
-  jump:       { icon: icon('jump'), labelKey: 'block_jump',           color: '#f5a623' },
-  call:       { icon: icon('call'), labelKey: 'block_call',           color: '#9b59b6' },
-  comment:    { icon: icon('comment'), labelKey: 'block_comment',        color: '#6b7a96' },
-  custom:     { icon: icon('custom'), labelKey: 'block_custom',         color: '#2d3f62' },
+  narration:  { icon: icon('narration'), labelKey: 'block_narration', cat: 'text' },
+  dialogue:   { icon: icon('dialogue'), labelKey: 'block_dialogue', cat: 'text' },
+  show:       { icon: icon('show'), labelKey: 'block_show', cat: 'scene' },
+  show_multi: { icon: icon('show_multi'), labelKey: 'block_show_multi', cat: 'scene' },
+  hide:       { icon: icon('hide'), labelKey: 'block_hide', cat: 'scene' },
+  hide_multi: { icon: icon('hide_multi'), labelKey: 'block_hide_multi', cat: 'scene' },
+  scene:      { icon: icon('scene'), labelKey: 'block_scene', cat: 'scene' },
+  solid:      { icon: icon('solid'), labelKey: 'block_solid', cat: 'scene' },
+  label:      { icon: icon('label'), labelKey: 'block_label', cat: 'flow' },
+  menu:       { icon: icon('menu'), labelKey: 'block_menu', cat: 'flow' },
+  condition:  { icon: icon('condition'), labelKey: 'block_condition', cat: 'flow' },
+  pause:      { icon: icon('pause'), labelKey: 'block_pause', cat: 'flow' },
+  music:      { icon: icon('music'), labelKey: 'block_music', cat: 'audio' },
+  jump:       { icon: icon('jump'), labelKey: 'block_jump', cat: 'flow' },
+  call:       { icon: icon('call'), labelKey: 'block_call', cat: 'flow' },
+  comment:    { icon: icon('comment'), labelKey: 'block_comment', cat: 'advanced' },
+  custom:     { icon: icon('custom'), labelKey: 'block_custom', cat: 'advanced' },
 };
 
 function blockDesc(b) {
@@ -765,26 +799,37 @@ function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : (s 
 
 function renderBlocks() {
   const list = document.getElementById('block-list');
-  if (!blocks.length) { list.innerHTML = ''; updateScenePreview(); return; }
+  if (!blocks.length) {
+    list.innerHTML = `<div class="block-list-empty">${t(gamePath ? 'block_list_empty' : 'open_folder_hint')}</div>`;
+    updateScenePreview();
+    return;
+  }
   const selected = previewBlockIndex();
+  // Every block has its actions; only the selected one shows them
+  const action = (fn, iconName, key, extra = '') =>
+    `<button class="block-btn${extra}" onclick="event.stopPropagation(); ${fn}" title="${t(key)}">${icon(iconName, 14)}<span>${t(key)}</span></button>`;
   list.innerHTML = blocks.map((b, i) => {
-    const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
-    const label = t(meta.labelKey);
-    return `<div class="block type-${b.type}${i === selected ? ' preview-selected' : ''}" id="block-${i}" draggable="true"
-      onclick="selectPreviewBlock(${i})"
+    const meta = BLOCK_META[b.type] || { icon: '', labelKey: b.type, cat: 'advanced' };
+    return `<div class="block cat-${meta.cat}${i === selected ? ' preview-selected' : ''}" id="block-${i}" draggable="true" tabindex="0"
+      onclick="selectPreviewBlock(${i})" ondblclick="editBlock(${i})" onkeydown="onBlockKeydown(event, ${i})"
       ondragstart="onBlockDragStart(event,${i})" ondragend="onBlockDragEnd(event)"
       ondragover="onBlockDragOver(event,${i})" ondragleave="onBlockDragLeave(event)"
       ondrop="onBlockDrop(event,${i})">
-      <div class="block-icon">${meta.icon}</div>
-      <div class="block-content">
-        <div class="block-title">${label}</div>
-        <div class="block-desc">${escHtml(blockDesc(b))}</div>
+      <div class="block-main">
+        <span class="block-icon">${meta.icon}</span>
+        <div class="block-content">
+          <div class="block-title">${t(meta.labelKey)}</div>
+          <div class="block-desc">${escHtml(blockDesc(b))}</div>
+        </div>
+        <span class="block-num">${i + 1}</span>
       </div>
-      <div class="block-actions">
-        <button class="block-btn" onclick="duplicateBlock(${i})" title="${t('btn_duplicate')}">${icon('copy', 14)}${t('btn_duplicate')}</button>
-        <button class="block-btn" onclick="duplicateBlockToEnd(${i})" title="${t('btn_duplicate_end')}">${icon('copy-end', 14)}${t('btn_duplicate_end')}</button>
-        <button class="block-btn" onclick="editBlock(${i})" title="${t('btn_edit')}">${icon('edit', 14)}${t('btn_edit')}</button>
-        <button class="block-btn danger" onclick="deleteBlock(${i})" title="${t('btn_delete')}">${icon('trash', 14)}${t('btn_delete')}</button>
+      <div class="block-actions" role="toolbar" aria-label="${t('block_actions')}">
+        ${action(`editBlock(${i})`, 'edit', 'btn_edit', ' strong')}
+        ${action(`duplicateBlock(${i})`, 'copy', 'btn_duplicate')}
+        ${action(`duplicateBlockToEnd(${i})`, 'copy-end', 'btn_duplicate_end')}
+        ${action(`moveBlock(${i}, -1)`, 'arrow-up', 'btn_move_up')}
+        ${action(`moveBlock(${i}, 1)`, 'arrow-down', 'btn_move_down')}
+        ${action(`deleteBlock(${i})`, 'trash', 'btn_delete', ' danger')}
       </div>
     </div>`;
   }).join('');
@@ -817,6 +862,7 @@ function onBlockDrop(e, targetIdx) {
   if (dragSrcIndex === null || dragSrcIndex === targetIdx) return;
   const [moved] = blocks.splice(dragSrcIndex, 1);
   blocks.splice(targetIdx, 0, moved);
+  previewIndex = targetIdx;
   dragSrcIndex = null;
   renderBlocks(); updateCodePreview();
 }
@@ -2926,7 +2972,7 @@ function renderChoiceBlocks(i) {
   }
   list.innerHTML = bArr.map((b, j) => {
     const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
-    return `<div class="inner-block" style="border-left-color:${meta.color || 'var(--border)'};" draggable="true"
+    return `<div class="inner-block cat-${meta.cat || 'advanced'}" draggable="true"
       ondragstart="onInnerDragStart(event,'choice-${i}',${j})" ondragend="onInnerDragEnd(event)"
       ondragover="onInnerDragOver(event,'choice-${i}',${j})" ondragleave="onInnerDragLeave(event)"
       ondrop="onInnerDrop(event,'choice-${i}',${j})">
@@ -3263,7 +3309,7 @@ function renderConditionBlocks(branch = 'then') {
   }
   list.innerHTML = bArr.map((b, j) => {
     const meta = BLOCK_META[b.type] || { icon: '?', labelKey: b.type };
-    return `<div class="inner-block" style="border-left-color:${meta.color || 'var(--border)'};" draggable="true"
+    return `<div class="inner-block cat-${meta.cat || 'advanced'}" draggable="true"
       ondragstart="onInnerDragStart(event,'cond-${branch}',${j})" ondragend="onInnerDragEnd(event)"
       ondragover="onInnerDragOver(event,'cond-${branch}',${j})" ondragleave="onInnerDragLeave(event)"
       ondrop="onInnerDrop(event,'cond-${branch}',${j})">
@@ -3505,12 +3551,17 @@ async function saveBlock() {
 
   if (editingIndex >= 0) {
     blocks[editingIndex] = b;
+  } else if (previewIndex >= 0 && previewIndex < blocks.length - 1) {
+    blocks.splice(previewIndex + 1, 0, b);
+    previewIndex++;
   } else {
     const last = blocks[blocks.length - 1];
     if (last && last.type === 'custom' && last.code.trim() === 'return') {
       blocks.splice(blocks.length - 1, 0, b);
+      previewIndex = blocks.length - 2;
     } else {
       blocks.push(b);
+      previewIndex = -1;
     }
   }
 
@@ -4334,16 +4385,17 @@ function notify(msg, type = 'ok') {
 // ═══════════════════════════════════════════════════════════════════
 // PANEL VISIBILITY — each user chooses which panels to keep on screen
 // ═══════════════════════════════════════════════════════════════════
-let panelVisibility = { files: true, preview: true, code: true };
+let panelVisibility = { files: true, palette: true, preview: true, code: true };
 
 function applyPanelVisibility() {
-  const { files, preview, code } = panelVisibility;
+  const { files, palette, preview, code } = panelVisibility;
   document.getElementById('panel-assets').classList.toggle('hidden-panel', !files);
+  document.getElementById('block-palette').classList.toggle('hidden-panel', !palette);
   const panelCode = document.getElementById('panel-code');
   panelCode.classList.toggle('preview-hidden', !preview);
   panelCode.classList.toggle('code-hidden', !code);
   panelCode.classList.toggle('hidden-panel', !preview && !code);
-  for (const name of ['files', 'preview', 'code']) {
+  for (const name of ['files', 'palette', 'preview', 'code']) {
     document.getElementById('toggle-panel-' + name).checked = panelVisibility[name];
   }
 }

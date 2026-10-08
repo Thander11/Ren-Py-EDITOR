@@ -51,6 +51,7 @@
         <button class="btn btn-secondary" id="panel-menu-btn" onclick="togglePanelMenu()" aria-haspopup="true" aria-expanded="false" aria-controls="panel-menu"><span class="icon" data-icon="panels" data-icon-size="15"></span><span data-i18n="panels_show">Mostrar</span><span class="icon" data-icon="chevron-down" data-icon-size="13"></span></button>
         <div id="panel-menu" hidden>
           <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-files" onchange="setPanelVisible('files', this.checked)"><span data-i18n="panel_files">Archivos</span></label>
+          <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-palette" onchange="setPanelVisible('palette', this.checked)"><span data-i18n="panel_palette">Bloques</span></label>
           <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-preview" onchange="setPanelVisible('preview', this.checked)"><span data-i18n="panel_preview">Vista previa</span></label>
           <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-code" onchange="setPanelVisible('code', this.checked)"><span data-i18n="panel_code">Código</span></label>
         </div>
@@ -115,25 +116,41 @@
 
     <!-- Center Panel: Block Builder -->
     <div id="panel-builder">
-      <div id="toolbar">
-        <button class="toolbar-btn" onclick="addBlock('narration')" data-i18n="block_narration">📝 Narración</button>
-        <button class="toolbar-btn" onclick="addBlock('dialogue')" data-i18n="block_dialogue">💬 Diálogo</button>
-        <button class="toolbar-btn" onclick="addBlock('show')" data-i18n="block_show">👤 Mostrar sprite</button>
-        <button class="toolbar-btn" onclick="addBlock('show_multi')" data-i18n="block_show_multi">👥 Mostrar varios</button>
-        <button class="toolbar-btn" onclick="addBlock('hide')" data-i18n="block_hide">🫥 Ocultar sprite</button>
-        <button class="toolbar-btn" onclick="addBlock('hide_multi')" data-i18n="block_hide_multi">🫧 Ocultar varios</button>
-        <button class="toolbar-btn" onclick="addBlock('scene')" data-i18n="block_scene">🌄 Cambio escena</button>
-        <button class="toolbar-btn" onclick="addBlock('solid')" data-i18n="block_solid">🎨 Solid</button>
-        <button class="toolbar-btn" onclick="addBlock('label')">📌 Label</button>
-        <button class="toolbar-btn" onclick="addBlock('menu')" data-i18n="block_menu">❓ Decisión</button>
-        <button class="toolbar-btn" onclick="addBlock('condition')" data-i18n="block_condition">🔀 Condición</button>
-        <button class="toolbar-btn" onclick="addBlock('pause')" data-i18n="block_pause">⏸️ Pausa</button>
-        <button class="toolbar-btn" onclick="addBlock('music')" data-i18n="block_music">🎵 Música</button>
-        <button class="toolbar-btn" onclick="addBlock('jump')" data-i18n="block_jump">↪️ Jump</button>
-        <button class="toolbar-btn" onclick="addBlock('call')" data-i18n="block_call">📞 Call</button>
-        <button class="toolbar-btn" onclick="addBlock('comment')" data-i18n="block_comment">💭 Comentario</button>
-        <button class="toolbar-btn" onclick="addBlock('custom')" data-i18n="block_custom">📋 Código libre</button>
-      </div>
+      <aside id="block-palette" data-i18n-aria="palette_title" aria-label="Añadir bloque">
+        <div class="palette-title" data-i18n="palette_title">Añadir bloque</div>
+        <div class="palette-group cat-text">
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_text">Texto</span></div>
+          <button class="palette-btn" onclick="addBlock('dialogue')"><span class="icon" data-icon="dialogue"></span><span data-i18n="block_dialogue">Diálogo</span></button>
+          <button class="palette-btn" onclick="addBlock('narration')"><span class="icon" data-icon="narration"></span><span data-i18n="block_narration">Narración</span></button>
+        </div>
+        <div class="palette-group cat-scene">
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_scene">Escena</span></div>
+          <button class="palette-btn" onclick="addBlock('scene')"><span class="icon" data-icon="scene"></span><span data-i18n="block_scene">Cambio de escena</span></button>
+          <button class="palette-btn" onclick="addBlock('show')"><span class="icon" data-icon="show"></span><span data-i18n="block_show">Mostrar sprite</span></button>
+          <button class="palette-btn" onclick="addBlock('show_multi')"><span class="icon" data-icon="show_multi"></span><span data-i18n="block_show_multi">Mostrar varios</span></button>
+          <button class="palette-btn" onclick="addBlock('hide')"><span class="icon" data-icon="hide"></span><span data-i18n="block_hide">Ocultar sprite</span></button>
+          <button class="palette-btn" onclick="addBlock('hide_multi')"><span class="icon" data-icon="hide_multi"></span><span data-i18n="block_hide_multi">Ocultar varios</span></button>
+          <button class="palette-btn" onclick="addBlock('solid')"><span class="icon" data-icon="solid"></span><span data-i18n="block_solid">Solid</span></button>
+        </div>
+        <div class="palette-group cat-flow">
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_flow">Flujo</span></div>
+          <button class="palette-btn" onclick="addBlock('menu')"><span class="icon" data-icon="menu"></span><span data-i18n="block_menu">Decisión</span></button>
+          <button class="palette-btn" onclick="addBlock('condition')"><span class="icon" data-icon="condition"></span><span data-i18n="block_condition">Condición</span></button>
+          <button class="palette-btn" onclick="addBlock('jump')"><span class="icon" data-icon="jump"></span><span data-i18n="block_jump">Jump</span></button>
+          <button class="palette-btn" onclick="addBlock('call')"><span class="icon" data-icon="call"></span><span data-i18n="block_call">Call</span></button>
+          <button class="palette-btn" onclick="addBlock('label')"><span class="icon" data-icon="label"></span><span data-i18n="block_label">Etiqueta</span></button>
+          <button class="palette-btn" onclick="addBlock('pause')"><span class="icon" data-icon="pause"></span><span data-i18n="block_pause">Pausa</span></button>
+        </div>
+        <div class="palette-group cat-audio">
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_audio">Audio</span></div>
+          <button class="palette-btn" onclick="addBlock('music')"><span class="icon" data-icon="music"></span><span data-i18n="block_music">Música</span></button>
+        </div>
+        <div class="palette-group cat-advanced">
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_advanced">Avanzado</span></div>
+          <button class="palette-btn" onclick="addBlock('comment')"><span class="icon" data-icon="comment"></span><span data-i18n="block_comment">Comentario</span></button>
+          <button class="palette-btn" onclick="addBlock('custom')"><span class="icon" data-icon="custom"></span><span data-i18n="block_custom">Código libre</span></button>
+        </div>
+      </aside>
       <div id="block-list"></div>
     </div>
 
