@@ -177,6 +177,35 @@
     </div>
   </div>
 
+    <!-- Story map -->
+    <section id="map-overlay" aria-labelledby="map-title">
+      <div id="map-header">
+        <span id="map-title" data-i18n="map_title">Mapa de la historia</span>
+        <div id="map-legend">
+          <span class="map-legend-item"><span class="map-legend-line"></span><span data-i18n="map_legend_jump">Salto (jump)</span></span>
+          <span class="map-legend-item"><span class="map-legend-line call"></span><span data-i18n="map_legend_call">Llamada (call)</span></span>
+          <span class="map-legend-item"><span class="map-legend-line choice"></span><span data-i18n="map_legend_choice">Decisión</span></span>
+        </div>
+        <div class="map-zoom">
+          <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom / 1.2)"><span class="icon" data-icon="zoom-out" data-icon-size="14"></span><span data-i18n="map_zoom_out">Alejar</span></button>
+          <span id="map-zoom-value">100%</span>
+          <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom * 1.2)"><span class="icon" data-icon="zoom-in" data-icon-size="14"></span><span data-i18n="map_zoom_in">Acercar</span></button>
+          <button class="btn btn-secondary btn-sm" onclick="fitStoryMap()"><span class="icon" data-icon="fit" data-icon-size="14"></span><span data-i18n="map_fit">Ajustar</span></button>
+        </div>
+      </div>
+      <div id="map-body">
+        <div id="map-canvas">
+          <div id="map-inner"></div>
+        </div>
+        <aside id="map-side">
+          <div class="map-tabs" role="tablist">
+            <button role="tab" id="map-tab-scene" aria-selected="true" onclick="setMapTab('scene')" data-i18n="map_tab_scene">Escena</button>
+            <button role="tab" id="map-tab-vars" aria-selected="false" onclick="setMapTab('vars')" data-i18n="map_tab_vars">Variables</button>
+          </div>
+          <div id="map-details"></div>
+        </aside>
+      </div>
+    </section>
   </div><!-- #workspace -->
   </div><!-- #app -->
 
@@ -230,37 +259,6 @@
         <button class="btn btn-secondary" onclick="resetCustomTheme()" data-i18n="custom_theme_reset">Restablecer colores</button>
         <button class="btn btn-primary" onclick="closeCustomThemeEditor()" data-i18n="custom_theme_done">Listo</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Story map -->
-  <div id="map-overlay" role="dialog" aria-modal="true" aria-labelledby="map-title">
-    <div id="map-header">
-      <span id="map-title" data-i18n="map_title">Mapa de la historia</span>
-      <div id="map-legend">
-        <span class="map-legend-item"><span class="map-legend-line"></span><span data-i18n="map_legend_jump">Salto (jump)</span></span>
-        <span class="map-legend-item"><span class="map-legend-line call"></span><span data-i18n="map_legend_call">Llamada (call)</span></span>
-        <span class="map-legend-item"><span class="map-legend-line choice"></span><span data-i18n="map_legend_choice">Decisión</span></span>
-      </div>
-      <div class="map-zoom">
-        <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom / 1.2)" data-i18n="map_zoom_out">Alejar</button>
-        <span id="map-zoom-value">100%</span>
-        <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom * 1.2)" data-i18n="map_zoom_in">Acercar</button>
-        <button class="btn btn-secondary btn-sm" onclick="fitStoryMap()" data-i18n="map_fit">Ajustar</button>
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick="closeStoryMap()" data-i18n="map_close">Cerrar</button>
-    </div>
-    <div id="map-body">
-      <div id="map-canvas">
-        <div id="map-inner"></div>
-      </div>
-      <aside id="map-side">
-        <div class="map-tabs" role="tablist">
-          <button role="tab" id="map-tab-scene" aria-selected="true" onclick="setMapTab('scene')" data-i18n="map_tab_scene">Escena</button>
-          <button role="tab" id="map-tab-vars" aria-selected="false" onclick="setMapTab('vars')" data-i18n="map_tab_vars">Variables</button>
-        </div>
-        <div id="map-details"></div>
-      </aside>
     </div>
   </div>
 

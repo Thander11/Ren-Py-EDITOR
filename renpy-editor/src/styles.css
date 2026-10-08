@@ -381,9 +381,9 @@ body {
 
 /* ── Story map ── */
 #map-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 800;
+  z-index: 50;
   display: none;
   flex-direction: column;
   background: var(--bg);
@@ -392,20 +392,21 @@ body {
 #map-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px 18px;
   flex-wrap: wrap;
-  padding: 8px 16px;
+  min-height: 60px;
+  padding: 10px 16px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--border);
 }
-#map-title { font-size: 14px; font-weight: 700; color: var(--text); }
+#map-title { font-size: 16px; font-weight: 800; color: var(--text); }
 #map-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-right: auto; font-size: 11px; color: var(--text2); }
 .map-legend-item { display: flex; align-items: center; gap: 6px; }
 .map-legend-line { width: 22px; border-top: 2px solid var(--text3); }
 .map-legend-line.choice { border-top-color: var(--accent); }
 .map-legend-line.call { border-top-style: dashed; }
 .map-zoom { display: flex; align-items: center; gap: 4px; }
-#map-zoom-value { min-width: 42px; text-align: center; font-size: 11px; color: var(--text2); }
+#map-zoom-value { min-width: 46px; text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--text2); }
 #map-body { flex: 1; min-height: 0; display: flex; }
 #map-canvas {
   flex: 1;
@@ -476,6 +477,7 @@ body {
 }
 .map-node {
   position: absolute;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 7px;

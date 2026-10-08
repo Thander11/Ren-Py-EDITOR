@@ -24,7 +24,19 @@ async function openStoryMap() {
   layoutStoryMap(storyMap);
   if (!storyMap.nodes.has(mapSelected)) mapSelected = storyMap.nodes.has('start') ? 'start' : null;
   renderStoryMap();
-  fitStoryMap();
+  showMapStart();
+}
+
+// First view: the whole map if it fits at a readable size, otherwise its beginning
+function showMapStart() {
+  const canvas = document.getElementById('map-canvas');
+  if (!storyMap || !storyMap.width) return;
+  const fit = Math.min((canvas.clientWidth - 40) / storyMap.width, (canvas.clientHeight - 40) / storyMap.height);
+  if (fit >= 0.6) { fitStoryMap(); return; }
+  mapZoom = Math.min(1, Math.max(0.6, (canvas.clientHeight - 40) / storyMap.height));
+  mapPan.x = 24 - (MAP_PAD - 8) * mapZoom;
+  mapPan.y = 20;
+  applyMapTransform();
 }
 
 function closeStoryMap() {
@@ -649,8 +661,4 @@ function fitStoryMap() {
     e.stopPropagation();
     e.preventDefault();
   }, true);
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && document.getElementById('map-overlay').classList.contains('open')) closeStoryMap();
-  });
 })();
