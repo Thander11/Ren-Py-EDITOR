@@ -16,6 +16,14 @@
     <button class="btn btn-primary" onclick="launchProjectFromEditor()" data-i18n="launch_project">Iniciar juego</button>
     <button class="btn btn-secondary" onclick="openDeclarations()" data-i18n="declarations">Declaraciones</button>
     <button class="btn btn-secondary" onclick="openMainMenuEditor()" data-i18n="main_menu_button">Menú principal</button>
+    <div class="panel-menu-wrap">
+      <button class="btn btn-secondary" id="panel-menu-btn" onclick="togglePanelMenu()" aria-haspopup="true" aria-expanded="false" aria-controls="panel-menu"><span data-i18n="panels_show">Mostrar</span> ▾</button>
+      <div id="panel-menu" hidden>
+        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-files" onchange="setPanelVisible('files', this.checked)"><span data-i18n="panel_files">Archivos</span></label>
+        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-preview" onchange="setPanelVisible('preview', this.checked)"><span data-i18n="panel_preview">Vista previa</span></label>
+        <label class="panel-menu-item"><input type="checkbox" id="toggle-panel-code" onchange="setPanelVisible('code', this.checked)"><span data-i18n="panel_code">Código</span></label>
+      </div>
+    </div>
     <button class="btn btn-secondary" onclick="toggleSettings()">⚙️ <span data-i18n="settings">Ajustes</span></button>
     <span id="status-bar"></span>
   </div>

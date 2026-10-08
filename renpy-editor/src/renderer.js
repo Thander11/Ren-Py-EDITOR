@@ -4347,6 +4347,47 @@ function notify(msg, type = 'ok') {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PANEL VISIBILITY — each user chooses which panels to keep on screen
+// ═══════════════════════════════════════════════════════════════════
+let panelVisibility = { files: true, preview: true, code: true };
+
+function applyPanelVisibility() {
+  const { files, preview, code } = panelVisibility;
+  document.getElementById('panel-assets').classList.toggle('hidden-panel', !files);
+  const panelCode = document.getElementById('panel-code');
+  panelCode.classList.toggle('preview-hidden', !preview);
+  panelCode.classList.toggle('code-hidden', !code);
+  panelCode.classList.toggle('hidden-panel', !preview && !code);
+  for (const name of ['files', 'preview', 'code']) {
+    document.getElementById('toggle-panel-' + name).checked = panelVisibility[name];
+  }
+}
+
+function setPanelVisible(name, visible) {
+  panelVisibility[name] = visible;
+  applyPanelVisibility();
+  window.api.saveSettings({ panels: panelVisibility }).catch(e => {});
+}
+
+function togglePanelMenu(open) {
+  const menu = document.getElementById('panel-menu');
+  const show = open ?? menu.hidden;
+  menu.hidden = !show;
+  document.getElementById('panel-menu-btn').setAttribute('aria-expanded', String(show));
+}
+
+// Close the panel menu when clicking outside it or pressing Escape
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.panel-menu-wrap')) togglePanelMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('panel-menu').hidden) {
+    togglePanelMenu(false);
+    document.getElementById('panel-menu-btn').focus();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // PANEL RESIZE
 // ═══════════════════════════════════════════════════════════════════
 (function () {
@@ -4412,6 +4453,8 @@ function notify(msg, type = 'ok') {
   }
   
   projectsDirectory = s.projectsDirectory || '';
+  panelVisibility = { ...panelVisibility, ...(s.panels || {}) };
+  applyPanelVisibility();
 
   applyI18n();
   updateProjectsDirLabel();
