@@ -14,6 +14,7 @@
     <button class="btn btn-primary" onclick="newProject()" data-i18n="new_project">➕ Nuevo proyecto</button>
     <button class="btn btn-primary" onclick="openProjectFolder()" data-i18n="open_project">Abrir carpeta del proyecto</button>
     <button class="btn btn-primary" onclick="launchProjectFromEditor()" data-i18n="launch_project">Iniciar juego</button>
+    <button class="btn btn-secondary" onclick="openStoryMap()" data-i18n="map_button">Mapa</button>
     <button class="btn btn-secondary" onclick="openDeclarations()" data-i18n="declarations">Declaraciones</button>
     <button class="btn btn-secondary" onclick="openMainMenuEditor()" data-i18n="main_menu_button">Menú principal</button>
     <div class="panel-menu-wrap">
@@ -189,6 +190,31 @@
     </div>
   </div>
 
+  <!-- Story map -->
+  <div id="map-overlay" role="dialog" aria-modal="true" aria-labelledby="map-title">
+    <div id="map-header">
+      <span id="map-title" data-i18n="map_title">Mapa de la historia</span>
+      <div id="map-legend">
+        <span class="map-legend-item"><span class="map-legend-line"></span><span data-i18n="map_legend_jump">Salto (jump)</span></span>
+        <span class="map-legend-item"><span class="map-legend-line call"></span><span data-i18n="map_legend_call">Llamada (call)</span></span>
+        <span class="map-legend-item"><span class="map-legend-line choice"></span><span data-i18n="map_legend_choice">Decisión</span></span>
+      </div>
+      <div class="map-zoom">
+        <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom / 1.2)" data-i18n="map_zoom_out">Alejar</button>
+        <span id="map-zoom-value">100%</span>
+        <button class="btn btn-secondary btn-sm" onclick="setMapZoom(mapZoom * 1.2)" data-i18n="map_zoom_in">Acercar</button>
+        <button class="btn btn-secondary btn-sm" onclick="fitStoryMap()" data-i18n="map_fit">Ajustar</button>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeStoryMap()" data-i18n="map_close">Cerrar</button>
+    </div>
+    <div id="map-body">
+      <div id="map-canvas">
+        <div id="map-inner"></div>
+      </div>
+      <aside id="map-details"></aside>
+    </div>
+  </div>
+
   <!-- Notification -->
   <div id="notif"></div>
 
@@ -197,5 +223,6 @@
   <script src="spellcheck.js"></script>
   <script src="sprite-utils.js"></script>
   <script src="renderer.js"></script>
+  <script src="story-map.js"></script>
 </body>
 </html>
