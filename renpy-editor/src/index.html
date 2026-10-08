@@ -211,7 +211,13 @@
       <div id="map-canvas">
         <div id="map-inner"></div>
       </div>
-      <aside id="map-details"></aside>
+      <aside id="map-side">
+        <div class="map-tabs" role="tablist">
+          <button role="tab" id="map-tab-scene" aria-selected="true" onclick="setMapTab('scene')" data-i18n="map_tab_scene">Escena</button>
+          <button role="tab" id="map-tab-vars" aria-selected="false" onclick="setMapTab('vars')" data-i18n="map_tab_vars">Variables</button>
+        </div>
+        <div id="map-details"></div>
+      </aside>
     </div>
   </div>
 

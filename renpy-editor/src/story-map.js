@@ -34,10 +34,13 @@ function closeStoryMap() {
 
 async function buildStoryMap() {
   const nodes = new Map();
+  const defaults = new Map();
   let edges = [];
   for (const file of await window.api.listRpyFiles()) {
     const text = await window.api.readFile(file);
-    if (text) parseLabelsForMap(text, file, nodes, edges);
+    if (!text) continue;
+    parseLabelsForMap(text, file, nodes, edges);
+    for (const m of text.matchAll(/^default\s+(\w+)\s*=\s*(.+?)\s*(?:#.*)?$/gm)) defaults.set(m[1], m[2]);
   }
   // Labels with parameters, or called with arguments, are helper routines, not scenes
   const helpers = new Set([...nodes.values()].filter(n => n.helper).map(n => n.name));
@@ -67,12 +70,30 @@ async function buildStoryMap() {
   const seen = new Set();
   const unique = edges.filter(e => {
     if (!nodes.has(e.from) || !nodes.has(e.to)) return false;
-    const id = `${e.from}|${e.to}|${e.kind}|${e.choice}`;
+    const id = `${e.from}|${e.to}|${e.kind}|${e.choice}|${e.cond}`;
     if (seen.has(id)) return false;
     seen.add(id);
     return true;
   });
-  return { nodes, edges: unique, cards: [], width: 0, height: 0 };
+  return { nodes, edges: unique, vars: collectMapVariables(nodes, defaults), cards: [], width: 0, height: 0 };
+}
+
+// Story variables: where each one is changed and where it is checked
+function collectMapVariables(nodes, defaults) {
+  const names = new Set(defaults.keys());
+  for (const node of nodes.values()) for (const s of node.sets || []) names.add(s.name);
+  const vars = [];
+  for (const name of names) {
+    const word = new RegExp(`\\b${name}\\b`);
+    const sets = [], reads = [];
+    for (const node of nodes.values()) {
+      for (const s of node.sets || []) if (s.name === name) sets.push({ label: node.name, ...s });
+      for (const c of new Set(node.conds || [])) if (word.test(c)) reads.push({ label: node.name, cond: c });
+    }
+    // Variables of Ren'Py or the GUI that the story never touches are left out
+    if (sets.length || reads.length) vars.push({ name, initial: defaults.get(name), sets, reads });
+  }
+  return vars.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function parseLabelsForMap(text, file, nodes, edges) {
@@ -103,9 +124,10 @@ const MAP_CHOICE_RE = /^"((?:[^"\\]|\\.)*)"\s*(?:if\s+(.+?))?\s*:$/;
 function analyzeLabelBody(name, file, body, edges) {
   const node = {
     name, file, lines: 0, summary: '', background: '', firstScene: '', chars: [], menus: [],
-    ending: false, fallsThrough: false
+    sets: [], conds: [], ending: false, fallsThrough: false
   };
   const menuStack = [];  // menus still open: { indent, choiceIndent, choices }
+  const condStack = [];  // if/elif/else blocks still open: { indent, text, chain }
   let baseIndent = null;
   let lastBase = '';
   let terminal = '';     // top-level jump or return that ends the label
@@ -127,23 +149,40 @@ function analyzeLabelBody(name, file, body, edges) {
     const menu = menuStack[menuStack.length - 1];
     const choice = menu && menu.choices.length && indent > menu.choiceIndent
       ? menu.choices[menu.choices.length - 1] : null;
+    let closed = null;  // last if/elif closed at this indent, for elif/else
+    while (condStack.length && indent <= condStack[condStack.length - 1].indent) {
+      const popped = condStack.pop();
+      if (popped.indent === indent) closed = popped;
+    }
+    const cond = condStack.map(c => c.text).join(' and ');
 
-    if (/^menu\b[^"]*:$/.test(line)) {
+    if ((m = /^(if|elif)\s+(.+?)\s*:$/.exec(line)) || /^else\s*:$/.test(line)) {
+      // Every condition is kept as written; "else" means none of the previous ones
+      const chain = m && m[1] === 'if' ? [] : (closed ? closed.chain : []);
+      const text = m ? m[2] : `not (${chain.join(' or ')})`;
+      condStack.push({ indent, text, chain: m ? [...chain, m[2]] : chain });
+      if (m) node.conds.push(m[2]);
+    } else if (/^menu\b[^"]*:$/.test(line)) {
       const newMenu = { indent, choiceIndent: null, choices: [] };
       node.menus.push(newMenu);
       menuStack.push(newMenu);
     } else if (menu && (m = MAP_CHOICE_RE.exec(line)) && (menu.choiceIndent === null || indent === menu.choiceIndent)) {
       menu.choiceIndent = indent;
       menu.choices.push({ text: stripTextTags(unescRpy(m[1])), cond: m[2] || '', effects: [] });
+      if (m[2]) node.conds.push(m[2]);
     } else if ((m = /^(jump|call)\s+(\w+)\s*(\()?/.exec(line))) {
       // Calls with arguments go to helper routines; "jump expression" can't be followed
       if (m[2] !== 'expression') {
         const kind = m[3] ? 'helper' : m[1];
-        edges.push({ from: name, to: m[2], kind, choice: kind !== 'helper' && choice ? choice.text : '' });
-        if (choice && kind !== 'helper') choice.effects.push({ type: kind, to: m[2] });
+        edges.push({ from: name, to: m[2], kind, choice: kind !== 'helper' && choice ? choice.text : '', cond });
+        if (choice && kind !== 'helper') choice.effects.push({ type: kind, to: m[2], cond });
       }
-    } else if ((m = /^\$\s*(\w+)\s*([+\-*/]?=)\s*(.+)$/.exec(line))) {
-      if (choice && !m[1].startsWith('_')) choice.effects.push({ type: 'set', text: `${m[1]} ${m[2]} ${m[3]}` });
+    } else if ((m = /^\$\s*(\w+)\s*([+\-*/]?=)\s*(.+?)\s*(?:#.*)?$/.exec(line))) {
+      if (!m[1].startsWith('_')) {
+        const text = `${m[1]} ${m[2]} ${m[3]}`;
+        node.sets.push({ name: m[1], text, cond, choice: choice ? choice.text : '' });
+        if (choice) choice.effects.push({ type: 'set', text, cond });
+      }
     } else if ((m = /^scene\s+(.+?)(?:\s+(?:with|at|behind|onlayer)\b.*)?:?$/.exec(line))) {
       // The thumbnail is the first background that is a real image, skipping black screens
       if (!node.firstScene) node.firstScene = m[1];
@@ -317,11 +356,15 @@ function renderStoryMap() {
     const cls = `map-edge map-edge-${e.kind}${e.choice ? ' map-edge-choice' : ''}${active ? ' active' : ''}`;
     const arrow = active || e.choice ? 'map-arrow-accent' : 'map-arrow';
     paths.push(`<path class="${cls}" d="${route.d}" marker-end="url(#${arrow})"/>`);
-    if (e.choice) {
-      const text = `<span>${escHtml(truncate(e.choice, 34))}</span>`;
+    if (e.choice || e.cond) {
+      // The choice that leads here and/or the condition the jump depends on
+      const text = (e.choice ? `<span>${escHtml(truncate(e.choice, 34))}</span>` : '')
+        + (e.cond ? `<span class="map-edge-cond">${escHtml(t('map_option_if', truncate(e.cond, 44)))}</span>` : '');
+      const title = escHtml([e.choice, e.cond && t('map_option_if', e.cond)].filter(Boolean).join('\n'));
+      const cls2 = `map-edge-label${active ? ' active' : ''}`;
       labels.push(route.above
-        ? `<div class="map-edge-label above${active ? ' active' : ''}" style="left:${route.above.x}px;top:${route.above.y - 5}px" title="${escHtml(e.choice)}">${text}</div>`
-        : `<div class="map-edge-label${active ? ' active' : ''}" style="left:${route.mid[0]}px;top:${route.mid[1]}px" title="${escHtml(e.choice)}">${text}</div>`);
+        ? `<div class="${cls2} above" style="left:${route.above.x}px;top:${route.above.y - 5}px" title="${title}">${text}</div>`
+        : `<div class="${cls2}" style="left:${route.mid[0]}px;top:${route.mid[1]}px" title="${title}">${text}</div>`);
     }
   }
 
@@ -363,6 +406,10 @@ function mapNodeHtml(node) {
   const cls = ['map-node'];
   if (node.name === mapSelected) cls.push('selected');
   if (node.missing) cls.push('missing');
+  // Highlight of the variable picked in the Variables tab
+  const v = mapVar && storyMap.vars.find(x => x.name === mapVar);
+  if (v && v.sets.some(s => s.label === node.name)) cls.push('var-set');
+  if (v && v.reads.some(r => r.label === node.name)) cls.push('var-read');
   const facts = [];
   if (node.chars.length) facts.push(mapCount(node.chars.length, 'map_characters_one', 'map_characters'));
   if (node.menus.length) facts.push(`<b>${mapCount(node.menus.length, 'map_decisions_one', 'map_decisions')}</b>`);
@@ -393,10 +440,14 @@ function mapLinkList(names) {
     `<button class="map-link" onclick="selectMapNode('${n}', true)">${escHtml(n)}</button>`).join('');
 }
 
+function mapCondHtml(cond) {
+  return cond ? ` <span class="map-effect-cond">${escHtml(t('map_option_if', cond))}</span>` : '';
+}
+
 function mapEffectHtml(ef) {
-  if (ef.type === 'set') return `<li class="map-effect-set">${escHtml(ef.text)}</li>`;
+  if (ef.type === 'set') return `<li><span class="map-effect-set">${escHtml(ef.text)}</span>${mapCondHtml(ef.cond)}</li>`;
   const link = `<button class="map-inline-link" onclick="selectMapNode('${ef.to}', true)">${escHtml(ef.to)}</button>`;
-  return `<li>${t(ef.type === 'jump' ? 'map_effect_jump' : 'map_effect_call', link)}</li>`;
+  return `<li>${t(ef.type === 'jump' ? 'map_effect_jump' : 'map_effect_call', link)}${mapCondHtml(ef.cond)}</li>`;
 }
 
 function mapDecisionsHtml(node) {
@@ -412,8 +463,52 @@ function mapDecisionsHtml(node) {
     </div>`).join('');
 }
 
+// ── Side panel: selected scene or story variables ──
+
+let mapSideTab = 'scene';
+let mapVar = null;  // variable highlighted on the map
+
+function setMapTab(tab) {
+  mapSideTab = tab;
+  for (const name of ['scene', 'vars']) {
+    document.getElementById('map-tab-' + name).setAttribute('aria-selected', String(name === tab));
+  }
+  renderMapDetails();
+}
+
+function selectMapVar(name) {
+  mapVar = mapVar === name ? null : name;
+  renderStoryMap();
+}
+
+function mapVarsHtml() {
+  if (!storyMap.vars.length) return `<div class="map-hint">${t('map_vars_empty')}</div>`;
+  const link = name => `<button class="map-inline-link" onclick="selectMapNode('${name}', true, true)">${escHtml(name)}</button>`;
+  return `<p class="map-hint">${t('map_vars_hint')}</p>
+    <div class="map-var-legend">
+      <span><span class="map-var-swatch set"></span>${t('map_legend_var_set')}</span>
+      <span><span class="map-var-swatch read"></span>${t('map_legend_var_read')}</span>
+    </div>` +
+    storyMap.vars.map(v => `
+    <div class="map-var${v.name === mapVar ? ' selected' : ''}">
+      <button class="map-var-head" onclick="selectMapVar('${v.name}')" aria-pressed="${v.name === mapVar}">
+        <span class="map-var-name">${escHtml(v.name)}</span>
+        ${v.initial !== undefined ? `<span class="map-var-initial">${escHtml(t('map_var_initial', v.initial))}</span>` : ''}
+      </button>
+      ${v.initial === undefined ? `<div class="map-var-warn">${escHtml(t('map_var_no_default', v.name))}</div>` : ''}
+      <div class="map-var-sub">${t('map_var_sets')}</div>
+      ${v.sets.length ? `<ul class="map-effects">${v.sets.map(s => `<li>${link(s.label)}: <span class="map-effect-set">${escHtml(s.text)}</span>
+        ${s.choice ? `<span class="map-var-choice">${escHtml(t('map_var_in_choice', s.choice))}</span>` : ''}${mapCondHtml(s.cond)}</li>`).join('')}</ul>`
+        : `<div class="map-none">${t('map_none')}</div>`}
+      <div class="map-var-sub">${t('map_var_reads')}</div>
+      ${v.reads.length ? `<ul class="map-effects">${v.reads.map(r => `<li>${link(r.label)}: <span class="map-effect-cond">${escHtml(r.cond)}</span></li>`).join('')}</ul>`
+        : `<div class="map-none">${t('map_none')}</div>`}
+    </div>`).join('');
+}
+
 function renderMapDetails() {
   const box = document.getElementById('map-details');
+  if (mapSideTab === 'vars') { box.innerHTML = mapVarsHtml(); return; }
   const node = mapSelected && storyMap.nodes.get(mapSelected);
   if (!node) { box.innerHTML = `<div class="map-hint">${t('map_select_hint')}</div>`; return; }
   const leadsTo = storyMap.edges.filter(e => e.from === node.name && !e.hidden).map(e => e.to);
@@ -442,8 +537,10 @@ function renderMapDetails() {
     ${mapLinkList(node.incoming || [])}`;
 }
 
-function selectMapNode(name, scrollTo) {
+// keepTab: stay on the Variables tab instead of showing the scene's details
+function selectMapNode(name, scrollTo, keepTab) {
   mapSelected = name;
+  if (!keepTab && mapSideTab !== 'scene') setMapTab('scene');
   renderStoryMap();
   if (scrollTo) {
     const node = storyMap.nodes.get(name);
