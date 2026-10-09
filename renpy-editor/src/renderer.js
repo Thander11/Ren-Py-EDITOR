@@ -496,10 +496,10 @@ function previewHideLayer(st, image) {
 }
 
 // Stage after running the top-level blocks up to and including `upTo`
-function computeSceneState(upTo) {
+function computeSceneState(upTo, list = blocks) {
   const st = { background: null, layers: [], say: null, menu: null, music: '' };
-  for (let i = 0; i <= upTo && i < blocks.length; i++) {
-    const b = blocks[i];
+  for (let i = 0; i <= upTo && i < list.length; i++) {
+    const b = list[i];
     st.say = null;
     st.menu = null;
     switch (b.type) {
@@ -581,6 +581,14 @@ function updateScenePreview() {
 
   const idx = previewBlockIndex();
   const st = computeSceneState(idx);
+  box.innerHTML = sceneStageHtml(st);
+  scaleScenePreview();
+  info.textContent = t('scene_preview_block', idx + 1, blocks.length) + (st.music ? ' · ' + t('scene_preview_music', st.music) : '');
+}
+
+// The stage of a scene state, drawn at the game's resolution
+function sceneStageHtml(st) {
+  const { width: W, height: H } = data.resolution;
   const u = W / 1920;  // GUI sizes below are Ren'Py's defaults at 1920x1080
   let html = '';
 
@@ -624,9 +632,7 @@ function updateScenePreview() {
       `<div class="sp-choice" style="width:${g.choiceWidth}px;font-size:${g.choiceTextSize}px;padding:${8 * u}px 0;color:${escHtml(g.choiceColor)};font-family:${previewFont(g.interfaceFont)};${bg}">${escHtml(stripTextTags(c))}</div>`).join('')}</div>`;
   }
 
-  box.innerHTML = `<div class="sp-stage" style="width:${W}px;height:${H}px">${html}</div>`;
-  scaleScenePreview();
-  info.textContent = t('scene_preview_block', idx + 1, blocks.length) + (st.music ? ' · ' + t('scene_preview_music', st.music) : '');
+  return `<div class="sp-stage" style="width:${W}px;height:${H}px">${html}</div>`;
 }
 
 // The stage is drawn at the game's resolution and scaled to fit the panel
@@ -715,10 +721,11 @@ async function createNewRpy() {
 
 async function selectRpyFile(filename) {
   if (filename === activeRpyFile) return;
-  if (blocks.length > 0 && !await showConfirm(t('change_file_confirm', blocks.length, filename), { type: 'warning' })) return;
+  if (hasUnsavedBlocks() && !await showConfirm(t('change_file_confirm', blocks.length, filename), { type: 'warning' })) return;
   resetManualCodePreview();
   activeRpyFile = filename;
   blocks = [];
+  labelLoadedCode = '';
   data.labels = [];
   activeScriptText = await getScriptText();
   if (activeScriptText) parseScriptLabels(activeScriptText);
@@ -1448,6 +1455,7 @@ async function appendToScript() {
 
   const ok = await window.api.writeFile(activeRpyFile, modified);
   if (ok) {
+    if (!codePreviewHasManual) labelLoadedCode = generateCode(blocks);
     const where = labelName ? t('overwritten_in', labelName) : t('appended_to_end');
     notify(t('save_ok', where), 'ok');
 
@@ -1861,6 +1869,10 @@ async function getScriptText() {
 // Code of the open label as it was loaded, to know whether it has unsaved edits
 let labelLoadedCode = '';
 
+function hasUnsavedBlocks() {
+  return blocks.length > 0 && (codePreviewHasManual || generateCode(blocks) !== labelLoadedCode);
+}
+
 async function onTargetLabelChange() {
   const sel = document.getElementById('target-label');
   const labelName = sel.value;
@@ -1869,7 +1881,7 @@ async function onTargetLabelChange() {
     sel.dataset.prev = labelName;
     return;
   }
-  if (blocks.length > 0) {
+  if (hasUnsavedBlocks()) {
     if (!await showConfirm(t('load_label_confirm', blocks.length, labelName), { type: 'warning' })) {
       sel.value = sel.dataset.prev || '';
       return;

@@ -1296,7 +1296,9 @@ ipcMain.handle('reload-project-data', () => {
 });
 
 // ── Launch Ren'Py project from editor ──
-ipcMain.handle('launch-renpy-project', async () => {
+ipcMain.handle('launch-renpy-project', () => launchRenpyProject());
+
+async function launchRenpyProject() {
   if (!currentGamePath) {
     return { ok: false, error: 'no-project' };
   }
@@ -1327,7 +1329,7 @@ ipcMain.handle('launch-renpy-project', async () => {
   } catch (e) {
     return { ok: false, error: 'launch-failed', message: e.message };
   }
-});
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // BUILD — packages the game with the "distribute" command of Ren'Py's
@@ -1889,7 +1891,7 @@ const mcpServer = createMcpServer({
   instructions: MCP_INSTRUCTIONS,
   tools: buildMcpTools({
     getGamePath: () => currentGamePath, askRenderer, readGameInfo: () => readGameInfo() || {},
-    changes: claudeChanges, saveGameInfo
+    changes: claudeChanges, saveGameInfo, renderSceneImage, launchGame: launchRenpyProject
   }),
   onEvent: (ev) => {
     if (ev.type === 'connected') {
@@ -1925,6 +1927,63 @@ function stopClaudeServer() {
   claudeState.running = false;
   claudeState.error = '';
   sendClaudeStatus();
+}
+
+// Draws a scene stage (HTML of the editor's preview) in an invisible window
+// at the game's resolution and returns it as a JPEG
+let sceneRenderQueue = Promise.resolve();
+function renderSceneImage(stage) {
+  const run = sceneRenderQueue.then(() => drawSceneImage(stage));
+  sceneRenderQueue = run.catch(() => {});
+  return run;
+}
+
+async function drawSceneImage({ html, width, height, fonts = [] }) {
+  const srcURL = url.pathToFileURL(path.join(__dirname, 'src') + path.sep).href;
+  const fontCss = fonts.map(f => `@font-face { font-family: '${f.family}'; src: url('${f.url}'); }`).join('\n');
+  const page = `<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="${srcURL}themes.css"><link rel="stylesheet" href="${srcURL}styles.css">
+<style>${fontCss}
+html, body { margin: 0; padding: 0; overflow: hidden; background: #000; width: ${width}px; height: ${height}px; display: block; }
+.sp-stage { position: absolute; left: 0; top: 0; transform: none !important; }
+</style></head><body>${html}</body></html>`;
+  const tmp = path.join(app.getPath('temp'), `renpy-editor-scene-${process.pid}.html`);
+  fs.writeFileSync(tmp, page, 'utf-8');
+  const win = new BrowserWindow({
+    show: false, width, height, useContentSize: true, frame: false,
+    webPreferences: { offscreen: true, contextIsolation: true, nodeIntegration: false }
+  });
+  try {
+    // An offscreen window hands over every frame it paints; the last one is the picture
+    let frame = null;
+    // (copied at once: the image of a paint event is only valid during the event)
+    win.webContents.on('paint', (_e, _dirty, img) => {
+      if (!img.isEmpty()) frame = nativeImage.createFromBitmap(img.toBitmap(), img.getSize());
+    });
+    win.webContents.setFrameRate(15);
+    win.webContents.setZoomFactor(1);
+    await win.loadFile(tmp);
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    // Images and fonts get a moment to load, but a missing one never blocks the picture
+    await Promise.race([
+      win.webContents.executeJavaScript(
+        'Promise.all([...[...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })), document.fonts.ready]).then(() => true)'),
+      wait(5000)
+    ]);
+    win.webContents.invalidate();
+    for (let i = 0; i < 20 && !frame; i++) await wait(100);
+    await wait(250);
+    win.webContents.invalidate();
+    await wait(150);
+    if (!frame) throw new Error('The scene could not be drawn.');
+    let image = frame;
+    // Big enough to read the text, small enough for Claude's context
+    if (image.getSize().width > 1280) image = image.resize({ width: 1280, quality: 'good' });
+    return image.toJPEG(82).toString('base64');
+  } finally {
+    win.destroy();
+    fs.rm(tmp, { force: true }, () => {});
+  }
 }
 
 ipcMain.handle('claude-get-status', () => claudeStatus());

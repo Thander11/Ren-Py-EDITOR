@@ -12,11 +12,12 @@ Use these tools to understand the user's novel: its scenes (Ren'Py labels), the 
 Start with get_project_overview, then get_story_map to see how the story flows, and read_label to read the code of a scene.
 Ren'Py terms such as label, jump, call, menu, scene, show and define keep their code names.
 You can also change the novel: write_label for whole scenes, edit_script for small changes, and tools to add characters, images, variables and GUI settings. Read the code before changing it and keep Ren'Py's indentation (4 spaces, never tabs).
-Before every change the editor backs up the files it touches and logs it; the user can undo any change from the app, and so can you with undo_change. Tell the user briefly what you changed.`;
+Before every change the editor backs up the files it touches and logs it; the user can undo any change from the app, and so can you with undo_change. Tell the user briefly what you changed.
+To check how a moment looks in the game, use preview_scene. To show the user what you are talking about, use open_in_editor or show_in_map; launch_game starts the novel so they can play it.`;
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 
-function buildMcpTools({ getGamePath, askRenderer, readGameInfo, changes, saveGameInfo }) {
+function buildMcpTools({ getGamePath, askRenderer, readGameInfo, changes, saveGameInfo, renderSceneImage, launchGame }) {
   function gamePathOrThrow() {
     const gp = getGamePath();
     if (!gp || !fs.existsSync(gp)) throw new Error('No project is open in Ren\'Py EDITOR. Ask the user to open their novel first.');
@@ -187,7 +188,73 @@ function buildMcpTools({ getGamePath, askRenderer, readGameInfo, changes, saveGa
         return { ...flow, ...checkAssets(gp) };
       }
     },
-    ...buildWriteTools({ gamePathOrThrow, rpyFiles, resolveRpy, findLabel, changes, saveGameInfo })
+    ...buildWriteTools({ gamePathOrThrow, rpyFiles, resolveRpy, findLabel, changes, saveGameInfo }),
+    ...buildAppTools({ fromEditor, gamePathOrThrow, askRenderer, renderSceneImage, launchGame })
+  ];
+}
+
+// ── Seeing the novel and using the editor ──
+function buildAppTools({ fromEditor, gamePathOrThrow, askRenderer, renderSceneImage, launchGame }) {
+  const APP = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+  return [
+    {
+      name: 'preview_scene',
+      title: 'See a moment of a scene',
+      description: 'Picture of how a moment of a label looks in the game, drawn by the editor\'s scene preview: background, sprites, dialogue box with the speaker and text, or the choice menu, using the project\'s gui.rpy. Choose the moment with step (block number) or text (words of a line of dialogue, a choice, an image name…); without them it shows the last block. The answer also lists every step of the label. It is an approximation: transitions, animations and screens are not drawn.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          step: { type: 'integer', minimum: 1, description: 'Block number, as listed in the answer' },
+          text: { type: 'string', description: 'Words of the block to show' }
+        },
+        required: ['label']
+      },
+      annotations: APP,
+      handler: async (args) => {
+        gamePathOrThrow();
+        const stage = await askRenderer('scene_stage', args);
+        const jpeg = await renderSceneImage(stage);
+        const steps = stage.steps.length > 120
+          ? [...stage.steps.slice(0, 120), `… ${stage.steps.length - 120} more steps`] : stage.steps;
+        return {
+          content: [
+            { type: 'image', data: jpeg, mimeType: 'image/jpeg' },
+            { type: 'text', text: `${args.label} (${stage.file}), step ${stage.step} of ${stage.steps.length}${stage.music ? `, music: ${stage.music}` : ''}.\nSteps:\n${steps.join('\n')}` }
+          ]
+        };
+      }
+    },
+    {
+      name: 'open_in_editor',
+      title: 'Open a label in the editor',
+      description: 'Opens a label in the editor\'s scenes view so the user can see and edit its blocks. If the user has unsaved changes, the editor asks them first.',
+      inputSchema: { type: 'object', properties: { label: { type: 'string' } }, required: ['label'] },
+      annotations: APP,
+      handler: fromEditor('open_in_editor')
+    },
+    {
+      name: 'show_in_map',
+      title: 'Show a scene in the story map',
+      description: 'Opens the editor\'s story map centered on a scene, with its details (decisions, conditions, jumps) in the side panel.',
+      inputSchema: { type: 'object', properties: { label: { type: 'string' } }, required: ['label'] },
+      annotations: APP,
+      handler: fromEditor('show_in_map')
+    },
+    {
+      name: 'launch_game',
+      title: 'Launch the game',
+      description: 'Starts the novel with Ren\'Py, like the editor\'s "Launch game" button, so the user can play it. Ren\'Py reports script errors when it starts.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      handler: async () => {
+        gamePathOrThrow();
+        const r = await launchGame();
+        if (r.ok) return 'The game is starting in a new Ren\'Py window.';
+        const why = { 'no-project': 'no project is open', cancelled: 'the user did not choose a Ren\'Py executable', 'invalid-executable': 'the Ren\'Py executable was not found', 'invalid-project': 'the project folder is not valid' }[r.error];
+        throw new Error(`The game could not be launched: ${why || r.message || r.error}.`);
+      }
+    }
   ];
 }
 

@@ -248,3 +248,89 @@ async function syncOpenLabelWithClaude(entry) {
 }
 
 window.api.onClaudeChange(entry => { syncOpenLabelWithClaude(entry).catch(() => {}); });
+
+// ── Scene pictures and showing things in the editor ──
+
+// File of game/ where a label is written
+async function findLabelFile(name) {
+  const re = new RegExp(`^label\\s+${String(name).replace(/\W/g, '')}\\s*[(:]`, 'm');
+  for (const file of await window.api.listRpyFiles()) {
+    if (re.test(await window.api.readFile(file) || '')) return file;
+  }
+  return null;
+}
+
+// One line per block, so Claude can pick the moment to look at
+function blockSummary(b) {
+  const text = b.text || b.background || b.image || b.label || b.file || b.name
+    || (b.choices || []).map(c => c.text).join(' | ') || (b.sprites || []).map(s => s.image).join(', ');
+  const who = b.character ? `${b.character}: ` : '';
+  return `${b.type}${text ? ' — ' + who + stripTextTags(String(text)).slice(0, 90) : ''}`;
+}
+
+// Fonts of the GUI are loaded before drawing, so the picture uses them
+async function ensurePreviewFonts() {
+  const g = data.gui || parseGuiValues('');
+  const rels = [...new Set([g.textFont, g.nameFont, g.interfaceFont])];
+  rels.forEach(rel => previewFont(rel));
+  for (let i = 0; i < 20 && rels.some(rel => previewFonts[rel] === ''); i++) await new Promise(r => setTimeout(r, 100));
+}
+
+Object.assign(claudeTools, {
+  // Stage of one moment of a label, for the main process to turn into a picture
+  async scene_stage({ label, step, text }) {
+    const file = await findLabelFile(label);
+    if (!file) throw new Error(`There is no label "${label}" in the project.`);
+    const content = extractLabelContent(await window.api.readFile(file) || '', label);
+    const list = parseLabelContentToBlocks(content || '');
+    if (!list.length) throw new Error(`The label "${label}" has no blocks to show.`);
+    let idx = list.length - 1;
+    if (text) {
+      const needle = String(text).toLowerCase();
+      idx = list.findIndex(b => blockSummary(b).toLowerCase().includes(needle));
+      if (idx < 0) throw new Error(`No block of "${label}" contains "${text}".`);
+    } else if (step) {
+      idx = Math.min(Math.max(1, step), list.length) - 1;
+    }
+    await ensurePreviewFonts();
+    const st = computeSceneState(idx, list);
+    const html = sceneStageHtml(st);
+    const fonts = Object.entries(previewFonts).filter(([, fam]) => fam && html.includes(fam))
+      .map(([rel, family]) => ({ family, url: getGameFileURL(rel) }));
+    return {
+      file, html, fonts, ...data.resolution, step: idx + 1, music: st.music || '',
+      steps: list.map((b, i) => `${i + 1}. ${blockSummary(b)}`)
+    };
+  },
+
+  // Opens a label in the scenes editor, as if the user had picked it
+  async open_in_editor({ label }) {
+    const file = await findLabelFile(label);
+    if (!file) throw new Error(`There is no label "${label}" in the project.`);
+    showScenes();
+    const open = async () => {
+      if (file !== activeRpyFile) {
+        await selectRpyFile(file);
+        if (activeRpyFile !== file) return false;
+      }
+      const sel = document.getElementById('target-label');
+      sel.value = label;
+      await onTargetLabelChange();
+      return sel.dataset.prev === label;
+    };
+    // With unsaved edits the editor asks the user first; Claude doesn't wait for the answer
+    if (hasUnsavedBlocks()) {
+      open();
+      return `The user has unsaved changes in the editor, so they were asked whether to open "${label}" anyway.`;
+    }
+    return (await open()) ? `"${label}" (${file}) is open in the editor.` : `"${label}" could not be opened.`;
+  },
+
+  async show_in_map({ label }) {
+    await openStoryMap();
+    const node = storyMap && storyMap.nodes.get(label);
+    if (!node) throw new Error(`"${label}" is not a scene of the story map (helper labels with parameters are not shown).`);
+    selectMapNode(label, true);
+    return `"${label}" is selected in the story map.`;
+  }
+});
