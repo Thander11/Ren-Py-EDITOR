@@ -233,7 +233,7 @@ async function syncOpenLabelWithClaude(entry) {
   if (!label || !entry.files.some(f => f.path === activeRpyFile)) return;
   const content = extractLabelContent(await getScriptText(), label);
   if (content === null) return;
-  const edited = codePreviewHasManual || generateCode(blocks) !== labelLoadedCode;
+  const edited = codePreviewHasManual || blocksSnapshot() !== labelLoadedCode;
   if (edited) {
     const choice = await showDialog({
       title: t('claude_connection'), message: t('claude_open_label_changed', label),
@@ -242,8 +242,8 @@ async function syncOpenLabelWithClaude(entry) {
     if (choice !== 1) return;
   }
   resetManualCodePreview();
-  blocks = parseLabelContentToBlocks(content);
-  labelLoadedCode = generateCode(blocks);
+  blocks = await attachPatchContent(parseLabelContentToBlocks(content), label);
+  labelLoadedCode = blocksSnapshot();
   renderBlocks();
   updateCodePreview();
 }
@@ -283,7 +283,7 @@ Object.assign(claudeTools, {
     const file = await findLabelFile(label);
     if (!file) throw new Error(`There is no label "${label}" in the project.`);
     const content = extractLabelContent(await window.api.readFile(file) || '', label);
-    const list = parseLabelContentToBlocks(content || '');
+    const list = await attachPatchContent(parseLabelContentToBlocks(content || ''), label);
     if (!list.length) throw new Error(`The label "${label}" has no blocks to show.`);
     let idx = list.length - 1;
     if (text) {

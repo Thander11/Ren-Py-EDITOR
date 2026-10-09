@@ -20,6 +20,7 @@ async function openBuildDialog() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
   const defaults = await window.api.getBuildDefaults();
   if (!defaults.building) {
+    await loadPatchInfo();
     buildState = 'setup';
     buildResult = null;
     buildLog = [];
@@ -53,6 +54,7 @@ function renderBuildDialog() {
             <span class="build-pkg-hint">${t('build_pkg_' + o.id + '_hint')}</span></span>
           </label>`).join('')}
       </fieldset>
+      ${buildPatchHtml()}
       <div class="form-group">
         <div class="form-label">${t('build_destination')}</div>
         <div class="build-dest">
@@ -65,6 +67,7 @@ function renderBuildDialog() {
       <button class="btn btn-secondary" onclick="closeBuildDialog()">${t('cancel')}</button>
       <button class="btn btn-primary" id="build-start-btn" onclick="startBuild()">${icon('package', 15)}${t('build_start')}</button>`;
     onBuildPackageChange();
+    renderBuildPatchNotes();
     return;
   }
   if (buildState === 'building') {
@@ -115,7 +118,7 @@ async function startBuild() {
   buildState = 'building';
   buildLog = [];
   renderBuildDialog();
-  const r = await window.api.buildGame({ packages, destination: buildDestination });
+  const r = await window.api.buildGame({ packages, destination: buildDestination, patchMode: patchEnabled() ? buildPatchMode : undefined });
   buildResult = r;
   if (r.log && !buildLog.length) buildLog = r.log;
   buildState = r.ok ? 'done' : 'error';

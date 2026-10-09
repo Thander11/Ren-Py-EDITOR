@@ -180,6 +180,10 @@
           <button class="palette-btn" onclick="addBlock('comment')"><span class="icon" data-icon="comment"></span><span data-i18n="block_comment">Comentario</span></button>
           <button class="palette-btn" onclick="addBlock('custom')"><span class="icon" data-icon="custom"></span><span data-i18n="block_custom">Código libre</span></button>
         </div>
+        <div class="palette-group cat-patch" hidden>
+          <div class="palette-group-title"><span class="palette-swatch"></span><span data-i18n="block_group_patch">Parche</span></div>
+          <button class="palette-btn" onclick="addPatchBlock()"><span class="icon" data-icon="patch"></span><span data-i18n="block_patch">Contenido del parche</span></button>
+        </div>
       </aside>
       <div class="resize-handle col split" id="resize-palette" data-i18n-title="resize_panel"></div>
       <div id="block-list"></div>
@@ -192,6 +196,10 @@
         <div class="row">
           <span class="title" data-i18n="scene_preview">Vista previa de la escena</span>
           <span id="scene-preview-info"></span>
+          <div id="preview-patch" class="preview-patch" role="group" data-i18n-aria="preview_as" aria-label="Ver como" hidden>
+            <button type="button" data-patch="0" onclick="setPreviewPatch(false)" data-i18n="patch_without">Sin parche</button>
+            <button type="button" data-patch="1" onclick="setPreviewPatch(true)"><span class="icon" data-icon="patch" data-icon-size="12"></span><span data-i18n="patch_with">Con parche</span></button>
+          </div>
         </div>
         <div id="scene-preview"></div>
         <div class="resize-handle row" id="resize-preview" data-i18n-title="resize_preview"></div>
@@ -287,12 +295,34 @@
     </div>
   </div>
 
+  <!-- Patch: images that only the patch has -->
+  <div id="patch-images-overlay" class="app-overlay">
+    <div class="app-box wide" role="dialog" aria-modal="true" aria-labelledby="patch-images-title">
+      <div class="app-box-header">
+        <span id="patch-images-title" data-i18n="patch_images_title">Imágenes del parche</span>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="closePatchImages()" data-i18n-title="close" aria-label="Cerrar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div class="app-box-body">
+        <p class="settings-hint" data-i18n="patch_images_hint">Las imágenes marcadas se guardan en images/patch/ y solo van en el parche.</p>
+        <input class="form-input" id="patch-images-search" type="search" data-i18n-placeholder="patch_images_search" placeholder="Buscar imagen" oninput="patchImagesFilter = this.value; renderPatchImages()">
+        <div id="patch-images-list"></div>
+      </div>
+      <div class="app-box-footer">
+        <button class="btn btn-primary" onclick="closePatchImages()" data-i18n="build_close">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game settings: name, version and icon -->
   <div id="game-overlay" class="app-overlay">
     <div class="app-box" role="dialog" aria-modal="true" aria-labelledby="game-title">
       <div class="app-box-header">
         <span id="game-title" data-i18n="game_settings">Ajustes del juego</span>
         <button class="btn btn-secondary btn-sm btn-icon" onclick="closeGameSettings()" data-i18n-title="cancel" aria-label="Cancelar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div class="app-tabs" role="tablist" data-i18n-aria="game_settings" aria-label="Ajustes del juego">
+        <button class="app-tab" role="tab" id="game-tab-general" aria-controls="game-panel-general" aria-selected="true" onclick="setGameTab('general')" data-i18n="game_tab_general">General</button>
+        <button class="app-tab" role="tab" id="game-tab-patch" aria-controls="game-panel-patch" aria-selected="false" onclick="setGameTab('patch')"><span class="icon" data-icon="patch" data-icon-size="15"></span><span data-i18n="patch">Parche</span></button>
       </div>
       <div class="app-box-body" id="game-body"></div>
       <div class="app-box-footer">
@@ -353,5 +383,6 @@
   <script src="game-settings.js"></script>
   <script src="build.js"></script>
   <script src="claude-bridge.js"></script>
+  <script src="patch.js"></script>
 </body>
 </html>

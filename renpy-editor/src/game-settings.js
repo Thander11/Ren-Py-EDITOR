@@ -11,12 +11,25 @@ async function openGameSettings() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
   gameInfo = await window.api.getGameInfo();
   if (!gameInfo) return;
+  await loadPatchInfo();
+  initPatchDraft();
   gameIconPending = '';
   // A build name that already matches the game's name keeps following it
   buildNameTouched = gameInfo.buildName !== suggestBuildName(gameInfo.name);
   renderGameSettings();
+  setGameTab('general');
   document.getElementById('game-overlay').classList.add('open');
   document.getElementById('game-name').focus();
+}
+
+// General (name, version, icon) and Patch
+function setGameTab(tab) {
+  for (const id of ['general', 'patch']) {
+    const on = id === tab;
+    document.getElementById('game-tab-' + id).setAttribute('aria-selected', String(on));
+    document.getElementById('game-panel-' + id).hidden = !on;
+  }
+  document.querySelector('#game-overlay .app-box').classList.toggle('wide', tab === 'patch');
 }
 
 function closeGameSettings() {
@@ -56,6 +69,7 @@ function gameIconFilesHtml() {
 
 function renderGameSettings() {
   document.getElementById('game-body').innerHTML = `
+    <div id="game-panel-general" role="tabpanel" aria-labelledby="game-tab-general">
     <div class="game-icon-row">
       <div class="game-icon-preview" id="game-icon-preview">${gameIconPreviewHtml()}</div>
       <div class="game-icon-info">
@@ -72,17 +86,20 @@ function renderGameSettings() {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="game-version">${t('game_version')}</label>
-        <input class="form-input" id="game-version" value="${escHtml(gameInfo.version)}" placeholder="1.0" onkeydown="onGameSettingsKey(event)">
+        <input class="form-input" id="game-version" value="${escHtml(gameInfo.version)}" placeholder="1.0" oninput="refreshPatchZipName()" onkeydown="onGameSettingsKey(event)">
         <p class="settings-hint">${t('game_version_hint')}</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="game-build">${t('game_build_name')}</label>
         <input class="form-input game-mono" id="game-build" value="${escHtml(gameInfo.buildName)}" spellcheck="false"
-          oninput="buildNameTouched = true; validateGameSettings()" onkeydown="onGameSettingsKey(event)" aria-describedby="game-build-hint">
+          oninput="buildNameTouched = true; validateGameSettings(); refreshPatchZipName()" onkeydown="onGameSettingsKey(event)" aria-describedby="game-build-hint">
         <p class="settings-hint" id="game-build-hint">${t('game_build_hint')}</p>
       </div>
     </div>
-    <p class="game-note">${t('game_saves_note')}</p>`;
+    <p class="game-note">${t('game_saves_note')}</p>
+    </div>
+    <div id="game-panel-patch" class="patch-panel" role="tabpanel" aria-labelledby="game-tab-patch" hidden></div>`;
+  renderPatchSettings();
   validateGameSettings();
 }
 
@@ -91,6 +108,7 @@ function onGameNameInput() {
     document.getElementById('game-build').value = suggestBuildName(document.getElementById('game-name').value);
   }
   validateGameSettings();
+  refreshPatchZipName();
 }
 
 function validateGameSettings() {
@@ -131,6 +149,7 @@ async function saveGameSettings() {
     if (!r.ok) { notify(t('game_icon_error'), 'err'); return; }
     if (r.small) message = t('game_icon_small');
   }
+  if (!await savePatchSettings()) return;
   closeGameSettings();
   notify(message, 'ok');
 }

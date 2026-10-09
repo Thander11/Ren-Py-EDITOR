@@ -1332,6 +1332,231 @@ async function launchRenpyProject() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PATCH — content kept out of the game (for example, its Steam version)
+// and packed apart as a Ren'Py DLC package that players add to the game.
+// game/patch/ holds its scripts and game/images/patch/ its images; the
+// game knows it is there through game/patch/installed.txt
+// ═══════════════════════════════════════════════════════════════════
+
+// Files that declare images; the patch keeps its own copy of each in game/patch/
+const PATCH_DECL_FILES = ['backgrounds.rpy', 'scenes.rpy', 'characters.rpy', 'expressions.rpy'];
+
+function patchPaths() {
+  const root = getProjectRootFromGamePath(currentGamePath);
+  return {
+    root,
+    config: path.join(root, '.renpy-editor', 'patch.json'),
+    support: path.join(currentGamePath, 'patch_support.rpy'),
+    dir: path.join(currentGamePath, 'patch'),
+    marker: path.join(currentGamePath, 'patch', 'installed.txt')
+  };
+}
+
+function readPatchConfig() {
+  const def = { enabled: false, name: '', readme: '', readmeFile: 'README-patch.txt' };
+  try { return { ...def, ...JSON.parse(fs.readFileSync(patchPaths().config, 'utf-8')) }; } catch (e) { return def; }
+}
+
+// game/patch_support.rpy tells the game whether the patch is there and tells
+// builds which files are the patch. `full` leaves the build rules out, so the
+// patch goes inside the game like everything else
+function writePatchSupport(cfg, full = false) {
+  const lines = [
+    "## Ren'Py EDITOR: support for the game's patch. The editor writes this file,",
+    '## so changes made by hand are lost.'
+  ];
+  if (!cfg.enabled) {
+    lines.push('## The patch is turned off: its content is part of the game.', '', 'define patch_installed = True');
+  } else {
+    lines.push('## The patch is everything in game/patch/ and game/images/patch/.', '',
+      'define patch_installed = renpy.loadable("patch/installed.txt")');
+    if (!full) {
+      lines.push('', '## Builds leave the patch out of the game and pack it apart, as a DLC package.',
+        'init -10 python:',
+        '    build.archive("patch", "patch_files")',
+        '    build.classify("game/patch/**.rpy", None)',
+        '    build.classify("game/patch/**", "patch")',
+        '    build.classify("game/images/patch/**", "patch")',
+        `    build.classify(${pyString(cfg.readmeFile)}, "patch_files")`,
+        `    build.package("patch", "zip", "patch_files", description=${pyString(cfg.name || 'Patch')}, dlc=True)`);
+    } else {
+      // The instructions to install the patch make no sense in the full game
+      lines.push('', 'init -10 python:', `    build.classify(${pyString(cfg.readmeFile)}, None)`);
+    }
+  }
+  fs.writeFileSync(patchPaths().support, lines.join('\n') + '\n', 'utf-8');
+}
+
+// ── Text files keep their line breaks ──
+const eolOfText = (text) => text.includes('\r\n') ? '\r\n' : '\n';
+function appendLine(file, line, header) {
+  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf-8') : '';
+  const eol = text ? eolOfText(text) : require('os').EOL;
+  const body = (text || header + eol).replace(/\s+$/, '');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, body + eol + line + eol, 'utf-8');
+}
+
+
+// Image declarations of a file: { name, path, line } (line = index in the file's lines)
+function readImageDecls(file) {
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf-8').split(/\r?\n/).map((l, i) => {
+    const m = /^[ \t]*image[ \t]+(.+?)[ \t]*=[ \t]*"([^"]+)"/.exec(l);
+    return m ? { name: m[1].replace(/\s+/g, ' '), path: m[2], line: i } : null;
+  }).filter(Boolean);
+}
+
+function removeLine(file, index) {
+  const text = fs.readFileSync(file, 'utf-8');
+  const parts = text.match(/[^\n]*\n|[^\n]+$/g) || [];
+  parts.splice(index, 1);
+  fs.writeFileSync(file, parts.join(''), 'utf-8');
+}
+
+// Every .rpy of game/ outside the patch, with its path relative to game/
+function baseScripts() {
+  return listDirRecursive(currentGamePath, currentGamePath)
+    .filter(f => !f.isDir && f.name.endsWith('.rpy') && !/^(patch|tl|gui\/editor_backup)\//.test(f.path))
+    .map(f => f.path);
+}
+
+// What the patch has now, and what could go wrong when the game is built without it
+function patchContent() {
+  const p = patchPaths();
+  const owners = [];
+  const images = [];
+  if (fs.existsSync(p.dir)) {
+    for (const f of fs.readdirSync(p.dir).filter(f => f.endsWith('.rpy')).sort()) {
+      const text = fs.readFileSync(path.join(p.dir, f), 'utf-8');
+      if (PATCH_DECL_FILES.includes(f)) {
+        readImageDecls(path.join(p.dir, f)).forEach(d => images.push({ ...d, kind: f.replace('.rpy', '') }));
+        continue;
+      }
+      const parts = [...text.matchAll(/^label\s+(\w+)\s*:[ \t]*(?:#[ \t]*(.*))?$/gm)];
+      if (parts.length) owners.push({ owner: f.replace(/\.rpy$/, ''), parts: parts.map(m => ({ label: m[1], title: (m[2] || '').trim() })) });
+    }
+  }
+
+  // Without the patch, the game's own scenes can't show the patch's images
+  // nor jump to its labels
+  const scripts = baseScripts().map(rel => ({ rel, lines: fs.readFileSync(path.join(currentGamePath, rel), 'utf-8').split(/\r?\n/) }));
+  const baseImages = [];
+  for (const { lines } of scripts) {
+    lines.forEach(l => { const m = /^[ \t]*image[ \t]+([\w ]+?)[ \t]*[=:]/.exec(l); if (m) baseImages.push(m[1].replace(/\s+/g, ' ')); });
+  }
+  // Ren'Py also names the files in images/ as images
+  listDirRecursive(path.join(currentGamePath, 'images'), path.join(currentGamePath, 'images'))
+    .filter(f => !f.isDir && !f.path.startsWith('patch/') && /\.(png|jpe?g|webp|avif|gif|bmp)$/i.test(f.name))
+    .forEach(f => baseImages.push(f.name.replace(/\.[^.]+$/, '').toLowerCase()));
+  // "eileen happy" is found among longer names with the same tag, as Ren'Py does
+  const shows = (names, shown) => {
+    const w = shown.split(' ');
+    return names.some(n => { const nw = n.split(' '); return n === shown || (nw[0] === w[0] && w.every(x => nw.includes(x))); });
+  };
+  const patchImages = images.map(i => i.name);
+  const patchLabels = new Set(owners.flatMap(o => o.parts.map(x => x.label)));
+  const warnings = [];
+  for (const { rel, lines } of scripts) {
+    lines.forEach((line, i) => {
+      let m = /^\s*(?:scene|show)\s+([\w ]+?)(?:\s+(?:at|with|behind|as|onlayer|zorder)\b.*)?\s*:?\s*$/.exec(line);
+      if (m) {
+        const shown = m[1].trim().replace(/\s+/g, ' ');
+        if (shows(patchImages, shown) && !shows(baseImages, shown)) warnings.push({ type: 'image', name: shown, file: rel, line: i + 1 });
+      }
+      if ((m = /^\s*(?:jump|call)\s+(\w+)/.exec(line)) && patchLabels.has(m[1])) {
+        warnings.push({ type: 'label', name: m[1], file: rel, line: i + 1 });
+      }
+    });
+  }
+  return { owners, images, warnings };
+}
+
+ipcMain.handle('patch-get', () => {
+  if (!currentGamePath) return null;
+  try { return { config: readPatchConfig(), ...patchContent() }; } catch (e) { return { config: readPatchConfig(), owners: [], images: [], warnings: [] }; }
+});
+
+ipcMain.handle('patch-save', (_, cfg) => {
+  if (!currentGamePath) return { ok: false };
+  const p = patchPaths();
+  const old = readPatchConfig();
+  const next = {
+    ...old, enabled: !!cfg.enabled, name: String(cfg.name || '').trim(), readme: String(cfg.readme || ''),
+    readmeFile: /^[\w\- .]+\.txt$/.test(cfg.readmeFile || '') ? cfg.readmeFile : old.readmeFile
+  };
+  try {
+    fs.mkdirSync(path.dirname(p.config), { recursive: true });
+    fs.writeFileSync(p.config, JSON.stringify(next, null, 2), 'utf-8');
+    const oldReadme = path.join(p.root, old.readmeFile);
+    if (old.readmeFile !== next.readmeFile && fs.existsSync(oldReadme)) fs.unlinkSync(oldReadme);
+    if (next.enabled) {
+      fs.mkdirSync(p.dir, { recursive: true });
+      if (!fs.existsSync(p.marker)) fs.writeFileSync(p.marker, 'This file tells the game that its patch is installed.\n', 'utf-8');
+      fs.writeFileSync(path.join(p.root, next.readmeFile), next.readme.replace(/\r?\n/g, '\r\n') + '\r\n', 'utf-8');
+    } else if (fs.existsSync(path.join(p.root, next.readmeFile))) {
+      // With the patch off the instructions would end up in the game's own packages
+      fs.unlinkSync(path.join(p.root, next.readmeFile));
+    }
+    // Projects that never used a patch get no support file
+    if (next.enabled || fs.existsSync(p.support) || fs.existsSync(p.dir)) writePatchSupport(next);
+    return { ok: true, config: next };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// Moves an image (its file and its declaration) into the patch, or back into the game
+ipcMain.handle('patch-move-image', (_, name, toPatch) => {
+  if (!currentGamePath) return { ok: false, error: 'no-project' };
+  const p = patchPaths();
+  const images = path.join(currentGamePath, 'images');
+  for (const f of PATCH_DECL_FILES) {
+    const from = toPatch ? path.join(currentGamePath, f) : path.join(p.dir, f);
+    const to = toPatch ? path.join(p.dir, f) : path.join(currentGamePath, f);
+    const decl = readImageDecls(from).find(d => d.name === name);
+    if (!decl) continue;
+    // Paths are relative to game/images/ (or to game/ when they start with images/)
+    const rel = decl.path.replace(/^images\//, '');
+    let newRel;
+    if (toPatch) newRel = 'patch/' + rel;
+    else if (rel.startsWith('patch/')) newRel = rel.slice('patch/'.length);
+    else return { ok: false, error: 'not-in-patch-folder' };
+    const src = path.join(images, rel);
+    const dest = path.join(images, newRel);
+    try {
+      if (fs.existsSync(src)) {
+        if (fs.existsSync(dest)) return { ok: false, error: 'exists', file: newRel };
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.renameSync(src, dest);
+      }
+      removeLine(from, decl.line);
+      appendLine(to, `image ${name} = "${newRel}"`, toPatch ? '# Patch: images that only the patch has' : `# ${f}`);
+      return { ok: true, path: newRel };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  return { ok: false, error: 'not-found' };
+});
+
+// The patch blocks of a label live in game/patch/<label>.rpy; no patch blocks, no file
+ipcMain.handle('patch-write-owner', (_, owner, code) => {
+  if (!currentGamePath || !/^\w+$/.test(owner || '')) return false;
+  const p = patchPaths();
+  const file = path.join(p.dir, owner + '.rpy');
+  try {
+    if (code && code.trim()) {
+      fs.mkdirSync(p.dir, { recursive: true });
+      fs.writeFileSync(file, code, 'utf-8');
+    } else if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+    }
+    return true;
+  } catch (e) { return false; }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // BUILD — packages the game with the "distribute" command of Ren'Py's
 // launcher, the same one behind its "Build Distributions" button
 // ═══════════════════════════════════════════════════════════════════
@@ -1372,6 +1597,11 @@ ipcMain.handle('build-game', async (_, opts) => {
   if (!currentGamePath) return { ok: false, error: 'no-project' };
   const packages = (opts.packages || []).filter(p => BUILD_PACKAGES.includes(p));
   if (!packages.length) return { ok: false, error: 'no-packages' };
+  // With a patch: "split" also builds the patch package, "full" puts the patch
+  // inside the game and "base" builds only the game without it
+  const patchCfg = readPatchConfig();
+  const patchMode = patchCfg.enabled ? (['split', 'full', 'base'].includes(opts.patchMode) ? opts.patchMode : 'split') : null;
+  if (patchMode === 'split') packages.push('patch');
   const renpyExecutable = await ensureRenpyExecutablePath();
   if (!renpyExecutable || !fs.existsSync(renpyExecutable)) return { ok: false, error: 'no-renpy' };
   const projectRoot = getProjectRootFromGamePath(currentGamePath);
@@ -1383,12 +1613,19 @@ ipcMain.handle('build-game', async (_, opts) => {
   const send = (msg) => { if (mainWindow) mainWindow.webContents.send('build-progress', msg); };
   const log = [];
 
+  // The build rules are written for this build, and put back when it ends
+  if (patchMode) {
+    try { writePatchSupport(patchCfg, patchMode === 'full'); } catch (e) { return { ok: false, error: 'patch', message: e.message }; }
+  }
+  const restorePatch = () => { if (patchMode === 'full') try { writePatchSupport(patchCfg); } catch (e) { /* written again on the next save */ } };
+
   return new Promise((resolve) => {
     const fullArgs = [...args, path.join(sdk, 'launcher'), 'distribute', projectRoot,
       '--destination', destination, '--no-update', ...packages.flatMap(p => ['--package', p])];
     try {
       buildProcess = spawn(cmd, fullArgs, { cwd: sdk, windowsHide: true });
     } catch (e) {
+      restorePatch();
       resolve({ ok: false, error: 'launch-failed', message: e.message });
       return;
     }
@@ -1408,9 +1645,10 @@ ipcMain.handle('build-game', async (_, opts) => {
     };
     buildProcess.stdout.on('data', onData);
     buildProcess.stderr.on('data', onData);
-    buildProcess.on('error', (e) => { buildProcess = null; resolve({ ok: false, error: 'launch-failed', message: e.message }); });
+    buildProcess.on('error', (e) => { buildProcess = null; restorePatch(); resolve({ ok: false, error: 'launch-failed', message: e.message }); });
     buildProcess.on('close', (code, signal) => {
       buildProcess = null;
+      restorePatch();
       const files = fs.existsSync(destination) ? fs.readdirSync(destination).filter(f => !before.has(f)) : [];
       const ok = code === 0 && log.some(l => /All packages have been built/i.test(l));
       resolve({ ok, cancelled: !!signal, code, destination, files, log: log.slice(-30) });

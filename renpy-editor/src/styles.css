@@ -1331,3 +1331,98 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 .claude-change-tag { font-size: 11px; color: var(--text3); padding: 4px 0; white-space: nowrap; }
 .claude-changes-empty { font-size: 12px; color: var(--text3); padding: 18px 0; text-align: center; }
 .claude-sub { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 4px; }
+
+/* ── Patch: content kept out of the game and packed apart ── */
+.cat-patch { --cat: var(--purple); }
+.app-box.wide { width: 940px; }
+.app-tabs { display: flex; gap: 2px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.app-tab {
+  display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px;
+  border: 0; border-bottom: 2px solid transparent; background: transparent;
+  color: var(--text2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.app-tab:hover { color: var(--text); }
+.app-tab[aria-selected="true"] { color: var(--text); font-weight: 700; border-bottom-color: var(--accent); }
+.app-tab .icon { color: var(--purple); }
+.patch-switch {
+  display: flex; align-items: flex-start; gap: 14px; width: 100%; text-align: left;
+  padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: transparent; color: var(--text); font: inherit; cursor: pointer;
+}
+.patch-switch[aria-checked="true"] { border-color: color-mix(in srgb, var(--purple) 45%, var(--border)); background: color-mix(in srgb, var(--purple) 7%, transparent); }
+.patch-switch-track { flex-shrink: 0; position: relative; width: 40px; height: 22px; margin-top: 2px; border-radius: 11px; background: var(--border); transition: background .15s; }
+.patch-switch-knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--text3); transition: left .15s, background .15s; }
+.patch-switch[aria-checked="true"] .patch-switch-track { background: var(--purple); }
+.patch-switch[aria-checked="true"] .patch-switch-knob { left: 21px; background: var(--bg); }
+.patch-switch-text { display: flex; flex-direction: column; gap: 4px; }
+.patch-switch-title { font-size: 14px; font-weight: 800; }
+.patch-switch .settings-hint { margin: 0; font-size: 12.5px; }
+.patch-off { margin: 14px 0 0; padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius); font-size: 13px; line-height: 1.6; color: var(--text2); }
+.patch-grid { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 18px; }
+.patch-form { flex: 999 1 380px; min-width: 0; }
+.patch-form textarea { resize: vertical; line-height: 1.5; font-family: inherit; }
+.patch-file { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.patch-file .icon { color: var(--purple); }
+.patch-how { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.patch-how ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.5; color: var(--text2); }
+.patch-content {
+  flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-self: flex-start;
+  padding: 14px; border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--purple) 35%, var(--border));
+  background: color-mix(in srgb, var(--purple) 6%, var(--surface));
+}
+.patch-content h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.patch-content h3 .icon { color: var(--purple); }
+.patch-content .settings-hint { margin: 0; }
+.patch-sub { font-size: 11.5px; font-weight: 700; color: var(--purple); margin-top: 4px; }
+.patch-parts, .patch-image-names, .patch-warnings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.patch-parts li { display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 10px; border-radius: var(--radius); background: color-mix(in srgb, var(--purple) 9%, var(--surface)); font-size: 12.5px; }
+.patch-parts code { font-family: var(--font-mono); font-size: 12px; color: var(--purple); flex-shrink: 0; }
+.patch-parts span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.patch-image-names { flex-direction: row; flex-wrap: wrap; }
+.patch-image-names code { display: block; padding: 3px 8px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--purple) 35%, var(--border)); font-family: var(--font-mono); font-size: 11.5px; }
+.patch-content > .btn { align-self: flex-start; }
+.patch-warn { display: flex; gap: 8px; padding: 9px 10px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--orange) 40%, var(--border)); background: color-mix(in srgb, var(--orange) 8%, transparent); font-size: 12px; line-height: 1.5; }
+.patch-warn .icon { color: var(--orange); flex-shrink: 0; margin-top: 1px; }
+.build-patch { margin: 0 0 14px; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; }
+.build-patch legend { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; }
+.build-patch legend .icon { color: var(--purple); }
+.patch-checks { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.patch-ok { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--text2); }
+.patch-ok .icon { color: var(--green); }
+.patch-steam { display: flex; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--border)); background: color-mix(in srgb, var(--blue) 8%, transparent); font-size: 12px; line-height: 1.55; }
+.patch-steam .icon { color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+#patch-images-search { margin-bottom: 12px; }
+.patch-img-group h3 { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; font-size: 12.5px; color: var(--text2); }
+.patch-img-group h3 span { font-weight: 500; color: var(--text3); }
+.patch-img-group ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+.patch-img-group li { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--border); border-radius: var(--radius); }
+.patch-img-group li.in-patch { border-color: color-mix(in srgb, var(--purple) 50%, var(--border)); background: color-mix(in srgb, var(--purple) 8%, transparent); }
+.patch-img-group img { width: 52px; height: 40px; object-fit: cover; border-radius: 5px; background: var(--surface2); flex-shrink: 0; }
+.patch-img-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.patch-img-name code { font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.patch-img-name span { font-size: 11px; color: var(--text3); }
+.patch-img-group .settings-check { flex-shrink: 0; font-size: 11.5px; }
+.patch-img-group li.in-patch .settings-check input { accent-color: var(--purple); }
+.palette-group[hidden] { display: none; }
+.preview-patch { display: flex; flex-shrink: 0; padding: 2px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.preview-patch[hidden] { display: none; }
+.preview-patch button {
+  display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text2); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.preview-patch button[aria-pressed="true"] { background: var(--surface2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.preview-patch button[data-patch="1"][aria-pressed="true"] { background: color-mix(in srgb, var(--purple) 16%, var(--surface)); box-shadow: inset 0 0 0 1px var(--purple); }
+.preview-patch button[data-patch="1"] .icon { color: var(--purple); }
+.patch-branch { padding: 12px; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+.patch-branch .form-label { display: flex; align-items: center; gap: 6px; }
+.patch-branch-with { border-color: color-mix(in srgb, var(--purple) 45%, var(--border)); background: color-mix(in srgb, var(--purple) 6%, transparent); }
+.patch-branch-with .form-label { color: var(--purple); }
+.map-patch { display: inline-flex; align-items: center; gap: 3px; color: var(--purple); font-weight: 700; }
+#patch-images-overlay { z-index: 1001; }
+.block.cat-patch { background: color-mix(in srgb, var(--purple) 6%, var(--surface)); }
+.block.cat-patch.preview-selected {
+  border-color: var(--purple);
+  background: color-mix(in srgb, var(--purple) 9%, var(--surface));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--purple) 12%, transparent);
+}

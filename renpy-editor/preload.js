@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld('api', {
   selectGameIcon: () => ipcRenderer.invoke('select-game-icon'),
   setGameIcon: (srcPath) => ipcRenderer.invoke('set-game-icon', srcPath),
 
+  // Patch: content kept out of the game and packed apart
+  patchGet: () => ipcRenderer.invoke('patch-get'),
+  patchSave: (cfg) => ipcRenderer.invoke('patch-save', cfg),
+  patchMoveImage: (name, toPatch) => ipcRenderer.invoke('patch-move-image', name, toPatch),
+  patchWriteOwner: (owner, code) => ipcRenderer.invoke('patch-write-owner', owner, code),
+
   // Build the game with Ren'Py
   getBuildDefaults: () => ipcRenderer.invoke('get-build-defaults'),
   selectBuildFolder: (current) => ipcRenderer.invoke('select-build-folder', current),

@@ -67,6 +67,10 @@ function applyI18n() {
     const key = el.getAttribute('data-i18n-aria');
     if (translations[key]) el.setAttribute('aria-label', t(key));
   });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (translations[key]) el.placeholder = t(key);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -274,6 +278,15 @@ async function loadProjectData() {
   if (animText)       parseAnimaciones(animText);
   if (posText)        parsePositions(posText);
   if (exprText)       parseExpresiones(exprText);
+  // Images that only the patch has are declared in game/patch/
+  const patchBg    = await window.api.readFile('patch/backgrounds.rpy');
+  const patchScn   = await window.api.readFile('patch/scenes.rpy');
+  const patchChr   = await window.api.readFile('patch/characters.rpy');
+  const patchExpr  = await window.api.readFile('patch/expressions.rpy');
+  if (patchBg)   parseFondos(patchBg, true);
+  if (patchScn)  parseScenes(patchScn, true);
+  if (patchChr)  parseCharacterImages(patchChr, true);
+  if (patchExpr) parseExpresiones(patchExpr, true);
   if (activeScriptText) parseScriptLabels(activeScriptText);
   refreshLabelSelector();
 
@@ -282,6 +295,8 @@ async function loadProjectData() {
 
   // RPY files
   rpyFiles = await window.api.listRpyFiles();
+
+  if (typeof loadPatchInfo === 'function') { await loadPatchInfo(); applyPatchToEditor(); }
 
   checkGuiImages();
 }
@@ -303,29 +318,34 @@ function parsePersonajes(text) {
     if (!chars[id]) { chars[id] = { id, displayName: name, imageAttr, color, images: [] }; charOrder.push(id); }
   }
 
+  data.characters = charOrder.map(id => chars[id]);
+  parseCharacterImages(text);
+}
+
+// Sprites: "image key = path" lines, each one given to the character it belongs to
+function parseCharacterImages(text, patch = false) {
   const imageRe = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
-  const charList = charOrder.map(id => chars[id]);
+  let m;
   while ((m = imageRe.exec(text)) !== null) {
     const key = m[1], path = m[2];
-    const chr = findCharForSpriteKey(charList, key);
-    if (chr) chr.images.push({ key, path });
-  }
-  data.characters = charList;
-}
-
-function parseFondos(text) {
-  const re = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    data.backgrounds.push({ key: m[1], path: m[2] });
+    const chr = findCharForSpriteKey(data.characters, key);
+    if (chr) chr.images.push(patch ? { key, path, patch } : { key, path });
   }
 }
 
-function parseScenes(text) {
+function parseFondos(text, patch = false) {
   const re = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
   let m;
   while ((m = re.exec(text)) !== null) {
-    data.scenes.push({ key: m[1], path: m[2] });
+    data.backgrounds.push(patch ? { key: m[1], path: m[2], patch } : { key: m[1], path: m[2] });
+  }
+}
+
+function parseScenes(text, patch = false) {
+  const re = /^image\s+(\w+)\s*=\s*"([^"]+)"/gm;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    data.scenes.push(patch ? { key: m[1], path: m[2], patch } : { key: m[1], path: m[2] });
   }
 }
 
@@ -392,12 +412,12 @@ function parseGuiValues(text) {
   };
 }
 
-function parseExpresiones(text) {
+function parseExpresiones(text, patch = false) {
   // Parse per-character expressions: image side CharId key = "path"
   const re = /^image\s+side\s+(\w+)\s+(\w+)\s*=\s*"([^"]+)"/gm;
   let m;
   while ((m = re.exec(text)) !== null) {
-    data.expressions.push({ charId: m[1], key: m[2], path: m[3] });
+    data.expressions.push(patch ? { charId: m[1], key: m[2], path: m[3], patch } : { charId: m[1], key: m[2], path: m[3] });
   }
 }
 
@@ -495,14 +515,28 @@ function previewHideLayer(st, image) {
   st.layers = st.layers.filter(l => l.tag !== tag);
 }
 
+// Whether the scene preview plays the patch's content or the game's own
+let previewWithPatch = true;
+
+function setPreviewPatch(on) {
+  previewWithPatch = on;
+  updateScenePreview();
+}
+
 // Stage after running the top-level blocks up to and including `upTo`
 function computeSceneState(upTo, list = blocks) {
   const st = { background: null, layers: [], say: null, menu: null, music: '' };
-  for (let i = 0; i <= upTo && i < list.length; i++) {
-    const b = list[i];
+  for (let i = 0; i <= upTo && i < list.length; i++) applySceneBlock(st, list[i]);
+  return st;
+}
+
+function applySceneBlock(st, b) {
     st.say = null;
     st.menu = null;
     switch (b.type) {
+      case 'condition':
+        if (b.patch) (previewWithPatch ? b.blocks : b.elseBlocks || []).forEach(ib => applySceneBlock(st, ib));
+        break;
       case 'scene':
         st.background = { key: b.background, blur: b.blur };
         st.layers = [];
@@ -527,8 +561,6 @@ function computeSceneState(upTo, list = blocks) {
       case 'menu':      st.menu = (b.choices || []).map(c => c.text); break;
       case 'music':     st.music = b.action === 'stop' ? '' : (b.file || ''); break;
     }
-  }
-  return st;
 }
 
 // Text without Ren'Py text tags like {i} or {color=...}
@@ -581,6 +613,12 @@ function updateScenePreview() {
 
   const idx = previewBlockIndex();
   const st = computeSceneState(idx);
+  // The switch between the game with and without the patch shows when the scene has patch content
+  const toggle = document.getElementById('preview-patch');
+  if (toggle) {
+    toggle.hidden = !blocks.some(isPatchBlock);
+    toggle.querySelectorAll('button').forEach(btn => btn.setAttribute('aria-pressed', String((btn.dataset.patch === '1') === previewWithPatch)));
+  }
   box.innerHTML = sceneStageHtml(st);
   scaleScenePreview();
   info.textContent = t('scene_preview_block', idx + 1, blocks.length) + (st.music ? ' · ' + t('scene_preview_music', st.music) : '');
@@ -840,6 +878,12 @@ const BLOCK_META = {
   custom:     { icon: icon('custom'), labelKey: 'block_custom', cat: 'advanced' },
 };
 
+// "Patch content": a condition on patch_installed whose first branch lives in the patch
+const PATCH_CONDITION = 'patch_installed';
+const PATCH_META = { icon: icon('patch'), labelKey: 'block_patch', cat: 'patch' };
+const isPatchBlock = (b) => !!b && b.type === 'condition' && !!b.patch;
+const blockMeta = (b) => isPatchBlock(b) ? PATCH_META : (BLOCK_META[b.type] || { icon: '', labelKey: b.type, cat: 'advanced' });
+
 function blockDesc(b) {
   switch (b.type) {
     case 'narration': return `"${truncate(b.text, 80)}"`;
@@ -853,6 +897,10 @@ function blockDesc(b) {
     case 'label':     return `label ${b.name}:`;
     case 'menu':      return `${b.choices?.length||0} opciones: ${(b.choices||[]).map(c=>'"'+truncate(c.text,20)+'"').join(', ')}`;
     case 'condition': {
+      if (b.patch) {
+        const counts = t('patch_block_desc', b.blocks?.length || 0, b.elseBlocks?.length || 0);
+        return b.title ? `${b.title} · ${counts}` : counts;
+      }
       const hasElse = !!b.hasElse;
       const elifCount = (b.elifBlocks || []).length;
       const elifInfo = elifCount ? ` + ${elifCount} elif` : '';
@@ -883,7 +931,7 @@ function renderBlocks() {
   const action = (fn, iconName, key, extra = '') =>
     `<button class="block-btn${extra}" onclick="event.stopPropagation(); ${fn}" title="${t(key)}">${icon(iconName, 14)}<span>${t(key)}</span></button>`;
   list.innerHTML = blocks.map((b, i) => {
-    const meta = BLOCK_META[b.type] || { icon: '', labelKey: b.type, cat: 'advanced' };
+    const meta = blockMeta(b);
     return `<div class="block cat-${meta.cat}${i === selected ? ' preview-selected' : ''}" id="block-${i}" draggable="true" tabindex="0"
       onclick="selectPreviewBlock(${i})" ondblclick="editBlock(${i})" onkeydown="onBlockKeydown(event, ${i})"
       ondragstart="onBlockDragStart(event,${i})" ondragend="onBlockDragEnd(event)"
@@ -949,7 +997,75 @@ function escHtml(s) {
 // CODE GENERATION
 // ═══════════════════════════════════════════════════════════════════
 function generateCode(bList) {
+  if (bList === blocks) assignPatchLabels(bList);
   return bList.map(b => blockToCode(b)).filter(Boolean).join('\n\n');
+}
+
+// The label that owns the blocks being edited: the patch keeps their patch
+// content in game/patch/<label>.rpy
+function patchOwner() {
+  const target = (document.getElementById('target-label')?.value || '').trim();
+  if (target) return target;
+  const first = blocks.find(b => b.type === 'label' && b.name);
+  return first ? first.name : '';
+}
+
+function assignPatchLabels(list) {
+  const owner = patchOwner() || activeRpyFile.replace(/\.rpy$/, '').replace(/\W/g, '_');
+  let n = 0;
+  list.forEach(b => { if (isPatchBlock(b)) b.patchLabel = `patch_${owner}_${++n}`; });
+}
+
+// game/patch/<owner>.rpy: one label per patch block, called from the game
+function patchFileCode(list, owner) {
+  const parts = list.filter(isPatchBlock);
+  if (!parts.length) return '';
+  assignPatchLabels(list);
+  return `## Patch content of the label ${owner}. Ren'Py EDITOR writes this file.\n` + parts.map(b => {
+    const title = (b.title || '').replace(/[\r\n]+/g, ' ').trim();
+    const body = (b.blocks || []).map(ib => blockToCode(ib, '    ')).filter(Boolean).join('\n\n') || '    pass';
+    return `\nlabel ${b.patchLabel}:${title ? '  # ' + title : ''}\n${body}\n\n    return\n`;
+  }).join('');
+}
+
+// What the editor compares to know whether the blocks have unsaved edits
+function blocksSnapshot() {
+  return generateCode(blocks) + '\n' + patchFileCode(blocks, patchOwner());
+}
+
+// Blocks read again from the code keep the patch content they had
+function keepPatchContent(list, before) {
+  for (const b of list) {
+    if (b.type !== 'condition' || (b.condition || '').trim() !== PATCH_CONDITION) continue;
+    const first = b.blocks && b.blocks.length === 1 ? b.blocks[0] : null;
+    const call = first && first.type === 'custom' && /^call\s+expression\s+"(\w+)"/.exec((first.code || '').trim());
+    const old = call && before.find(o => isPatchBlock(o) && o.patchLabel === call[1]);
+    if (old) Object.assign(b, { patch: true, patchLabel: old.patchLabel, title: old.title, blocks: old.blocks, elifBlocks: [], hasElse: true, elseBlocks: b.elseBlocks || [] });
+  }
+}
+
+// After reading a label: its patch blocks get back their content from game/patch/
+async function attachPatchContent(list, owner) {
+  const targets = list.filter(b => b.type === 'condition' && (b.condition || '').trim() === PATCH_CONDITION);
+  if (!targets.length) return list;
+  const text = (await window.api.readFile(`patch/${owner}.rpy`)) || '';
+  for (const b of targets) {
+    const first = b.blocks && b.blocks.length === 1 ? b.blocks[0] : null;
+    const call = first && first.type === 'custom' && /^call\s+expression\s+"(\w+)"/.exec((first.code || '').trim());
+    if (!call) continue;
+    const name = call[1];
+    const head = new RegExp(`^label\\s+${name}\\s*:[ \\t]*(?:#[ \\t]*(.*?))?\\r?$`, 'm').exec(text);
+    const content = head ? (extractLabelContent(text, name) || '').replace(/^[ \t]*#[^\n]*/, '') : '';
+    const inner = content ? parseLabelContentToBlocks(content) : [];
+    const last = inner[inner.length - 1];
+    if (last && last.type === 'custom' && last.code.trim() === 'return') inner.pop();
+    if (inner.length === 1 && inner[0].type === 'custom' && inner[0].code.trim() === 'pass') inner.pop();
+    Object.assign(b, {
+      patch: true, patchLabel: name, title: head ? (head[1] || '').trim() : '',
+      blocks: inner, elifBlocks: [], hasElse: true, elseBlocks: b.elseBlocks || []
+    });
+  }
+  return list;
 }
 
 function blockToCode(b, indent = '    ') {
@@ -1055,6 +1171,14 @@ function blockToCode(b, indent = '    ') {
     }
 
     case 'condition': {
+      if (b.patch) {
+        // The game only calls the patch's label when the patch is installed
+        const lines = [`${indent}if ${PATCH_CONDITION}:`, `${indent}    call expression "${b.patchLabel || 'patch_block'}"`];
+        if (b.elseBlocks && b.elseBlocks.length) {
+          lines.push(`${indent}else:`, b.elseBlocks.map(ib => blockToCode(ib, indent + '    ')).filter(Boolean).join('\n\n'));
+        }
+        return lines.join('\n');
+      }
       const cond = (b.condition || '').trim();
       if (!cond) return '';
       const lines = [`${indent}if ${cond}:`];
@@ -1380,7 +1504,9 @@ function updateBlocksFromManualText() {
   if (!raw.trim()) {
     blocks = [];
   } else {
+    const before = blocks;
     blocks = parseLabelContentToBlocks(raw);
+    keepPatchContent(blocks, before);
   }
   renderBlocks();
 }
@@ -1434,7 +1560,8 @@ function buildModifiedScript(existing, newCode) {
   const labelEnd = nextMatch ? nextMatch.index : existing.length;
   const before = existing.slice(0, contentStart);
   const after = existing.slice(labelEnd).replace(/^\n+/, '');
-  const needsReturn = !/\breturn\b/.test(newCode.split('\n').pop() || '');
+  // A label that ends jumping elsewhere never reaches a return
+  const needsReturn = !/^\s*(return|jump)\b/.test(newCode.trimEnd().split('\n').pop() || '');
   const returnLine = needsReturn ? '\n\n    return\n' : '\n';
   return before + '\n' + newCode + returnLine + '\n' + after;
 }
@@ -1443,6 +1570,8 @@ async function appendToScript() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
   const codeText = codePreviewHasManual ? codePreviewManualText : generateCode(blocks);
   if (!codeText.trim()) { notify(t('no_blocks_to_save'), 'err'); return; }
+  const owner = patchOwner();
+  if (blocks.some(isPatchBlock) && !owner) { notify(t('patch_needs_label'), 'err'); return; }
 
   const labelName = (document.getElementById('target-label')?.value || '').trim();
   if (labelName) {
@@ -1454,8 +1583,12 @@ async function appendToScript() {
   const modified = buildModifiedScript(existing, newCode);
 
   const ok = await window.api.writeFile(activeRpyFile, modified);
+  // The patch content of these blocks goes to game/patch/<label>.rpy (removed when there is none)
+  if (ok && owner && !await window.api.patchWriteOwner(owner, patchFileCode(blocks, owner))) {
+    notify(t('save_error', `patch/${owner}.rpy`), 'err');
+  }
   if (ok) {
-    if (!codePreviewHasManual) labelLoadedCode = generateCode(blocks);
+    if (!codePreviewHasManual) labelLoadedCode = blocksSnapshot();
     const where = labelName ? t('overwritten_in', labelName) : t('appended_to_end');
     notify(t('save_ok', where), 'ok');
 
@@ -1870,7 +2003,7 @@ async function getScriptText() {
 let labelLoadedCode = '';
 
 function hasUnsavedBlocks() {
-  return blocks.length > 0 && (codePreviewHasManual || generateCode(blocks) !== labelLoadedCode);
+  return blocks.length > 0 && (codePreviewHasManual || blocksSnapshot() !== labelLoadedCode);
 }
 
 async function onTargetLabelChange() {
@@ -1909,9 +2042,9 @@ async function onTargetLabelChange() {
     sel.value = sel.dataset.prev || '';
     return;
   }
-  const parsed = parseLabelContentToBlocks(content);
+  const parsed = await attachPatchContent(parseLabelContentToBlocks(content), labelName);
   blocks = parsed;
-  labelLoadedCode = generateCode(blocks);
+  labelLoadedCode = blocksSnapshot();
   sel.dataset.prev = labelName;
   renderBlocks(); updateCodePreview();
   notify(t('loaded_blocks', parsed.length, labelName), 'ok');
@@ -2029,7 +2162,7 @@ function getShownSprites(blockList, limit) {
 // ═══════════════════════════════════════════════════════════════════
 let pendingBlock = {};
 
-function openModal(type, existing) {
+function openModal(type, existing, isNew = false) {
   if (audioPreviewFile) stopAudioPreview();
   pendingBlock = existing ? { ...existing } : { type };
   const overlay = document.getElementById('modal-overlay');
@@ -2037,8 +2170,8 @@ function openModal(type, existing) {
   const body = document.getElementById('modal-body');
   const modalBox = document.getElementById('modal-box');
 
-  const meta = BLOCK_META[type] || { icon: '?', labelKey: type };
-  title.innerHTML = `${meta.icon}<span>${existing ? t('edit') : t('add')}: ${escHtml(t(meta.labelKey))}</span>`;
+  const meta = pendingBlock.patch ? PATCH_META : (BLOCK_META[type] || { icon: '?', labelKey: type });
+  title.innerHTML = `${meta.icon}<span>${existing && !isNew ? t('edit') : t('add')}: ${escHtml(t(meta.labelKey))}</span>`;
   body.innerHTML = buildModalBody(type, pendingBlock);
   overlay.classList.add('open');
 
@@ -2875,7 +3008,43 @@ function buildMenuBody(b) {
   return html;
 }
 
+// The patch block: what the patch adds and what is shown without it
+function buildPatchBody(b) {
+  const blocksJson = escHtml(JSON.stringify(b.blocks || []));
+  const elseBlocksJson = escHtml(JSON.stringify(b.elseBlocks || []));
+  const palette = (branch) => `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+    ${['narration','dialogue','show','show_multi','hide','hide_multi','scene','solid','menu','condition','pause','music','jump','call','comment','custom'].map(t2 => {
+      const m = BLOCK_META[t2];
+      return `<button class="btn btn-secondary btn-icon" onclick="addConditionBlock('${branch}','${t2}')" title="${t(m.labelKey)}" aria-label="${t(m.labelKey)}">${m.icon}</button>`;
+    }).join('')}
+  </div>`;
+  return `
+    <p class="settings-hint">${t('patch_block_hint')}</p>
+    <input type="hidden" id="f-cond" value="${PATCH_CONDITION}">
+    <span hidden id="f-cond-has-else" class="active"></span>
+    <div id="elif-list" hidden></div>
+    <div class="form-group">
+      <label class="form-label" for="f-patch-title">${t('patch_block_title')}</label>
+      <input class="form-input" id="f-patch-title" value="${escHtml(b.title || '')}" placeholder="${escHtml(t('patch_block_title_placeholder'))}">
+    </div>
+    <div class="form-group patch-branch patch-branch-with">
+      <label class="form-label">${icon('patch', 14)}${t('patch_with')}</label>
+      <p class="settings-hint">${t('patch_with_hint')}</p>
+      <input type="hidden" id="ifb" value="${blocksJson}">
+      ${palette('then')}
+      <div id="ifbl" class="choice-blocks-list"></div>
+    </div>
+    <div id="if-else-section" class="form-group patch-branch">
+      <label class="form-label">${t('patch_without')}</label>
+      <p class="settings-hint">${t('patch_without_hint')}</p>
+      <input type="hidden" id="ifeb" value="${elseBlocksJson}">
+      ${palette('else')}
+      <div id="ifebl" class="choice-blocks-list"></div>
+    </div>`;
+}
+
 function buildConditionBody(b) {
+  if (b.patch) return buildPatchBody(b);
   const blocksJson = b.blocks ? escHtml(JSON.stringify(b.blocks)) : '[]';
   const elseBlocksJson = b.elseBlocks ? escHtml(JSON.stringify(b.elseBlocks)) : '[]';
   const elifBlocks = Array.isArray(b.elifBlocks) ? b.elifBlocks : [];
@@ -3458,13 +3627,16 @@ function readCurrentConditionState() {
   try { condBlocks = JSON.parse(document.getElementById('ifb')?.value || '[]'); } catch (e) {}
   try { elseBlocks = JSON.parse(document.getElementById('ifeb')?.value || '[]'); } catch (e) {}
   const hasElse = document.getElementById('f-cond-has-else')?.classList.contains('active');
+  const patchFields = pendingBlock && pendingBlock.patch
+    ? { patch: true, patchLabel: pendingBlock.patchLabel, title: (document.getElementById('f-patch-title')?.value || '').trim() } : {};
   return {
     type: 'condition',
     condition: (document.getElementById('f-cond')?.value || '').trim(),
     blocks: condBlocks,
     elifBlocks: readConditionElifs(),
     hasElse: !!hasElse,
-    elseBlocks
+    elseBlocks,
+    ...patchFields
   };
 }
 
@@ -3743,6 +3915,7 @@ function readModalValues() {
       break;
     }
     case 'condition': {
+      if (pendingBlock.patch) Object.assign(b, { patch: true, patchLabel: pendingBlock.patchLabel, title: (g('f-patch-title') || '').trim() });
       b.condition = (g('f-cond') || '').trim();
       if (!b.condition) { notify(t('write_condition'), 'err'); return null; }
       try {

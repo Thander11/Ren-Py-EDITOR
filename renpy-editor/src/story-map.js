@@ -180,6 +180,7 @@ function analyzeLabelBody(name, file, body, edges) {
     }
     const cond = condStack.map(c => c.text).join(' and ');
 
+    if (/^if\s+patch_installed\s*:$/.test(line)) node.patch = true;
     if ((m = /^(if|elif)\s+(.+?)\s*:$/.exec(line)) || /^else\s*:$/.test(line)) {
       // Every condition is kept as written; "else" means none of the previous ones
       const chain = m && m[1] === 'if' ? [] : (closed ? closed.chain : []);
@@ -437,6 +438,7 @@ function mapNodeHtml(node) {
   const facts = [];
   if (node.chars.length) facts.push(mapCount(node.chars.length, 'map_characters_one', 'map_characters'));
   if (node.menus.length) facts.push(`<b>${mapCount(node.menus.length, 'map_decisions_one', 'map_decisions')}</b>`);
+  if (node.patch) facts.push(`<span class="map-patch">${icon('patch', 11)}${t('map_patch')}</span>`);
   const body = node.missing
     ? `<span class="map-summary">${t('map_missing_desc')}</span>`
     : `${mapThumbHtml(node)}

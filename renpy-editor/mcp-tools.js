@@ -13,6 +13,7 @@ Start with get_project_overview, then get_story_map to see how the story flows, 
 Ren'Py terms such as label, jump, call, menu, scene, show and define keep their code names.
 You can also change the novel: write_label for whole scenes, edit_script for small changes, and tools to add characters, images, variables and GUI settings. Read the code before changing it and keep Ren'Py's indentation (4 spaces, never tabs).
 Before every change the editor backs up the files it touches and logs it; the user can undo any change from the app, and so can you with undo_change. Tell the user briefly what you changed.
+If the novel has a patch (content left out of a version such as the Steam one), a scene calls it with "if patch_installed: call expression "patch_<label>_<n>"", and that label is in game/patch/<label>.rpy; images only in the patch are in game/images/patch/. Read and edit those files with read_script_file and edit_script.
 To check how a moment looks in the game, use preview_scene. To show the user what you are talking about, use open_in_editor or show_in_map; launch_game starts the novel so they can play it.`;
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
