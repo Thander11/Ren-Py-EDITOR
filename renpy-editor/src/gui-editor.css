@@ -2,6 +2,7 @@
    Game interface (GUI) editor window — on top of declaration.css
    ═══════════════════════════════════════════════════════════ */
 html, body { height: 100%; }
+[hidden] { display: none !important; }
 body { display: flex; flex-direction: column; overflow: hidden; }
 
 .ge-header {
@@ -53,6 +54,23 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ge-nav { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
 .ge-menu-title, .ge-menu-body { position: absolute; }
 .ge-menu-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* Parts that can be dragged in the preview (sizes are in game pixels, the stage is scaled) */
+#ge-stage [data-drag] { cursor: move; }
+#ge-stage .ge-namebox[data-drag]:hover, #ge-stage .ge-dialogue[data-drag]:hover {
+  outline: 4px dashed color-mix(in srgb, var(--accent) 80%, transparent); outline-offset: 6px;
+}
+.ge-dialogue, .ge-choice { position: relative; }
+.ge-dialogue { position: absolute; }
+.ge-handle { position: absolute; z-index: 2; }
+.ge-handle::after { content: ''; position: absolute; border-radius: 6px; background: var(--accent); opacity: .35; transition: opacity .15s; }
+.ge-handle:hover::after, body.ge-dragging .ge-handle::after { opacity: 1; }
+#ge-stage .ge-handle-top { left: 0; right: 0; top: -14px; height: 28px; cursor: ns-resize; }
+.ge-handle-top::after { left: calc(50% - 60px); width: 120px; top: 10px; height: 8px; }
+#ge-stage .ge-handle-right { top: 0; bottom: 0; right: -14px; width: 28px; cursor: ew-resize; }
+.ge-handle-right::after { top: calc(50% - 30px); height: 60px; left: 10px; width: 8px; }
+body.ge-dragging, body.ge-dragging * { user-select: none; }
+.ge-drag-hint { font-size: 11.5px; color: var(--text3); }
 
 /* ── Settings ── */
 .ge-settings {

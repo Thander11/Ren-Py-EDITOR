@@ -43,6 +43,7 @@ let guiText = '';
 let projectFonts = [];
 let backgrounds = [];    // { key, path } for the preview background
 let previewMode = 'dialogue';
+let previewScale = 1;
 let dirty = false;
 const project = { width: 1920, height: 1080 };
 
@@ -394,7 +395,18 @@ function fontFamily(rel) {
 function setPreviewMode(mode) {
   previewMode = mode;
   for (const m of ['dialogue', 'choice', 'menu']) document.getElementById('ge-tab-' + m).setAttribute('aria-selected', String(m === mode));
+  applyTabFilter();
   renderPreview();
+}
+
+// Only the options of what the preview shows are listed; their sections open
+function applyTabFilter() {
+  document.querySelectorAll('.ge-settings [data-tabs]').forEach(el => {
+    const show = el.dataset.tabs.split(' ').includes(previewMode);
+    el.hidden = !show;
+    if (show && el.tagName === 'DETAILS') el.open = true;
+  });
+  document.querySelector('.ge-settings').scrollTop = 0;
 }
 
 function backgroundHtml() {
@@ -418,12 +430,13 @@ function renderPreview() {
     const nb = s.images.namebox.source === 'generated' ? generatedBorders('namebox') : { x: 5, y: 5 };
     html = backgroundHtml() + `
       <div class="ge-textbox" style="height: ${s.textbox.height}px; ${partBackground('textbox')}">
-        <div class="ge-namebox" style="left: ${s.name.xpos}px; top: ${s.name.ypos}px; transform: translateX(-${s.name.xalign * 100}%);
+        <div class="ge-handle ge-handle-top" data-drag="textbox-height" title="${escHtml(t('gui_drag_height'))}"></div>
+        <div class="ge-namebox" data-drag="name" title="${escHtml(t('gui_drag_move'))}" style="left: ${s.name.xpos}px; top: ${s.name.ypos}px; transform: translateX(-${s.name.xalign * 100}%);
           ${s.images.namebox.source === 'generated' ? '' : `padding: ${nb.y}px ${nb.x}px;`} ${partBackground('namebox')}">
           <span style="${textStyle(s.fonts.name, s.sizes.name, s.colors.accent)}">${escHtml(t('gui_sample_name'))}</span>
         </div>
-        <div class="ge-dialogue" style="left: ${s.dialogue.xpos}px; top: ${s.dialogue.ypos}px; width: ${s.dialogue.width}px;
-          text-align: ${['left', 'center', 'right'][Math.round(s.dialogue.xalign * 2)]}; ${textStyle(s.fonts.text, s.sizes.text, s.colors.text)}">${escHtml(t('gui_sample_text'))}</div>
+        <div class="ge-dialogue" data-drag="dialogue" title="${escHtml(t('gui_drag_move'))}" style="left: ${s.dialogue.xpos}px; top: ${s.dialogue.ypos}px; width: ${s.dialogue.width}px;
+          text-align: ${['left', 'center', 'right'][Math.round(s.dialogue.xalign * 2)]}; ${textStyle(s.fonts.text, s.sizes.text, s.colors.text)}">${escHtml(t('gui_sample_text'))}<div class="ge-handle ge-handle-right" data-drag="dialogue-width" title="${escHtml(t('gui_drag_width'))}"></div></div>
       </div>`;
   } else if (previewMode === 'choice') {
     const generated = s.images.choice.source === 'generated';
@@ -433,7 +446,7 @@ function renderPreview() {
       ${items.map((text, i) => {
         const hover = i === 1;
         return `<div class="ge-choice" style="width: ${s.choice.width}px; ${generated ? '' : `padding: ${b.y}px 0;`} ${partBackground('choice', hover ? 1 : 0)}
-          ${textStyle(s.fonts.interface, s.choice.textSize, hover ? s.choice.hoverColor : s.choice.idleColor)}">${escHtml(text)}</div>`;
+          ${textStyle(s.fonts.interface, s.choice.textSize, hover ? s.choice.hoverColor : s.choice.idleColor)}">${escHtml(text)}${hover ? `<div class="ge-handle ge-handle-right" data-drag="choice-width" title="${escHtml(t('gui_drag_width'))}"></div>` : ''}</div>`;
       }).join('')}
     </div>`;
   } else {
@@ -460,9 +473,54 @@ function fitStage() {
   const wrap = document.getElementById('ge-stage-wrap');
   const stage = document.getElementById('ge-stage');
   const sc = Math.min(wrap.clientWidth / project.width, wrap.clientHeight / project.height) || 1;
+  previewScale = sc;
   const ox = (wrap.clientWidth - project.width * sc) / 2;
   const oy = (wrap.clientHeight - project.height * sc) / 2;
   stage.style.transform = `translate(${ox}px, ${oy}px) scale(${sc})`;
+}
+
+// ── Dragging in the preview ──
+// What each draggable part changes: its values at the start of the drag (v) and
+// the mouse movement in game pixels (dx, dy) give the new values
+const DRAGS = {
+  'name': { keys: ['name.xpos', 'name.ypos'], apply: (v, dx, dy) => [v[0] + dx, v[1] + dy] },
+  'dialogue': { keys: ['dialogue.xpos', 'dialogue.ypos'], apply: (v, dx, dy) => [v[0] + dx, v[1] + dy] },
+  'dialogue-width': { keys: ['dialogue.width'], apply: (v, dx) => [v[0] + dx] },
+  'textbox-height': { keys: ['textbox.height'], apply: (v, dx, dy) => [v[0] - dy] },
+  // The buttons are centred, so they grow on both sides
+  'choice-width': { keys: ['choice.width'], apply: (v, dx) => [v[0] + dx * 2] }
+};
+
+// Same limits as the sliders of each value
+function clampToControl(key, value) {
+  const input = document.querySelector(`input[type="range"][data-key="${key}"]`);
+  if (!input) return Math.round(value);
+  return Math.round(clamp(value, +input.min, rangeMax(input)));
+}
+
+function setupDragging() {
+  const stage = document.getElementById('ge-stage');
+  let drag = null;
+  stage.addEventListener('pointerdown', (e) => {
+    const target = e.target.closest('[data-drag]');
+    if (!target || e.button !== 0) return;
+    e.preventDefault();
+    const d = DRAGS[target.dataset.drag];
+    drag = { d, x: e.clientX, y: e.clientY, start: d.keys.map(k => getPath(state, k)) };
+    document.body.classList.add('ge-dragging');
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = (e.clientX - drag.x) / previewScale, dy = (e.clientY - drag.y) / previewScale;
+    drag.d.apply(drag.start, dx, dy).forEach((value, i) => setPath(state, drag.d.keys[i], clampToControl(drag.d.keys[i], value)));
+    syncControls();
+    markDirty();
+    renderPreview();
+  });
+  document.addEventListener('pointerup', () => {
+    drag = null;
+    document.body.classList.remove('ge-dragging');
+  });
 }
 
 // ── Saving ──
@@ -592,6 +650,8 @@ window.addEventListener('beforeunload', (e) => {
   await loadProjectLists();
   bindControls();
   syncControls();
+  applyTabFilter();
+  setupDragging();
   new ResizeObserver(fitStage).observe(document.getElementById('ge-stage-wrap'));
   renderPreview();
 
