@@ -57,6 +57,8 @@ contextBridge.exposeInMainWorld('api', {
   claudeSetPort: (port) => ipcRenderer.invoke('claude-set-port', port),
   onClaudeStatus: (cb) => ipcRenderer.on('claude-status', (_, s) => cb(s)),
   claudeListChanges: () => ipcRenderer.invoke('claude-list-changes'),
+  claudeDesktopStatus: () => ipcRenderer.invoke('claude-desktop-status'),
+  claudeDesktopAdd: () => ipcRenderer.invoke('claude-desktop-add'),
   claudeUndoChange: (id, force) => ipcRenderer.invoke('claude-undo-change', id, force),
   onClaudeChange: (cb) => ipcRenderer.on('claude-change', (_, entry) => cb(entry)),
   // Claude asks the editor something: cb(tool, args) resolves with the answer

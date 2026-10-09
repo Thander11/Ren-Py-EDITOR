@@ -1988,6 +1988,53 @@ html, body { margin: 0; padding: 0; overflow: hidden; background: #000; width: $
 
 ipcMain.handle('claude-get-status', () => claudeStatus());
 
+// ── Claude Desktop: starts mcp-bridge.js with the editor's own Electron ──
+function claudeDesktopConfigPath() {
+  return path.join(app.getPath('appData'), 'Claude', 'claude_desktop_config.json');
+}
+
+function claudeDesktopEntry() {
+  return {
+    command: process.execPath,
+    args: [path.join(__dirname, 'mcp-bridge.js'), settingsPath],
+    env: { ELECTRON_RUN_AS_NODE: '1' }
+  };
+}
+
+function readClaudeDesktopConfig() {
+  const fp = claudeDesktopConfigPath();
+  if (!fs.existsSync(fp)) return {};
+  return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+}
+
+ipcMain.handle('claude-desktop-status', () => {
+  const fp = claudeDesktopConfigPath();
+  // Claude Desktop creates its folder the first time it runs
+  const found = fs.existsSync(path.dirname(fp));
+  try {
+    const entry = (readClaudeDesktopConfig().mcpServers || {})['renpy-editor'];
+    return { found, added: !!entry, current: !!entry && JSON.stringify(entry) === JSON.stringify(claudeDesktopEntry()) };
+  } catch (e) {
+    return { found, added: false, current: false, error: 'bad-config' };
+  }
+});
+
+// Adds the editor to Claude Desktop's servers, keeping everything else in its configuration
+ipcMain.handle('claude-desktop-add', () => {
+  const fp = claudeDesktopConfigPath();
+  let config;
+  try { config = readClaudeDesktopConfig(); } catch (e) { return { ok: false, error: 'bad-config' }; }
+  try {
+    fs.mkdirSync(path.dirname(fp), { recursive: true });
+    if (fs.existsSync(fp)) fs.copyFileSync(fp, fp + '.renpy-editor.bak');
+    config.mcpServers = { ...(config.mcpServers || {}), 'renpy-editor': claudeDesktopEntry() };
+    fs.writeFileSync(fp, JSON.stringify(config, null, 2), 'utf-8');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 ipcMain.handle('claude-list-changes', () => currentGamePath ? claudeChanges.list() : []);
 ipcMain.handle('claude-undo-change', (_, id, force) => {
   try { return claudeChanges.undo(id, force); } catch (e) { return { ok: false, error: e.message }; }

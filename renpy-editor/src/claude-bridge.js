@@ -128,6 +128,7 @@ function renderClaudeSettings() {
     state.textContent = t('claude_off');
   }
   document.getElementById('claude-port').value = s.port;
+  if (s.enabled) renderClaudeDesktop().catch(() => {});
   document.getElementById('claude-command').textContent = s.token ? claudeAddCommand(s) : '';
 }
 
@@ -334,3 +335,24 @@ Object.assign(claudeTools, {
     return `"${label}" is selected in the story map.`;
   }
 });
+
+// ── Claude Desktop ──
+async function renderClaudeDesktop() {
+  const st = await window.api.claudeDesktopStatus();
+  const hint = document.getElementById('claude-desktop-hint');
+  const btn = document.getElementById('claude-desktop-btn');
+  hint.classList.toggle('error', st.error === 'bad-config');
+  hint.textContent = st.error === 'bad-config' ? t('claude_desktop_bad_config')
+    : st.current ? t('claude_desktop_added')
+    : st.added ? t('claude_desktop_outdated')
+    : st.found ? t('claude_desktop_hint') : t('claude_desktop_not_found');
+  btn.textContent = t(st.current ? 'claude_desktop_add_again' : 'claude_desktop_add');
+  btn.disabled = st.error === 'bad-config';
+}
+
+async function addToClaudeDesktop() {
+  const r = await window.api.claudeDesktopAdd();
+  if (r.ok) notify(t('claude_desktop_done'), 'ok');
+  else notify(t(r.error === 'bad-config' ? 'claude_desktop_bad_config' : 'claude_desktop_failed'), 'err');
+  renderClaudeDesktop();
+}
