@@ -4,6 +4,7 @@
   "launch_project": "ゲームを起動",
   "block_condition": "条件",
   "declarations": "宣言",
+  "manual": "マニュアル",
   "settings": "設定",
   "launching_project": "プロジェクトを起動しています...",
   "project_launched": "Ren'Py でプロジェクトを起動しました",

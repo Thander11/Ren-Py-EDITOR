@@ -47,6 +47,8 @@ function closeStoryMap() {
 
 // Marks the open section in the sidebar
 function setActiveNav(id) {
+  // Any other section leaves the manual
+  if (id !== 'nav-manual') document.getElementById('manual-screen')?.classList.remove('open');
   document.querySelectorAll('#sidebar .sb-item[id^="nav-"]').forEach(el => {
     const on = el.id === id;
     el.classList.toggle('active', on);

@@ -4,6 +4,7 @@
   "launch_project": "Запустить игру",
   "block_condition": "Условие",
   "declarations": "Объявления",
+  "manual": "Руководство",
   "settings": "Настройки",
   "launching_project": "Запуск проекта...",
   "project_launched": "Проект запущен в Ren'Py",

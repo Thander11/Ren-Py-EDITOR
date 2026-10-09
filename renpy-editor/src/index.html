@@ -31,6 +31,7 @@
     <button class="sb-item" onclick="openBuildDialog()"><span class="icon" data-icon="package" data-icon-size="18"></span><span data-i18n="build_game">Compilar juego</span></button>
     <div class="sb-bottom">
       <button class="btn btn-primary sb-play" onclick="launchProjectFromEditor()"><span class="icon" data-icon="play" data-icon-size="13"></span><span data-i18n="launch_project">Iniciar juego</span></button>
+      <button class="sb-item" id="nav-manual" onclick="openManual()"><span class="icon" data-icon="book" data-icon-size="18"></span><span data-i18n="manual">Manual</span><kbd class="sb-key">F1</kbd></button>
       <button class="sb-item" id="settings-btn" onclick="toggleSettings()" aria-controls="settings-panel" aria-expanded="false"><span class="icon" data-icon="settings" data-icon-size="18"></span><span data-i18n="settings">Ajustes</span></button>
       <div id="status-bar"></div>
     </div>
@@ -218,6 +219,18 @@
   </div>
 
     <!-- Story map -->
+    <section id="manual-screen" aria-labelledby="manual-title">
+      <div id="manual-header">
+        <span class="icon" data-icon="book" data-icon-size="20"></span>
+        <h1 id="manual-title">Manual</h1>
+        <input type="search" id="manual-search" class="form-input" oninput="filterManual(this.value)">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="closeManual()" data-i18n-title="close" aria-label="Cerrar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div id="manual-body">
+        <nav id="manual-toc"></nav>
+        <article id="manual-article" tabindex="-1"></article>
+      </div>
+    </section>
     <section id="map-overlay" aria-labelledby="map-title">
       <div id="map-header">
         <span id="map-title" data-i18n="map_title">Mapa de la historia</span>
@@ -384,5 +397,8 @@
   <script src="build.js"></script>
   <script src="claude-bridge.js"></script>
   <script src="patch.js"></script>
+  <script src="manual/manual-es.js"></script>
+  <script src="manual/manual-en.js"></script>
+  <script src="manual.js"></script>
 </body>
 </html>

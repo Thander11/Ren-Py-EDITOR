@@ -3,6 +3,7 @@
   "open_project": "Abrir carpeta del proyecto",
   "launch_project": "Iniciar juego",
   "declarations": "Declaraciones",
+  "manual": "Manual",
   "settings": "Ajustes",
   "launching_project": "Iniciando proyecto...",
   "project_launched": "Proyecto iniciado en Ren'Py",

@@ -16,6 +16,7 @@ const ICON_PATHS = {
   'folder-open': '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1"/><path d="M3 7v11a1 1 0 0 0 1 1h13.5l3.5-8H7l-3.5 7"/>',
   'project-new': '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v6M9 14h6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7.5h8M8 11h6"/>',
   patch: '<path d="M9 5a2.5 2.5 0 0 1 5 0v1h4v4h-1a2.5 2.5 0 0 0 0 5h1v4h-4v-1a2.5 2.5 0 0 0-5 0v1H5v-4h1a2.5 2.5 0 0 0 0-5H5V6h4z"/>',
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.4"/>',

@@ -234,6 +234,7 @@ async function changeLanguage(lang) {
   renderCustomThemeEditor(document.getElementById('setting-theme').value);
   renderSpellcheckSettings();
   renderClaudeSettings();
+  if (document.getElementById('manual-screen').classList.contains('open')) renderManual();
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();

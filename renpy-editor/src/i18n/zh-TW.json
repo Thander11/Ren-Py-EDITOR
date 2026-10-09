@@ -4,6 +4,7 @@
   "launch_project": "啟動遊戲",
   "block_condition": "條件",
   "declarations": "宣告",
+  "manual": "使用手冊",
   "settings": "設定",
   "launching_project": "正在啟動專案...",
   "project_launched": "專案已在 Ren'Py 中啟動",

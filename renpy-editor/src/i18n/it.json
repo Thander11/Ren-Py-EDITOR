@@ -4,6 +4,7 @@
   "launch_project": "Avvia il gioco",
   "block_condition": "Condizione",
   "declarations": "Dichiarazioni",
+  "manual": "Manuale",
   "settings": "Impostazioni",
   "launching_project": "Avvio del progetto...",
   "project_launched": "Progetto avviato in Ren'Py",
