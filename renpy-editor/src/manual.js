@@ -1,14 +1,18 @@
 // ═══════════════════════════════════════════════════════════
-// Ren'Py EDITOR — User manual screen. The manual is in Spanish and
-// English (src/manual/manual-*.js): Spanish when the editor is in
-// Spanish, English for every other language.
+// Ren'Py EDITOR — User manual screen. Every language has its own
+// manual (src/manual/manual-<lang>.js); English when one is missing.
+// {{key}} in a manual is the editor's own text for that i18n key, so
+// the manual names buttons exactly as the interface does.
 // ═══════════════════════════════════════════════════════════
 
 let manualShownLang = '';
 let manualPrevNav = 'nav-scenes';
 let manualObserver = null;
 
-const manualLang = () => currentLang === 'es' ? 'es' : 'en';
+const manualLang = () => MANUALS[currentLang] ? currentLang : 'en';
+
+// Interface texts inside the manual, without trailing colons
+const manualUiText = (html) => html.replace(/\{\{(\w+)\}\}/g, (_, key) => escHtml(t(key).replace(/[:：]\s*$/, '')));
 
 function openManual(sectionId) {
   const screen = document.getElementById('manual-screen');
@@ -43,7 +47,7 @@ function renderManual() {
   search.value = '';
   document.getElementById('manual-toc').setAttribute('aria-label', m.contents);
   const article = document.getElementById('manual-article');
-  article.innerHTML = m.html + `<p class="manual-empty" hidden>${escHtml(m.noResults)}</p>`;
+  article.innerHTML = manualUiText(m.html) + `<p class="manual-empty" hidden>${escHtml(m.noResults)}</p>`;
   // Links inside the manual go to its sections; outside links open in the browser
   article.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
     e.preventDefault();
