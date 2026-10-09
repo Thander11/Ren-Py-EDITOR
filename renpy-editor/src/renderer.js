@@ -119,7 +119,10 @@ function customThemeRow(k, value) {
     </div>`;
 }
 
+let customThemeOnOpen = null;  // colors when the dialog opened, restored by Cancel
+
 function openCustomThemeEditor() {
+  customThemeOnOpen = { ...customTheme };
   settingsOpen = false;
   document.getElementById('settings-panel').classList.remove('open');
   const c = resolveCustomTheme(customTheme);
@@ -140,7 +143,16 @@ function closeCustomThemeEditor() {
 }
 
 function onCustomThemeEditorKey(e) {
-  if (e.key === 'Escape' && !document.querySelector('.app-dialog-overlay')) { e.preventDefault(); closeCustomThemeEditor(); }
+  if (e.key === 'Escape' && !document.querySelector('.app-dialog-overlay')) { e.preventDefault(); cancelCustomTheme(); }
+}
+
+// Cancel: the colors go back to the ones the dialog opened with
+async function cancelCustomTheme() {
+  clearTimeout(customThemeSaveTimer);
+  if (customThemeOnOpen) customTheme = { ...customThemeOnOpen };
+  applyTheme({ theme: 'custom', customTheme });
+  closeCustomThemeEditor();
+  await window.api.saveSettings({ customTheme: { ...customTheme } });
 }
 
 // Code colors not set by the user follow the interface ones, so every field is refreshed

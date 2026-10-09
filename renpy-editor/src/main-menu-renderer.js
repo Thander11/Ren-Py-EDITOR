@@ -195,6 +195,17 @@ function setPath(path, value) {
 function markDirty(value = true) {
   dirty = value;
   document.getElementById('mm-dirty').classList.toggle('show', dirty);
+  document.getElementById('mm-discard').disabled = !dirty;
+}
+
+// Cancel: back to what is saved in the project
+async function discardChanges() {
+  if (!dirty) return;
+  if (!await showConfirm(t('discard_confirm'), { danger: true, okText: t('discard_changes') })) return;
+  await loadConfig();
+  markDirty(false);
+  refreshAll();
+  notify(t('changes_discarded'), 'ok');
 }
 
 // ═══════════════════════════════════════════════════════════

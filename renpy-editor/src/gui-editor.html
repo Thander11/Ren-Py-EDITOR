@@ -13,6 +13,7 @@
     <h1 data-i18n="gui_editor_title">Interfaz del juego</h1>
     <span id="ge-dirty" class="ge-dirty" data-i18n="mm_unsaved">Cambios sin guardar</span>
     <div class="ge-header-actions">
+      <button class="btn btn-secondary" id="ge-discard" onclick="discardChanges()" disabled><span data-i18n="discard_changes">Cancelar cambios</span></button>
       <button class="btn btn-secondary" onclick="saveAndTest()"><span class="icon" data-icon="play" data-icon-size="12"></span><span data-i18n="mm_test">Probar en Ren'Py</span></button>
       <button class="btn btn-primary" onclick="saveGui()"><span class="icon" data-icon="save" data-icon-size="15"></span><span data-i18n="mm_save">Guardar</span></button>
     </div>

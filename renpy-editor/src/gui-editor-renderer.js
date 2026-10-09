@@ -195,6 +195,20 @@ async function loadProjectLists() {
 function markDirty(value = true) {
   dirty = value;
   document.getElementById('ge-dirty').classList.toggle('show', value);
+  document.getElementById('ge-discard').disabled = !value;
+}
+
+// Cancel: back to what is saved in the project
+async function discardChanges() {
+  if (!dirty) return;
+  if (!await showConfirm(t('discard_confirm'), { danger: true, okText: t('discard_changes') })) return;
+  await loadState();
+  loadStamp = Date.now();
+  markDirty(false);
+  syncControls();
+  applyTabFilter();
+  renderPreview();
+  notify(t('changes_discarded'), 'ok');
 }
 
 function rangeMax(input) {

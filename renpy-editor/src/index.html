@@ -290,7 +290,10 @@
       <div id="theme-body"></div>
       <div id="theme-footer">
         <button class="btn btn-secondary" onclick="resetCustomTheme()" data-i18n="custom_theme_reset">Restablecer colores</button>
-        <button class="btn btn-primary" onclick="closeCustomThemeEditor()" data-i18n="custom_theme_done">Listo</button>
+        <div class="theme-footer-end">
+          <button class="btn btn-secondary" onclick="cancelCustomTheme()" data-i18n="cancel">Cancelar</button>
+          <button class="btn btn-primary" onclick="closeCustomThemeEditor()" data-i18n="custom_theme_done">Listo</button>
+        </div>
       </div>
     </div>
   </div>

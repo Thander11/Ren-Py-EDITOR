@@ -1137,6 +1137,7 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
   display: flex; justify-content: space-between; gap: 8px;
   padding: 12px 20px; border-top: 1px solid var(--border);
 }
+.theme-footer-end { display: flex; gap: 8px; }
 .custom-theme-row {
   display: grid;
   grid-template-columns: 1fr 40px 96px;
