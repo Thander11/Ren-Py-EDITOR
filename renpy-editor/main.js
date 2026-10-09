@@ -6,6 +6,7 @@ const url = require('url');
 const { spawn } = require('child_process');
 const { createMcpServer } = require('./mcp-server');
 const { buildMcpTools, INSTRUCTIONS: MCP_INSTRUCTIONS } = require('./mcp-tools');
+const { createChangeLog } = require('./mcp-changes');
 
 let mainWindow = null;
 let declWindow = null;
@@ -846,19 +847,22 @@ function readGameInfo() {
   };
 }
 
-ipcMain.handle('save-game-info', (_, info) => {
+ipcMain.handle('save-game-info', (_, info) => saveGameInfo(info));
+
+// Values left undefined keep what options.rpy has
+function saveGameInfo(info) {
   if (!currentGamePath) return false;
   const fp = path.join(currentGamePath, 'options.rpy');
   try {
     let text = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf-8') : '';
     // The name stays translatable, like in the options.rpy Ren'Py creates
-    text = writeOptionsDefine(text, 'config.name', `_(${pyString(info.name)})`);
-    text = writeOptionsDefine(text, 'config.version', pyString(info.version));
-    text = writeOptionsDefine(text, 'build.name', pyString(info.buildName));
+    if (info.name !== undefined) text = writeOptionsDefine(text, 'config.name', `_(${pyString(info.name)})`);
+    if (info.version !== undefined) text = writeOptionsDefine(text, 'config.version', pyString(info.version));
+    if (info.buildName !== undefined) text = writeOptionsDefine(text, 'build.name', pyString(info.buildName));
     fs.writeFileSync(fp, text, 'utf-8');
     return true;
   } catch (e) { return false; }
-});
+}
 
 ipcMain.handle('select-game-icon', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1874,10 +1878,19 @@ function sendClaudeStatus() {
   if (mainWindow) mainWindow.webContents.send('claude-status', claudeStatus());
 }
 
+// Every change Claude makes is backed up and logged, and can be undone from the app
+const claudeChanges = createChangeLog({
+  getGamePath: () => currentGamePath,
+  onChange: (entry) => { if (mainWindow) mainWindow.webContents.send('claude-change', entry); }
+});
+
 const mcpServer = createMcpServer({
   serverInfo: { name: 'renpy-editor', title: "Ren'Py EDITOR", version: app.getVersion() },
   instructions: MCP_INSTRUCTIONS,
-  tools: buildMcpTools({ getGamePath: () => currentGamePath, askRenderer, readGameInfo: () => readGameInfo() || {} }),
+  tools: buildMcpTools({
+    getGamePath: () => currentGamePath, askRenderer, readGameInfo: () => readGameInfo() || {},
+    changes: claudeChanges, saveGameInfo
+  }),
   onEvent: (ev) => {
     if (ev.type === 'connected') {
       claudeState.client = [ev.client.title || ev.client.name, ev.client.version].filter(Boolean).join(' ');
@@ -1915,6 +1928,11 @@ function stopClaudeServer() {
 }
 
 ipcMain.handle('claude-get-status', () => claudeStatus());
+
+ipcMain.handle('claude-list-changes', () => currentGamePath ? claudeChanges.list() : []);
+ipcMain.handle('claude-undo-change', (_, id, force) => {
+  try { return claudeChanges.undo(id, force); } catch (e) { return { ok: false, error: e.message }; }
+});
 
 ipcMain.handle('claude-set-enabled', async (_, enabled) => {
   settings.claude.enabled = !!enabled;

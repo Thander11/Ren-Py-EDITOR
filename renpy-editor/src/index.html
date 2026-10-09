@@ -125,6 +125,7 @@
         <label class="claude-port"><span data-i18n="claude_port">Puerto</span> <input type="number" class="form-input" id="claude-port" min="1024" max="65535" onchange="setClaudePort(this.value)"></label>
         <div class="settings-hint" data-i18n="claude_key_hint">La clave solo vale en este ordenador. Si creas una nueva, vuelve a ejecutar el comando.</div>
       </div>
+      <button class="btn btn-secondary btn-sm claude-changes-btn" onclick="openClaudeChanges()"><span class="icon" data-icon="history" data-icon-size="14"></span><span data-i18n="claude_changes">Cambios de Claude</span><span class="claude-count" id="claude-changes-count"></span></button>
     </div>
   </div>
 
@@ -262,6 +263,20 @@
       <div id="project-footer">
         <button class="btn btn-secondary" onclick="closeProjectDialog()" data-i18n="cancel">Cancelar</button>
         <button class="btn btn-primary" onclick="createProject()" data-i18n="create_project">Crear proyecto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Changes made by Claude, with undo -->
+  <div id="claude-changes-overlay" class="app-overlay">
+    <div class="app-box claude-changes-box" role="dialog" aria-modal="true" aria-labelledby="claude-changes-title">
+      <div class="app-box-header">
+        <span id="claude-changes-title" data-i18n="claude_changes">Cambios de Claude</span>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="closeClaudeChanges()" data-i18n-title="close" aria-label="Cerrar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div class="app-box-body">
+        <div class="settings-hint" data-i18n="claude_changes_hint">Antes de cada cambio el editor guarda una copia de los archivos. Deshacer los deja como estaban.</div>
+        <div id="claude-changes-list"></div>
       </div>
     </div>
   </div>

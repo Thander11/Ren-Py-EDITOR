@@ -1318,3 +1318,15 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 .claude-actions { display: flex; gap: 6px; margin-bottom: 6px; }
 .claude-port { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
 .claude-port input { width: 90px; padding: 3px 6px; }
+
+.claude-changes-btn { display: inline-flex; align-items: center; gap: 6px; }
+.claude-count:not(:empty) { background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 0 6px; font-size: 10px; font-weight: 700; }
+.claude-changes-box { width: min(640px, 92vw); max-height: 80vh; display: flex; flex-direction: column; }
+#claude-changes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.claude-change { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); }
+.claude-change.undone { opacity: .55; }
+.claude-change-main { flex: 1; min-width: 0; }
+.claude-change-title { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.claude-change-meta { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.claude-change-tag { font-size: 11px; color: var(--text3); padding: 4px 0; white-space: nowrap; }
+.claude-changes-empty { font-size: 12px; color: var(--text3); padding: 18px 0; text-align: center; }

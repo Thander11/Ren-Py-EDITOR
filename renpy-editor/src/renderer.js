@@ -1858,6 +1858,9 @@ async function getScriptText() {
   return await window.api.readFile(activeRpyFile) || '';
 }
 
+// Code of the open label as it was loaded, to know whether it has unsaved edits
+let labelLoadedCode = '';
+
 async function onTargetLabelChange() {
   const sel = document.getElementById('target-label');
   const labelName = sel.value;
@@ -1896,6 +1899,7 @@ async function onTargetLabelChange() {
   }
   const parsed = parseLabelContentToBlocks(content);
   blocks = parsed;
+  labelLoadedCode = generateCode(blocks);
   sel.dataset.prev = labelName;
   renderBlocks(); updateCodePreview();
   notify(t('loaded_blocks', parsed.length, labelName), 'ok');
@@ -4503,6 +4507,8 @@ function setStatus(msg, type = '') {
   // The project's name is the folder that contains game/
   const parts = (gamePath || '').split(/[\\/]/).filter(Boolean);
   document.getElementById('project-name').textContent = parts.length > 1 ? parts[parts.length - 2] : '';
+  // Each project has its own log of Claude's changes
+  if (typeof refreshClaudeChanges === 'function') refreshClaudeChanges().catch(() => {});
 }
 
 let notifTimer;
@@ -4778,7 +4784,8 @@ function savePanelSize(r, v) {
     renderAssetBrowser();
     renderBlocks();
     updateCodePreview();
-    notify(t('files_reloaded') || `Archivo actualizado: ${filename}`, 'ok');
+    // Claude's own notice about the change stays on screen
+    if (Date.now() - lastClaudeChangeAt > 3000) notify(t('files_reloaded') || `Archivo actualizado: ${filename}`, 'ok');
   });
 })();
 

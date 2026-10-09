@@ -158,3 +158,93 @@ async function newClaudeToken() {
 }
 
 window.api.onClaudeStatus(s => { claudeStatus = s; renderClaudeSettings(); });
+
+// ── Changes made by Claude: notice, log and undo ──
+let claudeChanges = [];
+let lastClaudeChangeAt = 0;
+
+async function refreshClaudeChanges() {
+  claudeChanges = gamePath ? await window.api.claudeListChanges() : [];
+  const active = claudeChanges.filter(c => !c.undone).length;
+  document.getElementById('claude-changes-count').textContent = active || '';
+  if (document.getElementById('claude-changes-overlay').classList.contains('open')) renderClaudeChanges();
+}
+
+function claudeChangeTitle(c) {
+  return t('claude_tool_' + c.tool, c.target || '');
+}
+
+function renderClaudeChanges() {
+  const list = document.getElementById('claude-changes-list');
+  if (!claudeChanges.length) {
+    list.innerHTML = `<div class="claude-changes-empty">${escHtml(t('claude_changes_empty'))}</div>`;
+    return;
+  }
+  list.innerHTML = [...claudeChanges].reverse().map(c => `
+    <div class="claude-change ${c.undone ? 'undone' : ''}">
+      <div class="claude-change-main">
+        <div class="claude-change-title">${escHtml(claudeChangeTitle(c))}</div>
+        <div class="claude-change-meta">${escHtml(new Date(c.time).toLocaleString(currentLang))} · ${escHtml(c.files.map(f => f.path).join(', '))}</div>
+      </div>
+      ${c.undone
+        ? `<span class="claude-change-tag">${escHtml(t('claude_undone'))}</span>`
+        : `<button class="btn btn-secondary btn-sm" onclick="undoClaudeChange('${c.id}')">${icon('undo', 14)} ${escHtml(t('claude_undo'))}</button>`}
+    </div>`).join('');
+}
+
+async function openClaudeChanges() {
+  if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
+  await refreshClaudeChanges();
+  renderClaudeChanges();
+  document.getElementById('claude-changes-overlay').classList.add('open');
+}
+
+function closeClaudeChanges() {
+  document.getElementById('claude-changes-overlay').classList.remove('open');
+}
+
+async function undoClaudeChange(id) {
+  let r = await window.api.claudeUndoChange(id, false);
+  if (!r.ok && r.error === 'changed-later') {
+    // The files were edited after Claude's change: undoing also loses those edits
+    const choice = await showDialog({
+      title: t('claude_undo'), message: t('claude_undo_changed_later'), detail: r.files.join('\n'),
+      type: 'warning', buttons: [t('cancel'), t('claude_undo')], defaultId: 0, cancelId: 0, dangerId: 1
+    });
+    if (choice !== 1) return;
+    r = await window.api.claudeUndoChange(id, true);
+  }
+  if (r.ok) notify(t('claude_undo_done'), 'ok');
+  else notify(t('claude_undo_failed'), 'err');
+  await refreshClaudeChanges();
+}
+
+window.api.onClaudeChange(entry => {
+  lastClaudeChangeAt = Date.now();
+  if (!entry.undone) notify(t('claude_changed', claudeChangeTitle(entry)), 'ok');
+  refreshClaudeChanges();
+});
+
+// When Claude changes (or a change undoes) the label open in the editor, the
+// blocks follow the file, unless the user has unsaved edits and keeps them
+async function syncOpenLabelWithClaude(entry) {
+  const label = document.getElementById('target-label')?.value;
+  if (!label || !entry.files.some(f => f.path === activeRpyFile)) return;
+  const content = extractLabelContent(await getScriptText(), label);
+  if (content === null) return;
+  const edited = codePreviewHasManual || generateCode(blocks) !== labelLoadedCode;
+  if (edited) {
+    const choice = await showDialog({
+      title: t('claude_connection'), message: t('claude_open_label_changed', label),
+      type: 'warning', buttons: [t('claude_keep_mine'), t('claude_load_new')], defaultId: 1, cancelId: 0
+    });
+    if (choice !== 1) return;
+  }
+  resetManualCodePreview();
+  blocks = parseLabelContentToBlocks(content);
+  labelLoadedCode = generateCode(blocks);
+  renderBlocks();
+  updateCodePreview();
+}
+
+window.api.onClaudeChange(entry => { syncOpenLabelWithClaude(entry).catch(() => {}); });

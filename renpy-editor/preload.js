@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('api', {
   claudeNewToken: () => ipcRenderer.invoke('claude-new-token'),
   claudeSetPort: (port) => ipcRenderer.invoke('claude-set-port', port),
   onClaudeStatus: (cb) => ipcRenderer.on('claude-status', (_, s) => cb(s)),
+  claudeListChanges: () => ipcRenderer.invoke('claude-list-changes'),
+  claudeUndoChange: (id, force) => ipcRenderer.invoke('claude-undo-change', id, force),
+  onClaudeChange: (cb) => ipcRenderer.on('claude-change', (_, entry) => cb(entry)),
   // Claude asks the editor something: cb(tool, args) resolves with the answer
   onMcpCall: (cb) => ipcRenderer.on('mcp-call', async (_, id, tool, args) => {
     try { ipcRenderer.send('mcp-result', id, true, await cb(tool, args)); }
