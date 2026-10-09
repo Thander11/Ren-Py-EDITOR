@@ -356,6 +356,39 @@ function parseResolution(text) {
   if (m) data.resolution = { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
   const accent = /define\s+gui\.accent_color\s*=\s*['"]([^'"]+)['"]/.exec(text);
   data.guiAccent = accent ? accent[1] : '';
+  data.gui = parseGuiValues(text);
+}
+
+// Value of a gui.rpy define: strings unquoted, numbers parsed, "gui.x" references followed
+function guiDefine(text, name, seen = []) {
+  // "#" inside quotes (colors) is part of the value, outside it starts a comment
+  const value = `((?:"[^"\\n]*"|'[^'\\n]*'|[^\\n#'"])*?)`;
+  const m = new RegExp(`^[ \\t]*define[ \\t]+${name.replace(/\./g, '\\.')}[ \\t]*=[ \\t]*${value}[ \\t]*(?:#.*)?$`, 'm').exec(text);
+  if (!m || seen.includes(name)) return null;
+  const raw = m[1].replace(/\r$/, '').trim();
+  const str = /^(["'])(.*)\1$/.exec(raw);
+  if (str) return str[2];
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return parseFloat(raw);
+  if (/^gui\.\w+$/.test(raw)) return guiDefine(text, raw, [...seen, name]);
+  return null;
+}
+
+// What the scene preview needs from gui.rpy; missing values use Ren'Py's defaults at 1080p
+function parseGuiValues(text) {
+  const u = data.resolution.height / 1080;
+  const num = (name, def) => { const v = guiDefine(text, name); return typeof v === 'number' ? v : def * u; };
+  const str = (name, def) => { const v = guiDefine(text, name); return typeof v === 'string' ? v : def; };
+  return {
+    textColor: str('gui.text_color', '#ffffff'), textFont: str('gui.text_font', 'DejaVuSans.ttf'),
+    nameFont: str('gui.name_text_font', 'DejaVuSans.ttf'), interfaceFont: str('gui.interface_text_font', 'DejaVuSans.ttf'),
+    textSize: num('gui.text_size', 33), nameSize: num('gui.name_text_size', 45),
+    textboxHeight: num('gui.textbox_height', 278),
+    nameX: num('gui.name_xpos', 360), nameY: num('gui.name_ypos', 0), nameXalign: num('gui.name_xalign', 0),
+    dialogueX: num('gui.dialogue_xpos', 402), dialogueY: num('gui.dialogue_ypos', 75),
+    dialogueWidth: num('gui.dialogue_width', 1116), dialogueXalign: num('gui.dialogue_text_xalign', 0),
+    choiceWidth: num('gui.choice_button_width', 1185), choiceTextSize: num('gui.choice_button_text_size', 33),
+    choiceSpacing: num('gui.choice_spacing', 33), choiceColor: str('gui.choice_button_text_idle_color', '#cccccc')
+  };
 }
 
 function parseExpresiones(text) {
@@ -502,6 +535,22 @@ function stripTextTags(s) {
   return (s || '').replace(/\{\/?[a-z]+[^}]*\}/gi, '');
 }
 
+// Fonts of the project used by the preview, loaded once from game/
+const previewFonts = {};
+function previewFont(rel) {
+  const fallback = "'DejaVu Sans', 'Segoe UI', sans-serif";
+  if (!rel || /^DejaVuSans/i.test(rel)) return fallback;
+  if (rel in previewFonts) return previewFonts[rel] ? `'${previewFonts[rel]}', ${fallback}` : fallback;
+  previewFonts[rel] = '';
+  const family = 'sp-font-' + Object.keys(previewFonts).length;
+  new FontFace(family, `url('${getGameFileURL(rel)}')`).load().then(face => {
+    document.fonts.add(face);
+    previewFonts[rel] = family;
+    updateScenePreview();
+  }).catch(() => { /* keep the fallback */ });
+  return fallback;
+}
+
 // Images that are not declared or fail to load become a labelled placeholder
 function previewImageHtml(key, path, style, cls) {
   return path
@@ -554,9 +603,12 @@ function updateScenePreview() {
     const nameColor = (chr && chr.color) || data.guiAccent || '#ffffff';
     const text = escHtml(stripTextTags(st.say.text));
     const bg = guiImages.textbox ? `background-image:url('${getGameFileURL('gui/textbox.png')}');` : 'background-color:rgba(0,0,0,.6);';
-    html += `<div class="sp-textbox" style="height:${278 * u}px;${bg}">
-      ${name ? `<div class="sp-name" style="left:${360 * u}px;top:${3 * u}px;font-size:${45 * u}px;color:${escHtml(nameColor)}">${escHtml(name)}</div>` : ''}
-      <div class="sp-text" style="left:${402 * u}px;top:${75 * u}px;width:${1116 * u}px;font-size:${33 * u}px;${st.say.thought ? 'font-style:italic;' : ''}">${st.say.thought ? `&lt;&lt;${text}&gt;&gt;` : text}</div>
+    // Sizes, positions, colors and fonts come from the project's gui.rpy
+    const g = data.gui || parseGuiValues('');
+    const align = ['left', 'center', 'right'][Math.round(g.dialogueXalign * 2)] || 'left';
+    html += `<div class="sp-textbox" style="height:${g.textboxHeight}px;${bg}">
+      ${name ? `<div class="sp-name" style="left:${g.nameX}px;top:${g.nameY}px;transform:translateX(-${g.nameXalign * 100}%);font-size:${g.nameSize}px;color:${escHtml(nameColor)};font-family:${previewFont(g.nameFont)}">${escHtml(name)}</div>` : ''}
+      <div class="sp-text" style="left:${g.dialogueX}px;top:${g.dialogueY}px;width:${g.dialogueWidth}px;font-size:${g.textSize}px;text-align:${align};color:${escHtml(g.textColor)};font-family:${previewFont(g.textFont)};${st.say.thought ? 'font-style:italic;' : ''}">${st.say.thought ? `&lt;&lt;${text}&gt;&gt;` : text}</div>
     </div>`;
     if (st.say.expression) {
       const side = data.expressions.find(e => e.charId === st.say.exprTag && e.key === st.say.expression);
@@ -566,8 +618,9 @@ function updateScenePreview() {
 
   if (st.menu) {
     const bg = guiImages.choice ? `background-image:url('${getGameFileURL('gui/button/choice_idle_background.png')}');` : 'background-color:rgba(0,0,0,.6);';
-    html += `<div class="sp-menu" style="gap:${33 * u}px">${st.menu.map(c =>
-      `<div class="sp-choice" style="width:${1185 * u}px;font-size:${33 * u}px;padding:${8 * u}px 0;${bg}">${escHtml(stripTextTags(c))}</div>`).join('')}</div>`;
+    const g = data.gui || parseGuiValues('');
+    html += `<div class="sp-menu" style="gap:${g.choiceSpacing}px">${st.menu.map(c =>
+      `<div class="sp-choice" style="width:${g.choiceWidth}px;font-size:${g.choiceTextSize}px;padding:${8 * u}px 0;color:${escHtml(g.choiceColor)};font-family:${previewFont(g.interfaceFont)};${bg}">${escHtml(stripTextTags(c))}</div>`).join('')}</div>`;
   }
 
   box.innerHTML = `<div class="sp-stage" style="width:${W}px;height:${H}px">${html}</div>`;
