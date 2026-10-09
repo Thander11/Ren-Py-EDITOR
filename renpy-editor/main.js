@@ -4,6 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const url = require('url');
 const { spawn } = require('child_process');
+const { createMcpServer } = require('./mcp-server');
+const { buildMcpTools, INSTRUCTIONS: MCP_INSTRUCTIONS } = require('./mcp-tools');
 
 let mainWindow = null;
 let declWindow = null;
@@ -22,7 +24,9 @@ let settings = {
   projectsDirectory: '',
   windowMaximized: false,
   spellcheckLanguages: [],
-  panelSizes: {}
+  panelSizes: {},
+  // Connection with the user's own Claude through MCP (off until the user turns it on)
+  claude: { enabled: false, port: 47321, token: '' }
 };
 let fsWatcher = null;
 let watchDebounce = null;
@@ -89,6 +93,7 @@ app.whenReady().then(() => {
   });
 
   createMainWindow();
+  if (settings.claude.enabled) startClaudeServer();
 });
 
 app.on('window-all-closed', () => {
@@ -822,7 +827,9 @@ function pyString(s) {
   return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ') + '"';
 }
 
-ipcMain.handle('get-game-info', () => {
+ipcMain.handle('get-game-info', () => readGameInfo());
+
+function readGameInfo() {
   if (!currentGamePath) return null;
   const fp = path.join(currentGamePath, 'options.rpy');
   const text = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf-8') : '';
@@ -837,7 +844,7 @@ ipcMain.handle('get-game-info', () => {
     hasIco: fs.existsSync(path.join(base, 'icon.ico')),
     hasIcns: fs.existsSync(path.join(base, 'icon.icns'))
   };
-});
+}
 
 ipcMain.handle('save-game-info', (_, info) => {
   if (!currentGamePath) return false;
@@ -1826,3 +1833,111 @@ ipcMain.handle('cancel-renpy-install', () => {
   if (renpyInstallAbort) renpyInstallAbort.abort();
   return true;
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// CONNECTION WITH CLAUDE — MCP server for the user's own Claude Code
+// or Claude Desktop. Tools that need the editor's parsers are answered
+// by the main window.
+// ═══════════════════════════════════════════════════════════════════
+let mcpSeq = 0;
+const mcpPending = new Map();
+const claudeState = { running: false, error: '', client: '', connectedAt: 0, lastTool: '', lastCallAt: 0, calls: 0 };
+
+function askRenderer(tool, args) {
+  return new Promise((resolve, reject) => {
+    if (!mainWindow) return reject(new Error('The editor window is closed.'));
+    const id = ++mcpSeq;
+    const timer = setTimeout(() => {
+      mcpPending.delete(id);
+      reject(new Error('The editor did not answer in time.'));
+    }, 30000);
+    mcpPending.set(id, { resolve, reject, timer });
+    mainWindow.webContents.send('mcp-call', id, tool, args);
+  });
+}
+
+ipcMain.on('mcp-result', (e, id, ok, payload) => {
+  if (!mainWindow || e.sender !== mainWindow.webContents) return;
+  const p = mcpPending.get(id);
+  if (!p) return;
+  mcpPending.delete(id);
+  clearTimeout(p.timer);
+  if (ok) p.resolve(payload); else p.reject(new Error(payload || 'The editor could not answer.'));
+});
+
+function claudeStatus() {
+  const c = settings.claude;
+  return { enabled: c.enabled, port: c.port, token: c.token, url: `http://127.0.0.1:${c.port}/mcp`, ...claudeState };
+}
+
+function sendClaudeStatus() {
+  if (mainWindow) mainWindow.webContents.send('claude-status', claudeStatus());
+}
+
+const mcpServer = createMcpServer({
+  serverInfo: { name: 'renpy-editor', title: "Ren'Py EDITOR", version: app.getVersion() },
+  instructions: MCP_INSTRUCTIONS,
+  tools: buildMcpTools({ getGamePath: () => currentGamePath, askRenderer, readGameInfo: () => readGameInfo() || {} }),
+  onEvent: (ev) => {
+    if (ev.type === 'connected') {
+      claudeState.client = [ev.client.title || ev.client.name, ev.client.version].filter(Boolean).join(' ');
+      claudeState.connectedAt = Date.now();
+    } else if (ev.type === 'call') {
+      claudeState.lastTool = ev.tool;
+      claudeState.lastCallAt = Date.now();
+      claudeState.calls++;
+    }
+    sendClaudeStatus();
+  }
+});
+
+async function startClaudeServer() {
+  if (!settings.claude.token) {
+    settings.claude.token = crypto.randomBytes(24).toString('base64url');
+    saveSettings();
+  }
+  try {
+    await mcpServer.start(settings.claude.port, settings.claude.token);
+    claudeState.running = true;
+    claudeState.error = '';
+  } catch (e) {
+    claudeState.running = false;
+    claudeState.error = e.code === 'EADDRINUSE' ? 'port-in-use' : (e.message || 'error');
+  }
+  sendClaudeStatus();
+}
+
+function stopClaudeServer() {
+  mcpServer.stop();
+  claudeState.running = false;
+  claudeState.error = '';
+  sendClaudeStatus();
+}
+
+ipcMain.handle('claude-get-status', () => claudeStatus());
+
+ipcMain.handle('claude-set-enabled', async (_, enabled) => {
+  settings.claude.enabled = !!enabled;
+  saveSettings();
+  if (enabled) await startClaudeServer(); else stopClaudeServer();
+  return claudeStatus();
+});
+
+// A new key disconnects every Claude configured with the old one
+ipcMain.handle('claude-new-token', async () => {
+  settings.claude.token = crypto.randomBytes(24).toString('base64url');
+  saveSettings();
+  if (settings.claude.enabled) await startClaudeServer();
+  return claudeStatus();
+});
+
+ipcMain.handle('claude-set-port', async (_, port) => {
+  port = parseInt(port, 10);
+  if (!(port >= 1024 && port <= 65535)) return claudeStatus();
+  settings.claude.port = port;
+  saveSettings();
+  if (settings.claude.enabled) await startClaudeServer();
+  return claudeStatus();
+});
+
+app.on('will-quit', () => mcpServer.stop());

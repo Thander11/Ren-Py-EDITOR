@@ -1306,3 +1306,15 @@ button:disabled, input:disabled, select:disabled { opacity: 0.55; cursor: not-al
 /* Japanese: prefer Japanese fonts so kanji don't use Chinese glyphs */
 :lang(ja) body { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', 'Hiragino Sans', sans-serif; }
 :lang(zh-TW) body { font-family: 'Segoe UI', 'Microsoft JhengHei UI', 'Microsoft JhengHei', 'PingFang TC', sans-serif; }
+
+/* ── Connection with Claude (settings panel) ── */
+.claude-state { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); margin: 6px 0 8px; }
+.claude-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.claude-state.on::before { background: var(--green); }
+.claude-state.connected::before { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.claude-state.error { color: var(--red); }
+.claude-state.error::before { background: var(--red); }
+.claude-command { user-select: all; max-height: 74px; overflow-y: auto; }
+.claude-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.claude-port { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+.claude-port input { width: 90px; padding: 3px 6px; }

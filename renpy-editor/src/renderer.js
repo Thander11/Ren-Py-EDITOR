@@ -229,6 +229,7 @@ async function changeLanguage(lang) {
   updateRenpyPathLabel();
   renderCustomThemeEditor(document.getElementById('setting-theme').value);
   renderSpellcheckSettings();
+  renderClaudeSettings();
   renderBlocks();
   renderAssetBrowser();
   updateCodePreview();
@@ -4666,6 +4667,7 @@ function savePanelSize(r, v) {
   updateRenpyPathLabel();
   renderCustomThemeEditor(s.theme);
   initSpellcheckSettings(s);
+  initClaudeSettings();
   hydrateIcons();
   renderBlocks();
   updateCodePreview();

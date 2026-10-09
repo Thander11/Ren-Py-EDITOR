@@ -107,6 +107,25 @@
       <div class="settings-path" id="setting-projects-dir"></div>
       <button class="btn btn-secondary btn-sm" onclick="changeProjectsDirectory()" data-i18n="change_folder">Cambiar carpeta</button>
     </div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="claude_connection">Conexión con Claude</label>
+      <div class="settings-hint" data-i18n="claude_hint">Deja que tu Claude Code o Claude Desktop consulte tu novela mientras el editor está abierto.</div>
+      <label class="settings-check">
+        <input type="checkbox" id="claude-enabled" onchange="setClaudeEnabled(this.checked)">
+        <span data-i18n="claude_enable">Activar conexión</span>
+      </label>
+      <div id="claude-details" hidden>
+        <div class="claude-state" id="claude-state" role="status"></div>
+        <div class="settings-hint" data-i18n="claude_command_hint">Ejecuta este comando una vez en una terminal para añadir el editor a Claude Code:</div>
+        <div class="settings-path claude-command" id="claude-command"></div>
+        <div class="claude-actions">
+          <button class="btn btn-primary btn-sm" onclick="copyClaudeCommand()" data-i18n="claude_copy_command">Copiar comando</button>
+          <button class="btn btn-secondary btn-sm" onclick="newClaudeToken()" data-i18n="claude_new_key">Nueva clave</button>
+        </div>
+        <label class="claude-port"><span data-i18n="claude_port">Puerto</span> <input type="number" class="form-input" id="claude-port" min="1024" max="65535" onchange="setClaudePort(this.value)"></label>
+        <div class="settings-hint" data-i18n="claude_key_hint">La clave solo vale en este ordenador. Si creas una nueva, vuelve a ejecutar el comando.</div>
+      </div>
+    </div>
   </div>
 
   <!-- Main Layout -->
@@ -312,5 +331,6 @@
   <script src="story-map.js"></script>
   <script src="game-settings.js"></script>
   <script src="build.js"></script>
+  <script src="claude-bridge.js"></script>
 </body>
 </html>

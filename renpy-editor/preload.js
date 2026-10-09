@@ -50,6 +50,18 @@ contextBridge.exposeInMainWorld('api', {
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   getSpellcheckLanguages: () => ipcRenderer.invoke('get-spellcheck-languages'),
 
+  // Connection with the user's own Claude (MCP server)
+  claudeGetStatus: () => ipcRenderer.invoke('claude-get-status'),
+  claudeSetEnabled: (enabled) => ipcRenderer.invoke('claude-set-enabled', enabled),
+  claudeNewToken: () => ipcRenderer.invoke('claude-new-token'),
+  claudeSetPort: (port) => ipcRenderer.invoke('claude-set-port', port),
+  onClaudeStatus: (cb) => ipcRenderer.on('claude-status', (_, s) => cb(s)),
+  // Claude asks the editor something: cb(tool, args) resolves with the answer
+  onMcpCall: (cb) => ipcRenderer.on('mcp-call', async (_, id, tool, args) => {
+    try { ipcRenderer.send('mcp-result', id, true, await cb(tool, args)); }
+    catch (e) { ipcRenderer.send('mcp-result', id, false, String(e && e.message || e)); }
+  }),
+
   // i18n
   readI18n: (lang) => ipcRenderer.invoke('read-i18n', lang),
 
