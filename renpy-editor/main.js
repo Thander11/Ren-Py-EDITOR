@@ -7,8 +7,10 @@ const { spawn } = require('child_process');
 
 let mainWindow = null;
 let declWindow = null;
-let mainMenuWindow = null;
-let guiEditorWindow = null;
+let closeConfirmed = false;  // set once the page has checked the editors for unsaved changes
+
+// Editors shown as <webview> screens of the main window, with the preload each one uses
+const EMBEDDED_EDITORS = { 'main-menu.html': 'main-menu-preload.js', 'gui-editor.html': 'gui-editor-preload.js' };
 let currentGamePath = '';
 let settings = {
   theme: 'dark',
@@ -147,11 +149,32 @@ function createMainWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webviewTag: true
     }
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   attachEditContextMenu(mainWindow);
+
+  // Only the editor pages of src/ can be embedded, each one with its own preload
+  const srcURL = require('url').pathToFileURL(path.join(__dirname, 'src') + path.sep).href;
+  mainWindow.webContents.on('will-attach-webview', (e, webPreferences, params) => {
+    const page = params.src.startsWith(srcURL) && EMBEDDED_EDITORS[decodeURIComponent(params.src.slice(srcURL.length)).split(/[?#]/)[0]];
+    if (!page) { e.preventDefault(); return; }
+    delete webPreferences.preloadURL;
+    webPreferences.preload = path.join(__dirname, page);
+    webPreferences.contextIsolation = true;
+    webPreferences.nodeIntegration = false;
+  });
+  mainWindow.webContents.on('did-attach-webview', (_, wc) => attachEditContextMenu({ webContents: wc }));
+
+  // Before closing, the page checks whether an embedded editor has unsaved changes
+  mainWindow.on('close', (e) => {
+    const wc = mainWindow.webContents;
+    if (closeConfirmed || wc.isCrashed() || wc.isLoading()) return;
+    e.preventDefault();
+    wc.send('confirm-close');
+  });
   Menu.setApplicationMenu(null);
   if (process.argv.includes('--dev')) mainWindow.webContents.openDevTools();
   
@@ -188,55 +211,6 @@ function createDeclarationWindow() {
   declWindow.loadFile(path.join(__dirname, 'src', 'declaration.html'));
   attachEditContextMenu(declWindow);
   declWindow.on('closed', () => { declWindow = null; });
-}
-
-// ── Create Main Menu Editor Window ──
-function createMainMenuWindow() {
-  if (mainMenuWindow) { mainMenuWindow.focus(); return; }
-  mainMenuWindow = new BrowserWindow({
-    width: 1300, height: 820,
-    minWidth: 900, minHeight: 600,
-    title: "Ren'Py EDITOR — " + mt('main_menu_title'),
-    parent: mainWindow,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'main-menu-preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-  mainMenuWindow.loadFile(path.join(__dirname, 'src', 'main-menu.html'));
-  attachEditContextMenu(mainMenuWindow);
-  // Opens maximized, filling the screen
-  mainMenuWindow.once('ready-to-show', () => {
-    mainMenuWindow.maximize();
-    mainMenuWindow.show();
-  });
-  mainMenuWindow.on('closed', () => { mainMenuWindow = null; });
-}
-
-// ── Game interface (GUI) editor window ──
-function createGuiEditorWindow() {
-  if (guiEditorWindow) { guiEditorWindow.focus(); return; }
-  guiEditorWindow = new BrowserWindow({
-    width: 1300, height: 820,
-    minWidth: 900, minHeight: 600,
-    title: "Ren'Py EDITOR — " + mt('gui_editor_title'),
-    parent: mainWindow,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'gui-editor-preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-  guiEditorWindow.loadFile(path.join(__dirname, 'src', 'gui-editor.html'));
-  attachEditContextMenu(guiEditorWindow);
-  guiEditorWindow.once('ready-to-show', () => {
-    guiEditorWindow.maximize();
-    guiEditorWindow.show();
-  });
-  guiEditorWindow.on('closed', () => { guiEditorWindow = null; });
 }
 
 // Folders (relative to game/) that the editor reads from and writes to
@@ -826,10 +800,6 @@ const MEDIA_EXTENSIONS = {
   font: ['ttf', 'otf', 'ttc']
 };
 
-ipcMain.handle('open-main-menu-window', () => {
-  createMainMenuWindow();
-});
-
 // ═══════════════════════════════════════════════════════════════════
 // GAME SETTINGS — name, version and icons of the game (options.rpy)
 // ═══════════════════════════════════════════════════════════════════
@@ -965,10 +935,9 @@ ipcMain.handle('set-game-icon', (_, srcPath) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
-ipcMain.handle('open-gui-editor-window', () => {
-  if (!currentGamePath) return false;
-  createGuiEditorWindow();
-  return true;
+ipcMain.handle('close-confirmed', () => {
+  closeConfirmed = true;
+  if (mainWindow) mainWindow.close();
 });
 
 // Font files inside game/ (relative paths), for the font selectors of the GUI editor
@@ -1214,8 +1183,6 @@ ipcMain.handle('save-settings', (_, newSettings) => {
   // Notify all windows of settings change
   if (mainWindow) mainWindow.webContents.send('settings-changed', settings);
   if (declWindow) declWindow.webContents.send('settings-changed', settings);
-  if (mainMenuWindow) mainMenuWindow.webContents.send('settings-changed', settings);
-  if (guiEditorWindow) guiEditorWindow.webContents.send('settings-changed', settings);
   return true;
 });
 

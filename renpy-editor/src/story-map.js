@@ -18,6 +18,7 @@ let mapZoom = 1;
 
 async function openStoryMap() {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
+  hideEmbeddedEditors();
   document.getElementById('map-overlay').classList.add('open');
   setActiveNav('nav-map');
   storyMap = await buildStoryMap();

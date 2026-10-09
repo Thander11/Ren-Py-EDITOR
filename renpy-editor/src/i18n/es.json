@@ -246,6 +246,8 @@
   "discard_changes": "Cancelar cambios",
   "discard_confirm": "¿Descartar los cambios sin guardar y volver a lo que está guardado en el proyecto?",
   "changes_discarded": "Cambios descartados",
+  "close_unsaved_confirm": "Este editor tiene cambios sin guardar. Si cierras ahora, se perderán.",
+  "close_anyway": "Cerrar sin guardar",
   "dialog_ok": "Aceptar",
   "dialog_keep_file": "Conservar archivo",
   "dialog_keep_files": "Conservar archivos",

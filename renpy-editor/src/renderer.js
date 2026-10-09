@@ -4041,15 +4041,71 @@ function openDeclarations() {
 // ═══════════════════════════════════════════════════════════════════
 // MAIN MENU — opens separate window
 // ═══════════════════════════════════════════════════════════════════
-function openMainMenuEditor() {
+// ═══════════════════════════════════════════════════════════════════
+// EMBEDDED EDITORS — the main menu and game interface editors open as
+// screens of this window (<webview>); they stay alive while hidden so
+// switching sections keeps their unsaved changes
+// ═══════════════════════════════════════════════════════════════════
+const EMBEDDED_EDITORS = {
+  'main-menu': { page: 'main-menu.html', nav: 'nav-main-menu' },
+  'gui': { page: 'gui-editor.html', nav: 'nav-gui' }
+};
+let embeddedProject = '';  // project the open editors were loaded for
+
+function showEmbeddedEditor(kind) {
   if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
-  window.api.openMainMenuWindow();
+  if (embeddedProject !== gamePath) closeEmbeddedEditors();
+  embeddedProject = gamePath;
+  document.getElementById('map-overlay').classList.remove('open');
+  const host = document.getElementById('editor-host');
+  let view = document.getElementById('wv-' + kind);
+  if (!view) {
+    view = document.createElement('webview');
+    view.id = 'wv-' + kind;
+    view.src = EMBEDDED_EDITORS[kind].page;
+    host.appendChild(view);
+  }
+  host.querySelectorAll('webview').forEach(w => w.classList.toggle('active', w === view));
+  host.classList.add('open');
+  setActiveNav(EMBEDDED_EDITORS[kind].nav);
+  view.focus();
 }
 
-function openGuiEditor() {
-  if (!gamePath) { notify(t('open_project_first'), 'err'); return; }
-  window.api.openGuiEditorWindow();
+function hideEmbeddedEditors() {
+  document.getElementById('editor-host').classList.remove('open');
 }
+
+function closeEmbeddedEditors() {
+  hideEmbeddedEditors();
+  document.getElementById('editor-host').innerHTML = '';
+  embeddedProject = '';
+}
+
+function showScenes() {
+  hideEmbeddedEditors();
+  closeStoryMap();
+}
+
+function openMainMenuEditor() { showEmbeddedEditor('main-menu'); }
+function openGuiEditor() { showEmbeddedEditor('gui'); }
+
+// Editors with unsaved changes (their pages keep a global "dirty" flag)
+async function dirtyEmbeddedEditors() {
+  const dirty = [];
+  for (const view of document.querySelectorAll('#editor-host webview')) {
+    try { if (await view.executeJavaScript('typeof dirty !== "undefined" && dirty === true')) dirty.push(view); } catch (e) { /* not loaded */ }
+  }
+  return dirty;
+}
+
+window.api.onConfirmClose(async () => {
+  const dirty = await dirtyEmbeddedEditors();
+  if (dirty.length) {
+    showEmbeddedEditor(dirty[0].id.slice(3));
+    if (!await showConfirm(t('close_unsaved_confirm'), { danger: true, okText: t('close_anyway') })) return;
+  }
+  window.api.closeConfirmed();
+});
 
 async function launchProjectFromEditor() {
   if (!gamePath) {
@@ -4385,6 +4441,11 @@ function setStatus(msg, type = '') {
   el.textContent = msg;
   el.title = msg;
   el.className = type === 'ok' ? 'status-ok' : type === 'err' ? 'status-err' : '';
+  // Editors opened for another project are closed
+  if (embeddedProject && embeddedProject !== gamePath) {
+    closeEmbeddedEditors();
+    if (!document.getElementById('map-overlay').classList.contains('open')) setActiveNav('nav-scenes');
+  }
   // The project's name is the folder that contains game/
   const parts = (gamePath || '').split(/[\\/]/).filter(Boolean);
   document.getElementById('project-name').textContent = parts.length > 1 ? parts[parts.length - 2] : '';
@@ -4646,6 +4707,10 @@ function savePanelSize(r, v) {
   window.api.onSettingsChanged((s) => {
     // This window owns the custom colors, so keep the local copy (avoids flicker while dragging)
     applyTheme({ ...s, customTheme });
+    // The embedded editors follow the theme and language too
+    document.querySelectorAll('#editor-host webview').forEach(view => {
+      try { view.send('settings-changed', { ...s, customTheme }); } catch (e) { /* not loaded yet */ }
+    });
     if (s.language && s.language !== currentLang) {
       loadI18n(s.language).then(() => { applyI18n(); renderBlocks(); renderCustomThemeEditor(s.theme); });
     }

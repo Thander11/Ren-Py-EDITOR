@@ -246,6 +246,8 @@
   "discard_changes": "変更を取り消す",
   "discard_confirm": "保存していない変更を取り消し、プロジェクトに保存されている状態に戻しますか？",
   "changes_discarded": "変更を取り消しました",
+  "close_unsaved_confirm": "このエディターには保存していない変更があります。今閉じると失われます。",
+  "close_anyway": "保存せずに閉じる",
   "dialog_ok": "OK",
   "dialog_keep_file": "ファイルを残す",
   "dialog_keep_files": "ファイルを残す",

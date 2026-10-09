@@ -641,10 +641,6 @@ async function saveAndTest() {
   if (await saveGui()) await window.guiApi.launchRenpyProject();
 }
 
-window.addEventListener('beforeunload', (e) => {
-  if (dirty) { e.preventDefault(); e.returnValue = ''; }
-});
-
 // ── Init ──
 
 (async function init() {

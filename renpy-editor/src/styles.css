@@ -397,6 +397,12 @@ body {
   background: var(--bg);
 }
 #map-overlay.open { display: flex; }
+
+/* Embedded editors: hidden ones keep their size so they don't reload or lose changes */
+#editor-host { position: absolute; inset: 0; z-index: 55; visibility: hidden; background: var(--bg); }
+#editor-host.open { visibility: visible; }
+#editor-host webview { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; }
+#editor-host.open webview.active { visibility: visible; }
 #map-header {
   display: flex;
   align-items: center;

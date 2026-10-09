@@ -20,10 +20,10 @@
       </span>
     </div>
     <button class="sb-item" id="nav-map" onclick="openStoryMap()"><span class="icon" data-icon="map" data-icon-size="18"></span><span data-i18n="map_button">Mapa</span></button>
-    <button class="sb-item active" id="nav-scenes" onclick="closeStoryMap()" aria-current="page"><span class="icon" data-icon="scenes" data-icon-size="18"></span><span data-i18n="nav_scenes">Escenas</span></button>
+    <button class="sb-item active" id="nav-scenes" onclick="showScenes()" aria-current="page"><span class="icon" data-icon="scenes" data-icon-size="18"></span><span data-i18n="nav_scenes">Escenas</span></button>
     <button class="sb-item" onclick="openDeclarations()"><span class="icon" data-icon="characters" data-icon-size="18"></span><span data-i18n="declarations">Declaraciones</span></button>
-    <button class="sb-item" onclick="openMainMenuEditor()"><span class="icon" data-icon="main-menu" data-icon-size="18"></span><span data-i18n="main_menu_button">Menú principal</span></button>
-    <button class="sb-item" onclick="openGuiEditor()"><span class="icon" data-icon="palette" data-icon-size="18"></span><span data-i18n="gui_editor_title">Interfaz del juego</span></button>
+    <button class="sb-item" id="nav-main-menu" onclick="openMainMenuEditor()"><span class="icon" data-icon="main-menu" data-icon-size="18"></span><span data-i18n="main_menu_button">Menú principal</span></button>
+    <button class="sb-item" id="nav-gui" onclick="openGuiEditor()"><span class="icon" data-icon="palette" data-icon-size="18"></span><span data-i18n="gui_editor_title">Interfaz del juego</span></button>
     <div class="sb-section" data-i18n="nav_project">Proyecto</div>
     <button class="sb-item" onclick="openProjectFolder()"><span class="icon" data-icon="folder-open" data-icon-size="18"></span><span data-i18n="open_project">Abrir carpeta del proyecto</span></button>
     <button class="sb-item" onclick="newProject()"><span class="icon" data-icon="project-new" data-icon-size="18"></span><span data-i18n="new_project">Nuevo proyecto</span></button>
@@ -212,6 +212,8 @@
         </aside>
       </div>
     </section>
+    <!-- Main menu and game interface editors, embedded as screens -->
+    <div id="editor-host"></div>
   </div><!-- #workspace -->
   </div><!-- #app -->
 

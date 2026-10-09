@@ -41,11 +41,9 @@ contextBridge.exposeInMainWorld('api', {
   // Declaration window
   openDeclarationWindow: () => ipcRenderer.invoke('open-declaration-window'),
 
-  // Main menu editor window
-  openMainMenuWindow: () => ipcRenderer.invoke('open-main-menu-window'),
-
-  // Game interface (GUI) editor window
-  openGuiEditorWindow: () => ipcRenderer.invoke('open-gui-editor-window'),
+  // Closing the app: the page checks the embedded editors for unsaved changes first
+  onConfirmClose: (cb) => ipcRenderer.on('confirm-close', () => cb()),
+  closeConfirmed: () => ipcRenderer.invoke('close-confirmed'),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
