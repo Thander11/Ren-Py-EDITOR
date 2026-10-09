@@ -65,6 +65,10 @@ function applyI18n() {
     const key = el.getAttribute('data-i18n');
     if (translations[key]) el.textContent = t(key);
   });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (translations[key]) el.placeholder = t(key);
+  });
   document.title = "Ren'Py EDITOR — " + t('gui_editor_title');
 }
 function notify(msg, type = 'ok') {
@@ -266,7 +270,9 @@ function renderFontSelectors() {
   document.querySelectorAll('[data-font]').forEach(sel => {
     const current = state.fonts[sel.dataset.font];
     const list = fonts.includes(current) ? fonts : [...fonts, current];
-    sel.innerHTML = list.map(f => `<option value="${escHtml(f)}">${escHtml(f === DEFAULT_FONT ? t('gui_font_default') : baseName(f))}</option>`).join('');
+    const label = (f) => f === DEFAULT_FONT ? t('gui_font_default')
+      : baseName(f).replace(/\.(ttf|otf|ttc)$/i, '').replace(/-Regular$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+    sel.innerHTML = list.map(f => `<option value="${escHtml(f)}">${escHtml(label(f))}</option>`).join('');
     sel.value = current;
   });
 }
@@ -280,6 +286,72 @@ async function addFontFile() {
   renderFontSelectors();
   notify(t('gui_font_added', baseName(file)), 'ok');
 }
+
+// ── Google Fonts ──
+let googleFonts = [];
+const installingFonts = new Set();
+let googlePreviewLoaded = false;
+
+async function openGoogleFonts() {
+  googleFonts = await window.guiApi.listGoogleFonts();
+  // Previews come straight from Google Fonts, all at once
+  if (!googlePreviewLoaded) {
+    googlePreviewLoaded = true;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?' + googleFonts.map(f => 'family=' + encodeURIComponent(f.family)).join('&') + '&display=swap';
+    document.head.appendChild(link);
+  }
+  document.getElementById('gfonts-overlay').hidden = false;
+  renderGoogleFonts();
+  document.getElementById('gfonts-search').focus();
+}
+
+function closeGoogleFonts() {
+  document.getElementById('gfonts-overlay').hidden = true;
+}
+
+function renderGoogleFonts() {
+  const query = document.getElementById('gfonts-search').value.trim().toLowerCase();
+  const custom = document.getElementById('gfonts-sample').value.trim();
+  const groups = ['sans', 'serif', 'display', 'mono', 'cjk'];
+  document.getElementById('gfonts-list').innerHTML = groups.map(cat => {
+    const fonts = googleFonts.filter(f => f.category === cat && f.family.toLowerCase().includes(query));
+    if (!fonts.length) return '';
+    const sample = custom || t(cat === 'cjk' ? 'gfonts_sample_cjk' : 'gfonts_sample');
+    return `<section class="gf-group"><h2>${t('gfonts_cat_' + cat)}</h2>${fonts.map(f => {
+      const busy = installingFonts.has(f.family);
+      const action = f.installed
+        ? `<span class="gf-installed">${icon('check', 14)}${t('gfonts_added')}</span>`
+        : `<button class="btn btn-primary btn-sm" ${busy ? 'disabled' : ''} onclick="installGoogleFont('${f.family}')">${t(busy ? 'gfonts_downloading' : 'gfonts_add')}</button>`;
+      return `<div class="gf-row">
+        <div class="gf-info"><span class="gf-name">${escHtml(f.family)}</span>
+          <span class="gf-sample" style="font-family: '${f.family}', sans-serif">${escHtml(sample)}</span></div>
+        ${action}
+      </div>`;
+    }).join('')}</section>`;
+  }).join('') || `<p class="ge-hint">${t('gfonts_none')}</p>`;
+}
+
+async function installGoogleFont(family) {
+  installingFonts.add(family);
+  renderGoogleFonts();
+  const r = await window.guiApi.installGoogleFont(family);
+  installingFonts.delete(family);
+  if (r.ok) {
+    googleFonts = await window.guiApi.listGoogleFonts();
+    projectFonts = await window.guiApi.listProjectFonts();
+    renderFontSelectors();
+    notify(t('gui_font_added', family), 'ok');
+  } else {
+    notify(t('gfonts_error', family), 'err');
+  }
+  renderGoogleFonts();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('gfonts-overlay').hidden) closeGoogleFonts();
+});
 
 // Image of a part: keep the current one, use one of the user's, or draw one
 function renderImageControl(part) {

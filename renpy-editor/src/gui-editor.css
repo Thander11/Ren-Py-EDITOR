@@ -109,6 +109,40 @@ body.ge-dragging, body.ge-dragging * { user-select: none; }
 .ge-file-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .ge-file-name { font-family: var(--font-mono); font-size: 11.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Google Fonts catalog */
+.ge-font-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ge-font-buttons .ge-add-font { margin-bottom: 0; }
+.gf-overlay {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .5); backdrop-filter: blur(4px);
+}
+.gf-overlay[hidden] { display: none; }
+.gf-box {
+  width: 720px; max-width: 94vw; height: 86vh;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px var(--shadow);
+}
+.gf-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  font-size: 15px; font-weight: 800;
+}
+.gf-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px 20px 0; }
+.gf-intro { padding: 0 20px; }
+.gf-list { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+.gf-group h2 { margin: 16px 0 6px; font-size: 12px; font-weight: 800; color: var(--text2); }
+.gf-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 6px;
+}
+.gf-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gf-name { font-size: 11.5px; font-weight: 700; color: var(--text2); }
+.gf-sample { font-size: 24px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gf-installed { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--green); }
+
 .notification {
   position: fixed; bottom: 20px; right: 20px; z-index: 50;
   padding: 11px 18px; border-radius: var(--radius);

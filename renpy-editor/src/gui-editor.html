@@ -49,7 +49,10 @@
           <label class="ge-field" data-tabs="dialogue"><span data-i18n="gui_font_name">Fuente de los nombres</span><select class="form-select" data-font="name"></select></label>
           <label class="ge-field" data-tabs="choice menu"><span data-i18n="gui_font_interface">Fuente de menús y botones</span><select class="form-select" data-font="interface"></select></label>
         </div>
+        <div class="ge-font-buttons">
+        <button class="btn btn-secondary btn-sm" onclick="openGoogleFonts()"><span class="icon" data-icon="search" data-icon-size="13"></span><span data-i18n="gfonts_open">Fuentes de Google…</span></button>
         <button class="btn btn-secondary btn-sm ge-add-font" onclick="addFontFile()"><span class="icon" data-icon="plus" data-icon-size="13"></span><span data-i18n="gui_font_add">Añadir fuente desde un archivo…</span></button>
+        </div>
         <div class="ge-range" data-tabs="dialogue"><span data-i18n="gui_size_text">Tamaño del diálogo</span><input type="range" min="14" max="72" data-key="sizes.text"><output></output></div>
         <div class="ge-range" data-tabs="dialogue"><span data-i18n="gui_size_name">Tamaño de los nombres</span><input type="range" min="14" max="96" data-key="sizes.name"><output></output></div>
         <div class="ge-range" data-tabs="menu"><span data-i18n="gui_size_interface">Tamaño de menús y botones</span><input type="range" min="14" max="72" data-key="sizes.interface"><output></output></div>
@@ -124,6 +127,22 @@
       </details>
       <p class="ge-hint ge-backup-hint" data-i18n="gui_backup_hint">Antes de cambiar una imagen por primera vez, el editor guarda la original en gui/editor_backup.</p>
     </aside>
+  </div>
+
+  <!-- Google Fonts catalog -->
+  <div id="gfonts-overlay" class="gf-overlay" hidden>
+    <div class="gf-box" role="dialog" aria-modal="true" aria-labelledby="gfonts-title">
+      <div class="gf-header">
+        <span id="gfonts-title" data-i18n="gfonts_title">Fuentes de Google</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeGoogleFonts()" data-i18n="close">Cerrar</button>
+      </div>
+      <div class="gf-tools">
+        <input class="form-input" id="gfonts-search" type="search" data-i18n-placeholder="gfonts_search" placeholder="Buscar fuente…" oninput="renderGoogleFonts()">
+        <input class="form-input" id="gfonts-sample" data-i18n-placeholder="gfonts_sample_placeholder" placeholder="Texto de ejemplo" oninput="renderGoogleFonts()">
+      </div>
+      <p class="ge-hint gf-intro" data-i18n="gfonts_intro">Todas tienen la licencia SIL Open Font License: puedes usarlas y distribuirlas con tu juego. Al añadir una, se guarda en la carpeta fonts del juego junto con su licencia. Necesita conexión a internet.</p>
+      <div class="gf-list" id="gfonts-list"></div>
+    </div>
   </div>
 
   <div id="notif" class="notification"></div>

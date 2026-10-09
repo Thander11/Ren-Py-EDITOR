@@ -940,6 +940,56 @@ ipcMain.handle('close-confirmed', () => {
   if (mainWindow) mainWindow.close();
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// GOOGLE FONTS — a list of fonts under the SIL Open Font License, which
+// can be used and shipped with the game; each one is downloaded as TTF
+// into game/fonts/ together with its license text
+// ═══════════════════════════════════════════════════════════════════
+const GOOGLE_FONTS = [
+  ['Nunito', 'sans'], ['Poppins', 'sans'], ['Montserrat', 'sans'], ['Lato', 'sans'], ['Open Sans', 'sans'],
+  ['Raleway', 'sans'], ['Quicksand', 'sans'], ['Rubik', 'sans'], ['Work Sans', 'sans'], ['Noto Sans', 'sans'],
+  ['Atkinson Hyperlegible', 'sans'], ['Manrope', 'sans'],
+  ['Merriweather', 'serif'], ['Lora', 'serif'], ['Playfair Display', 'serif'], ['EB Garamond', 'serif'],
+  ['Crimson Pro', 'serif'], ['Libre Baskerville', 'serif'], ['Cormorant Garamond', 'serif'], ['Cinzel', 'serif'],
+  ['Pacifico', 'display'], ['Caveat', 'display'], ['Dancing Script', 'display'], ['Indie Flower', 'display'],
+  ['Patrick Hand', 'display'], ['Kalam', 'display'], ['Comfortaa', 'display'], ['Fredoka', 'display'],
+  ['Bangers', 'display'], ['Press Start 2P', 'display'], ['Amatic SC', 'display'], ['Shadows Into Light', 'display'],
+  ['Space Mono', 'mono'],
+  ['Noto Sans JP', 'cjk'], ['Noto Serif JP', 'cjk'], ['Zen Maru Gothic', 'cjk'], ['Noto Sans SC', 'cjk'], ['Noto Sans TC', 'cjk']
+].map(([family, category]) => ({ family, category, file: 'fonts/' + family.replace(/ /g, '') + '-Regular.ttf' }));
+
+ipcMain.handle('list-google-fonts', () => GOOGLE_FONTS.map(f => ({
+  ...f, installed: !!currentGamePath && fs.existsSync(path.join(currentGamePath, f.file))
+})));
+
+ipcMain.handle('install-google-font', async (_, family) => {
+  const font = GOOGLE_FONTS.find(f => f.family === family);
+  if (!font || !currentGamePath) return { ok: false, error: 'unknown' };
+  try {
+    // Without a modern browser's user agent, Google Fonts answers with whole TTF files
+    const css = await (await net.fetch('https://fonts.googleapis.com/css2?family=' + encodeURIComponent(family) + '&display=swap',
+      { headers: { 'User-Agent': 'renpy-editor' } })).text();
+    const url = (/url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.ttf)\)/.exec(css) || [])[1];
+    if (!url) return { ok: false, error: 'not-found' };
+    const res = await net.fetch(url);
+    if (!res.ok) return { ok: false, error: 'download' };
+    const dest = path.join(currentGamePath, font.file);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
+    // The OFL asks for the license to travel with the font
+    let license = '';
+    try {
+      const lic = await net.fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/' + family.toLowerCase().replace(/ /g, '') + '/OFL.txt');
+      if (lic.ok) license = await lic.text();
+    } catch (e) { /* the note below is written instead */ }
+    if (!license) license = `${family} is licensed under the SIL Open Font License, Version 1.1.\nhttps://openfontlicense.org\n`;
+    fs.writeFileSync(dest.replace(/-Regular\.ttf$/, '-OFL.txt'), license, 'utf-8');
+    return { ok: true, file: font.file };
+  } catch (e) {
+    return { ok: false, error: 'network', message: e.message };
+  }
+});
+
 // Font files inside game/ (relative paths), for the font selectors of the GUI editor
 ipcMain.handle('list-project-fonts', () => {
   if (!currentGamePath) return [];

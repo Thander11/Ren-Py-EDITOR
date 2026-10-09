@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('guiApi', {
   copyFileToProject: (src, dest) => ipcRenderer.invoke('copy-image-to-project', src, dest),
   selectMediaFile: (kind) => ipcRenderer.invoke('select-media-file', kind),
   listProjectFonts: () => ipcRenderer.invoke('list-project-fonts'),
+  listGoogleFonts: () => ipcRenderer.invoke('list-google-fonts'),
+  installGoogleFont: (family) => ipcRenderer.invoke('install-google-font', family),
   launchRenpyProject: () => ipcRenderer.invoke('launch-renpy-project'),
   getGamePath: () => ipcRenderer.invoke('get-game-path'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
