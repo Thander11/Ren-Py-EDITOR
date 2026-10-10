@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>{{report_title}}</h2>
+  <p>動かないものや足りないものがあれば、サイドバーの<strong>{{report_button}}</strong>を押してください。メッセージはエディターの作者に直接届きます。</p>
+  <ul>
+    <li>「{{report_kind_bug}}」か「{{report_kind_idea}}」を選び、タイトルを付けて詳しく書きます。問題の場合は、何をしていて、どうなるはずが、実際にはどうなったかを書くととても助かります。</li>
+    <li><strong>{{report_email}}</strong>：返信のためだけに使います。</li>
+    <li><strong>{{report_tech}}</strong>は、エディターのバージョン、システム、言語を添付します。送信前に含まれる内容を確認でき、ノベルやファイルが送られることはありません。</li>
+  </ul>
+  <p>接続できないときは、<em>{{report_copy}}</em>でほかの方法で送れます。</p>
+</section>
+
 <section id="troubleshooting">
   <h2>よくある問題</h2>
   <dl>

@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>{{report_title}}</h2>
+  <p>Wenn etwas nicht funktioniert oder dir etwas fehlt, klicke in der Seitenleiste auf <strong>{{report_button}}</strong>. Deine Nachricht geht direkt an den Autor des Editors.</p>
+  <ul>
+    <li>Wähle <strong>{{report_kind_bug}}</strong> oder <strong>{{report_kind_idea}}</strong>, gib einen Titel ein und beschreibe es genau. Bei einem Problem hilft es sehr, zu sagen, was du gemacht hast, was du erwartet hast und was passiert ist.</li>
+    <li><strong>{{report_email}}</strong>: nur, damit dir geantwortet werden kann.</li>
+    <li><strong>{{report_tech}}</strong> fügt die Version des Editors, das System und die Sprache hinzu. Vor dem Senden siehst du genau, was dabei ist; deine Novel und deine Dateien werden nie gesendet.</li>
+  </ul>
+  <p>Ohne Verbindung kannst du mit <em>{{report_copy}}</em> die Nachricht auf anderem Weg senden.</p>
+</section>
+
 <section id="troubleshooting">
   <h2>Häufige Probleme</h2>
   <dl>

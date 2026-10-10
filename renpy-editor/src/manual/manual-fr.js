@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>{{report_title}}</h2>
+  <p>Si quelque chose ne marche pas ou te manque, clique sur <strong>{{report_button}}</strong> dans la barre latérale. Ton message arrive directement à l'auteur de l'éditeur.</p>
+  <ul>
+    <li>Choisis <strong>{{report_kind_bug}}</strong> ou <strong>{{report_kind_idea}}</strong>, donne un titre et explique en détail. Pour un problème, il est très utile de dire ce que tu faisais, ce que tu attendais et ce qui s'est passé.</li>
+    <li><strong>{{report_email}}</strong> : seulement pour pouvoir te répondre.</li>
+    <li><strong>{{report_tech}}</strong> ajoute la version de l'éditeur, le système et la langue. Avant l'envoi, tu vois exactement ce qui est inclus ; ton roman et tes fichiers ne sont jamais envoyés.</li>
+  </ul>
+  <p>Sans connexion, tu peux utiliser <em>{{report_copy}}</em> pour l'envoyer autrement.</p>
+</section>
+
 <section id="troubleshooting">
   <h2>Problèmes fréquents</h2>
   <dl>

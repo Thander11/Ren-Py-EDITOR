@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>{{report_title}}</h2>
+  <p>如果某些功能无法使用，或你觉得缺少什么，请点击侧边栏中的<strong>{{report_button}}</strong>。你的消息会直接发送给编辑器的作者。</p>
+  <ul>
+    <li>选择「{{report_kind_bug}}」或「{{report_kind_idea}}」，填写标题并详细描述。如果是问题，说明你当时在做什么、期望发生什么、实际发生了什么，会非常有帮助。</li>
+    <li><strong>{{report_email}}</strong>：仅用于回复你。</li>
+    <li><strong>{{report_tech}}</strong>会附上编辑器版本、系统和语言。发送前你可以看到具体包含的内容；你的小说和文件永远不会被发送。</li>
+  </ul>
+  <p>如果没有网络连接，可以使用<em>{{report_copy}}</em>，通过其他方式发送。</p>
+</section>
+
 <section id="troubleshooting">
   <h2>常见问题</h2>
   <dl>

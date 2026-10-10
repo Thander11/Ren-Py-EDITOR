@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('api', {
   patchMoveImage: (name, toPatch) => ipcRenderer.invoke('patch-move-image', name, toPatch),
   patchWriteOwner: (owner, code) => ipcRenderer.invoke('patch-write-owner', owner, code),
 
+  // Problems and suggestions sent to the author
+  reportInfo: () => ipcRenderer.invoke('report-info'),
+  reportSend: (report) => ipcRenderer.invoke('report-send', report),
+
   // Build the game with Ren'Py
   getBuildDefaults: () => ipcRenderer.invoke('get-build-defaults'),
   selectBuildFolder: (current) => ipcRenderer.invoke('select-build-folder', current),

@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>Reportar un problema o sugerir algo</h2>
+  <p>Si algo no funciona o echas algo en falta, pulsa <strong>Reportar o sugerir</strong> en la barra lateral. Tu mensaje le llega directamente al autor del editor.</p>
+  <ul>
+    <li>Elige si es <strong>un problema</strong> o <strong>una sugerencia</strong>, ponle un título y cuéntalo con detalle. En un problema ayuda mucho explicar qué hacías, qué esperabas y qué pasó.</li>
+    <li><strong>Tu correo</strong> es opcional: solo sirve para poder contestarte.</li>
+    <li><strong>Adjuntar datos técnicos</strong> añade la versión del editor, el sistema y el idioma. Antes de enviar ves exactamente qué se incluye; tu novela y tus archivos nunca se envían.</li>
+  </ul>
+  <p>Si no hay conexión, puedes <em>Copiar el mensaje</em> para enviarlo de otra forma.</p>
+</section>
+
 <section id="troubleshooting">
   <h2>Problemas frecuentes</h2>
   <dl>

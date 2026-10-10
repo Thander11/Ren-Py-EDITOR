@@ -1557,6 +1557,63 @@ ipcMain.handle('patch-write-owner', (_, owner, code) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
+// REPORTS — problems and suggestions sent from the app to the author's
+// email, through an Apps Script web app (tools/report-apps-script.gs)
+// ═══════════════════════════════════════════════════════════════════
+
+// The web app's URL (…/exec); empty until the script is published (the env var is for tests)
+const REPORT_URL = process.env.RENPY_EDITOR_REPORT_URL || '';
+// Must match APP_KEY in tools/report-apps-script.gs
+const REPORT_KEY = 'renpy-editor-reports-v1';
+
+// What "attach technical details" adds: nothing about the novel or its files
+function reportTechInfo() {
+  const os = require('os');
+  return {
+    app: require('./package.json').version,
+    system: `${process.platform} ${os.release()} (${process.arch})`,
+    electron: process.versions.electron,
+    language: settings.language || ''
+  };
+}
+
+ipcMain.handle('report-info', () => ({ configured: !!REPORT_URL, tech: reportTechInfo() }));
+
+ipcMain.handle('report-send', async (_, report) => {
+  if (!REPORT_URL) return { ok: false, error: 'not-configured' };
+  // A random id per installation, only so the script can limit how many messages each one sends
+  if (!settings.reportInstallId) {
+    settings.reportInstallId = crypto.randomUUID();
+    saveSettings();
+  }
+  const body = JSON.stringify({
+    key: REPORT_KEY,
+    installId: settings.reportInstallId,
+    kind: report.kind === 'idea' ? 'idea' : 'bug',
+    title: String(report.title || '').slice(0, 120),
+    text: String(report.text || '').slice(0, 5000),
+    email: String(report.email || '').slice(0, 200),
+    website: String(report.website || ''),
+    tech: report.withTech ? reportTechInfo() : null
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    // Apps Script answers through a redirect, which fetch follows
+    const res = await net.fetch(REPORT_URL, {
+      method: 'POST', body, signal: controller.signal,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+    const data = JSON.parse(await res.text());
+    return data && data.ok ? { ok: true } : { ok: false, error: (data && data.error) || 'server' };
+  } catch (e) {
+    return { ok: false, error: 'network' };
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // BUILD — packages the game with the "distribute" command of Ren'Py's
 // launcher, the same one behind its "Build Distributions" button
 // ═══════════════════════════════════════════════════════════════════

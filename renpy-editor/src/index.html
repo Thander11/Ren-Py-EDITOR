@@ -31,6 +31,7 @@
     <button class="sb-item" onclick="openBuildDialog()"><span class="icon" data-icon="package" data-icon-size="18"></span><span data-i18n="build_game">Compilar juego</span></button>
     <div class="sb-bottom">
       <button class="btn btn-primary sb-play" onclick="launchProjectFromEditor()"><span class="icon" data-icon="play" data-icon-size="13"></span><span data-i18n="launch_project">Iniciar juego</span></button>
+      <button class="sb-item" onclick="openReport()"><span class="icon" data-icon="message" data-icon-size="18"></span><span data-i18n="report_button">Reportar o sugerir</span></button>
       <button class="sb-item" id="nav-manual" onclick="openManual()"><span class="icon" data-icon="book" data-icon-size="18"></span><span data-i18n="manual">Manual</span><kbd class="sb-key">F1</kbd></button>
       <button class="sb-item" id="settings-btn" onclick="toggleSettings()" aria-controls="settings-panel" aria-expanded="false"><span class="icon" data-icon="settings" data-icon-size="18"></span><span data-i18n="settings">Ajustes</span></button>
       <div id="status-bar"></div>
@@ -308,6 +309,18 @@
     </div>
   </div>
 
+  <!-- Report a problem or suggest something -->
+  <div id="report-overlay" class="app-overlay">
+    <div class="app-box" role="dialog" aria-modal="true" aria-labelledby="report-title">
+      <div class="app-box-header">
+        <span id="report-title" data-i18n="report_title">Reportar un problema o sugerir algo</span>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="closeReport()" data-i18n-title="close" aria-label="Cerrar"><span class="icon" data-icon="close" data-icon-size="14"></span></button>
+      </div>
+      <div class="app-box-body" id="report-body"></div>
+      <div class="app-box-footer" id="report-footer"></div>
+    </div>
+  </div>
+
   <!-- Patch: images that only the patch has -->
   <div id="patch-images-overlay" class="app-overlay">
     <div class="app-box wide" role="dialog" aria-modal="true" aria-labelledby="patch-images-title">
@@ -408,5 +421,6 @@
   <script src="manual/manual-zh-TW.js"></script>
   <script src="manual/manual-ja.js"></script>
   <script src="manual.js"></script>
+  <script src="report.js"></script>
 </body>
 </html>

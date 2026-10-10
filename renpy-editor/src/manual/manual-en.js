@@ -278,6 +278,17 @@
   </table>
 </section>
 
+<section id="report">
+  <h2>Reporting a problem or suggesting something</h2>
+  <p>If something doesn't work or you miss something, click <strong>Report or suggest</strong> in the sidebar. Your message goes straight to the editor's author.</p>
+  <ul>
+    <li>Choose whether it's <strong>a problem</strong> or <strong>a suggestion</strong>, give it a title and explain it in detail. For a problem, it helps a lot to say what you were doing, what you expected and what happened.</li>
+    <li><strong>Your email</strong> is optional: it's only there so you can be answered.</li>
+    <li><strong>Attach technical details</strong> adds the editor's version, the system and the language. Before sending you see exactly what's included; your novel and your files are never sent.</li>
+  </ul>
+  <p>If there's no connection, you can <em>Copy the message</em> to send it another way.</p>
+</section>
+
 <section id="troubleshooting">
   <h2>Troubleshooting</h2>
   <dl>
