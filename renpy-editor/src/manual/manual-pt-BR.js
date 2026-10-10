@@ -285,6 +285,7 @@
     <li>Escolha <strong>{{report_kind_bug}}</strong> ou <strong>{{report_kind_idea}}</strong>, dê um título e conte com detalhes. Num problema, ajuda muito dizer o que você estava fazendo, o que esperava e o que aconteceu.</li>
     <li><strong>{{report_email}}</strong>: serve só para podermos responder.</li>
     <li><strong>{{report_tech}}</strong> adiciona a versão do editor, o sistema e o idioma. Antes de enviar você vê exatamente o que vai junto; sua novel e seus arquivos nunca são enviados.</li>
+    <li><strong>{{report_via}}</strong> <em>{{report_via_email}}</em>, chega direto ao autor, sem conta. Se preferir o GitHub, escolha <em>{{report_via_github}}</em>: abre no navegador uma issue pública já preenchida, que você publica com sua conta.</li>
   </ul>
   <p>Sem conexão, você pode usar <em>{{report_copy}}</em> para enviar de outra forma.</p>
 </section>

@@ -285,6 +285,7 @@
     <li>「{{report_kind_bug}}」か「{{report_kind_idea}}」を選び、タイトルを付けて詳しく書きます。問題の場合は、何をしていて、どうなるはずが、実際にはどうなったかを書くととても助かります。</li>
     <li><strong>{{report_email}}</strong>：返信のためだけに使います。</li>
     <li><strong>{{report_tech}}</strong>は、エディターのバージョン、システム、言語を添付します。送信前に含まれる内容を確認でき、ノベルやファイルが送られることはありません。</li>
+    <li><strong>{{report_via}}</strong>「{{report_via_email}}」は作者に直接届き、アカウントは不要です。GitHub のほうがよければ「{{report_via_github}}」を選ぶと、入力済みの公開 issue がブラウザーで開き、自分のアカウントで公開できます。</li>
   </ul>
   <p>接続できないときは、<em>{{report_copy}}</em>でほかの方法で送れます。</p>
 </section>

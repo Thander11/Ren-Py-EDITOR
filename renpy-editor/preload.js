@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
   // Problems and suggestions sent to the author
   reportInfo: () => ipcRenderer.invoke('report-info'),
   reportSend: (report) => ipcRenderer.invoke('report-send', report),
+  reportOpenIssue: (report) => ipcRenderer.invoke('report-open-issue', report),
 
   // Build the game with Ren'Py
   getBuildDefaults: () => ipcRenderer.invoke('get-build-defaults'),

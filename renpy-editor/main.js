@@ -1580,7 +1580,24 @@ function reportTechInfo() {
   };
 }
 
-ipcMain.handle('report-info', () => ({ configured: !!REPORT_URL, tech: reportTechInfo() }));
+// Reports can also be opened as a GitHub issue, for people who prefer that
+const REPORT_GITHUB_ISSUES = 'https://github.com/Thander11/Ren-Py-EDITOR/issues/new';
+
+ipcMain.handle('report-info', () => ({ configured: !!REPORT_URL, github: !!REPORT_GITHUB_ISSUES, tech: reportTechInfo() }));
+
+// Opens the browser on a new issue already filled in; the person publishes it with their account
+ipcMain.handle('report-open-issue', (_, report) => {
+  const tech = report.withTech
+    ? '\n\n---\n' + Object.entries(reportTechInfo()).map(([k, v]) => `- **${k}:** ${v}`).join('\n') : '';
+  const params = new URLSearchParams({
+    title: String(report.title || '').slice(0, 120),
+    // Long texts are cut so the address stays within what browsers accept
+    body: String(report.text || '').slice(0, 5000) + tech,
+    labels: report.kind === 'idea' ? 'enhancement' : 'bug'
+  });
+  shell.openExternal(`${REPORT_GITHUB_ISSUES}?${params}`);
+  return { ok: true };
+});
 
 ipcMain.handle('report-send', async (_, report) => {
   if (!REPORT_URL) return { ok: false, error: 'not-configured' };

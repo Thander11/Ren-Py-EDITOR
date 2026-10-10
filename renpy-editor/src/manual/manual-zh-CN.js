@@ -285,6 +285,7 @@
     <li>选择「{{report_kind_bug}}」或「{{report_kind_idea}}」，填写标题并详细描述。如果是问题，说明你当时在做什么、期望发生什么、实际发生了什么，会非常有帮助。</li>
     <li><strong>{{report_email}}</strong>：仅用于回复你。</li>
     <li><strong>{{report_tech}}</strong>会附上编辑器版本、系统和语言。发送前你可以看到具体包含的内容；你的小说和文件永远不会被发送。</li>
+    <li><strong>{{report_via}}</strong>「{{report_via_email}}」会直接发给作者，不需要账号。如果你更喜欢 GitHub，请选择「{{report_via_github}}」：浏览器中会打开一个已填好的公开 issue，用你的账号发布即可。</li>
   </ul>
   <p>如果没有网络连接，可以使用<em>{{report_copy}}</em>，通过其他方式发送。</p>
 </section>

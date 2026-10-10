@@ -285,6 +285,7 @@
     <li>Elige si es <strong>un problema</strong> o <strong>una sugerencia</strong>, ponle un título y cuéntalo con detalle. En un problema ayuda mucho explicar qué hacías, qué esperabas y qué pasó.</li>
     <li><strong>Tu correo</strong> es opcional: solo sirve para poder contestarte.</li>
     <li><strong>Adjuntar datos técnicos</strong> añade la versión del editor, el sistema y el idioma. Antes de enviar ves exactamente qué se incluye; tu novela y tus archivos nunca se envían.</li>
+    <li><strong>¿Por correo o en GitHub?</strong> Por correo le llega directamente al autor y no necesitas cuenta. Si prefieres GitHub, elige <em>En GitHub</em>: se abre en el navegador una issue pública ya rellenada, que publicas con tu cuenta.</li>
   </ul>
   <p>Si no hay conexión, puedes <em>Copiar el mensaje</em> para enviarlo de otra forma.</p>
 </section>

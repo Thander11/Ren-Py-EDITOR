@@ -285,6 +285,7 @@
     <li>Choose whether it's <strong>a problem</strong> or <strong>a suggestion</strong>, give it a title and explain it in detail. For a problem, it helps a lot to say what you were doing, what you expected and what happened.</li>
     <li><strong>Your email</strong> is optional: it's only there so you can be answered.</li>
     <li><strong>Attach technical details</strong> adds the editor's version, the system and the language. Before sending you see exactly what's included; your novel and your files are never sent.</li>
+    <li><strong>By email or on GitHub?</strong> By email it goes straight to the author and you need no account. If you prefer GitHub, choose <em>On GitHub</em>: a public issue opens in your browser already filled in, and you publish it with your account.</li>
   </ul>
   <p>If there's no connection, you can <em>Copy the message</em> to send it another way.</p>
 </section>
