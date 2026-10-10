@@ -1561,8 +1561,11 @@ ipcMain.handle('patch-write-owner', (_, owner, code) => {
 // email, through an Apps Script web app (tools/report-apps-script.gs)
 // ═══════════════════════════════════════════════════════════════════
 
-// The web app's URL (…/exec); empty until the script is published (the env var is for tests)
-const REPORT_URL = process.env.RENPY_EDITOR_REPORT_URL || '';
+// The web app's URL (…/exec) lives in report.config.json, which stays out of
+// git (see report.config.example.json); the env var is for tests
+const REPORT_URL = process.env.RENPY_EDITOR_REPORT_URL || (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'report.config.json'), 'utf-8')).url || ''; } catch (e) { return ''; }
+})();
 // Must match APP_KEY in tools/report-apps-script.gs
 const REPORT_KEY = 'renpy-editor-reports-v1';
 

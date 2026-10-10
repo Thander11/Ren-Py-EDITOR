@@ -9,7 +9,8 @@
 //  2. Deploy › New deployment › type "Web app":
 //       Execute as: Me      Who has access: Anyone
 //  3. Authorize it when Google asks (it only needs to send email).
-//  4. Copy the web app URL (ends in /exec) into REPORT_URL in main.js.
+//  4. Copy the web app URL (ends in /exec) into "url" in report.config.json
+//     (a copy of report.config.example.json; it stays out of git).
 // After changing this file: Deploy › Manage deployments › Edit › New
 // version, so the same URL serves the new code.
 // ═══════════════════════════════════════════════════════════════════

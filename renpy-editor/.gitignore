@@ -68,3 +68,6 @@ dist
 .fusebox/
 .dynamodb/
 .tern-port
+
+# Dirección privada del envío de reportes (no se sube a GitHub)
+report.config.json
